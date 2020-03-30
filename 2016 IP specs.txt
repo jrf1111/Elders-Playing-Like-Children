@@ -1,0 +1,21 @@
+NEDS 2016 IP          1 HOSP_ED              5   Num  HCUP ED hospital identifier
+NEDS 2016 IP          2 KEY_ED              16   Num  HCUP NEDS record identifier
+NEDS 2016 IP          3 DISP_IP              2   Num  Disposition of patient (uniform) from IP
+NEDS 2016 IP          4 DRG                  3   Num  DRG in effect on discharge date
+NEDS 2016 IP          5 DRGVER               2   Num  DRG grouper version used on discharge date
+NEDS 2016 IP          6 DRG_NoPOA            3   Num  DRG in use on discharge date, calculated without POA
+NEDS 2016 IP          7 I10_NPR_IP           3   Num  Number of ICD-10-PCS procedures from inpatient discharge record
+NEDS 2016 IP          8 I10_PR_IP1           7   Char ICD-10-PCS Procedure 1 from inpatient discharge record
+NEDS 2016 IP          9 I10_PR_IP2           7   Char ICD-10-PCS Procedure 2 from inpatient discharge record
+NEDS 2016 IP         10 I10_PR_IP3           7   Char ICD-10-PCS Procedure 3 from inpatient discharge record
+NEDS 2016 IP         11 I10_PR_IP4           7   Char ICD-10-PCS Procedure 4 from inpatient discharge record
+NEDS 2016 IP         12 I10_PR_IP5           7   Char ICD-10-PCS Procedure 5 from inpatient discharge record
+NEDS 2016 IP         13 I10_PR_IP6           7   Char ICD-10-PCS Procedure 6 from inpatient discharge record
+NEDS 2016 IP         14 I10_PR_IP7           7   Char ICD-10-PCS Procedure 7 from inpatient discharge record
+NEDS 2016 IP         15 I10_PR_IP8           7   Char ICD-10-PCS Procedure 8 from inpatient discharge record
+NEDS 2016 IP         16 I10_PR_IP9           7   Char ICD-10-PCS Procedure 9 from inpatient discharge record
+NEDS 2016 IP         17 LOS_IP               5   Num  Length of stay (cleaned) from IP
+NEDS 2016 IP         18 MDC                  2   Num  MDC in effect on discharge date
+NEDS 2016 IP         19 MDC_NoPOA            2   Num  MDC in use on discharge date, calculated without POA
+NEDS 2016 IP         20 PRVER                2   Num  Procedure Version
+NEDS 2016 IP         21 TOTCHG_IP           12.2 Num  Total charge for ED and inpatient services

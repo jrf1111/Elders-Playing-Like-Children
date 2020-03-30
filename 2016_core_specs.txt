@@ -1,0 +1,56 @@
+NEDS 2016 Core        1 AGE                  3   Num  Age in years at admission
+NEDS 2016 Core        2 AMONTH               2   Num  Admission month
+NEDS 2016 Core        3 AWEEKEND             2   Num  Admission day is a weekend
+NEDS 2016 Core        4 DIED_VISIT           2   Num  Died in the ED (1), Died in the hospital (2), did not die (0)
+NEDS 2016 Core        5 DISCWT              11.7 Num  Weight to ED Visits in AHA universe
+NEDS 2016 Core        6 DISP_ED              2   Num  Disposition of patient (uniform) from ED
+NEDS 2016 Core        7 DQTR                 2   Num  Discharge quarter
+NEDS 2016 Core        8 DXVER                2   Num  Diagnosis Version
+NEDS 2016 Core        9 EDEVENT              2   Num  Type of ED Event
+NEDS 2016 Core       10 FEMALE               2   Num  Indicator of sex
+NEDS 2016 Core       11 HCUPFILE             4   Char Source of HCUP Record (SID or SEDD)
+NEDS 2016 Core       12 HOSP_ED              5   Num  HCUP ED hospital identifier
+NEDS 2016 Core       13 I10_DX1              7   Char ICD-10-CM Diagnosis 1
+NEDS 2016 Core       14 I10_DX2              7   Char ICD-10-CM Diagnosis 2
+NEDS 2016 Core       15 I10_DX3              7   Char ICD-10-CM Diagnosis 3
+NEDS 2016 Core       16 I10_DX4              7   Char ICD-10-CM Diagnosis 4
+NEDS 2016 Core       17 I10_DX5              7   Char ICD-10-CM Diagnosis 5
+NEDS 2016 Core       18 I10_DX6              7   Char ICD-10-CM Diagnosis 6
+NEDS 2016 Core       19 I10_DX7              7   Char ICD-10-CM Diagnosis 7
+NEDS 2016 Core       20 I10_DX8              7   Char ICD-10-CM Diagnosis 8
+NEDS 2016 Core       21 I10_DX9              7   Char ICD-10-CM Diagnosis 9
+NEDS 2016 Core       22 I10_DX10             7   Char ICD-10-CM Diagnosis 10
+NEDS 2016 Core       23 I10_DX11             7   Char ICD-10-CM Diagnosis 11
+NEDS 2016 Core       24 I10_DX12             7   Char ICD-10-CM Diagnosis 12
+NEDS 2016 Core       25 I10_DX13             7   Char ICD-10-CM Diagnosis 13
+NEDS 2016 Core       26 I10_DX14             7   Char ICD-10-CM Diagnosis 14
+NEDS 2016 Core       27 I10_DX15             7   Char ICD-10-CM Diagnosis 15
+NEDS 2016 Core       28 I10_DX16             7   Char ICD-10-CM Diagnosis 16
+NEDS 2016 Core       29 I10_DX17             7   Char ICD-10-CM Diagnosis 17
+NEDS 2016 Core       30 I10_DX18             7   Char ICD-10-CM Diagnosis 18
+NEDS 2016 Core       31 I10_DX19             7   Char ICD-10-CM Diagnosis 19
+NEDS 2016 Core       32 I10_DX20             7   Char ICD-10-CM Diagnosis 20
+NEDS 2016 Core       33 I10_DX21             7   Char ICD-10-CM Diagnosis 21
+NEDS 2016 Core       34 I10_DX22             7   Char ICD-10-CM Diagnosis 22
+NEDS 2016 Core       35 I10_DX23             7   Char ICD-10-CM Diagnosis 23
+NEDS 2016 Core       36 I10_DX24             7   Char ICD-10-CM Diagnosis 24
+NEDS 2016 Core       37 I10_DX25             7   Char ICD-10-CM Diagnosis 25
+NEDS 2016 Core       38 I10_DX26             7   Char ICD-10-CM Diagnosis 26
+NEDS 2016 Core       39 I10_DX27             7   Char ICD-10-CM Diagnosis 27
+NEDS 2016 Core       40 I10_DX28             7   Char ICD-10-CM Diagnosis 28
+NEDS 2016 Core       41 I10_DX29             7   Char ICD-10-CM Diagnosis 29
+NEDS 2016 Core       42 I10_DX30             7   Char ICD-10-CM Diagnosis 30
+NEDS 2016 Core       43 I10_ECAUSE1          7   Char ICD-10-CM E Cause 1
+NEDS 2016 Core       44 I10_ECAUSE2          7   Char ICD-10-CM E Cause 2
+NEDS 2016 Core       45 I10_ECAUSE3          7   Char ICD-10-CM E Cause 3
+NEDS 2016 Core       46 I10_ECAUSE4          7   Char ICD-10-CM E Cause 4
+NEDS 2016 Core       47 I10_NDX              3   Num  ICD-10-CM Number of diagnoses on this record
+NEDS 2016 Core       48 I10_NECAUSE          3   Num  ICD-10-CM Number of E Causes on this record
+NEDS 2016 Core       49 KEY_ED              16   Num  HCUP NEDS record identifier
+NEDS 2016 Core       50 NEDS_STRATUM         5   Num  Stratum used to sample hospital
+NEDS 2016 Core       51 PAY1                 2   Num  Primary expected payer (uniform)
+NEDS 2016 Core       52 PAY2                 2   Num  Secondary expected payer (uniform)
+NEDS 2016 Core       53 PL_NCHS              3   Num  Patient Location: NCHS Urban-Rural Code
+NEDS 2016 Core       54 TOTCHG_ED           12.2 Num  Total charge for ED services
+NEDS 2016 Core       55 YEAR                 4   Num  Calendar year
+NEDS 2016 Core       56 ZIPINC_QRTL          2   Num  Median household income national quartile for patient ZIP Code

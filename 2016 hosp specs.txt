@@ -1,0 +1,15 @@
+NEDS 2016 Hospital    1 DISCWT              11.7 Num  Weight to ED Visits in AHA universe
+NEDS 2016 Hospital    2 HOSPWT              11.7 Num  Weight to hospitals in AHA universe
+NEDS 2016 Hospital    3 HOSP_CONTROL         2   Num  Control/ownership of hospital
+NEDS 2016 Hospital    4 HOSP_ED              5   Num  HCUP ED hospital identifier
+NEDS 2016 Hospital    5 HOSP_REGION          2   Num  Region of hospital
+NEDS 2016 Hospital    6 HOSP_TRAUMA          2   Num  Trauma level designation
+NEDS 2016 Hospital    7 HOSP_URCAT4          2   Num  Hospital urban-rural designation
+NEDS 2016 Hospital    8 HOSP_UR_TEACH        2   Num  Teaching status of hospital
+NEDS 2016 Hospital    9 NEDS_STRATUM         5   Num  Stratum used to sample hospital
+NEDS 2016 Hospital   10 N_DISC_U             8   Num  Number of AHA universe ED visits in NEDS_STRATUM
+NEDS 2016 Hospital   11 N_HOSP_U             4   Num  Number of AHA universe hospitals in NEDS_STRATUM
+NEDS 2016 Hospital   12 S_DISC_U             8   Num  Number of sample discharges in NEDS_STRATUM
+NEDS 2016 Hospital   13 S_HOSP_U             4   Num  Number of sample hospitals in NEDS_STRATUM
+NEDS 2016 Hospital   14 TOTAL_EDVisits       8   Num  Total number of ED visits from this hospital in the NEDS
+NEDS 2016 Hospital   15 YEAR                 4   Num  Calendar Year

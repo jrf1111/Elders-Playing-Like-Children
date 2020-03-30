@@ -1,0 +1,33 @@
+NEDS 2016 ED          1 HOSP_ED              5   Num  HCUP ED hospital identifier
+NEDS 2016 ED          2 KEY_ED              16   Num  HCUP NEDS record identifier
+NEDS 2016 ED          3 CPT1                 5   Char CPT/HCPCS procedure code 1
+NEDS 2016 ED          4 CPT2                 5   Char CPT/HCPCS procedure code 2
+NEDS 2016 ED          5 CPT3                 5   Char CPT/HCPCS procedure code 3
+NEDS 2016 ED          6 CPT4                 5   Char CPT/HCPCS procedure code 4
+NEDS 2016 ED          7 CPT5                 5   Char CPT/HCPCS procedure code 5
+NEDS 2016 ED          8 CPT6                 5   Char CPT/HCPCS procedure code 6
+NEDS 2016 ED          9 CPT7                 5   Char CPT/HCPCS procedure code 7
+NEDS 2016 ED         10 CPT8                 5   Char CPT/HCPCS procedure code 8
+NEDS 2016 ED         11 CPT9                 5   Char CPT/HCPCS procedure code 9
+NEDS 2016 ED         12 CPT10                5   Char CPT/HCPCS procedure code 10
+NEDS 2016 ED         13 CPT11                5   Char CPT/HCPCS procedure code 11
+NEDS 2016 ED         14 CPT12                5   Char CPT/HCPCS procedure code 12
+NEDS 2016 ED         15 CPT13                5   Char CPT/HCPCS procedure code 13
+NEDS 2016 ED         16 CPT14                5   Char CPT/HCPCS procedure code 14
+NEDS 2016 ED         17 CPT15                5   Char CPT/HCPCS procedure code 15
+NEDS 2016 ED         18 CPTCCS1              4   Num  CCS: CPT 1
+NEDS 2016 ED         19 CPTCCS2              4   Num  CCS: CPT 2
+NEDS 2016 ED         20 CPTCCS3              4   Num  CCS: CPT 3
+NEDS 2016 ED         21 CPTCCS4              4   Num  CCS: CPT 4
+NEDS 2016 ED         22 CPTCCS5              4   Num  CCS: CPT 5
+NEDS 2016 ED         23 CPTCCS6              4   Num  CCS: CPT 6
+NEDS 2016 ED         24 CPTCCS7              4   Num  CCS: CPT 7
+NEDS 2016 ED         25 CPTCCS8              4   Num  CCS: CPT 8
+NEDS 2016 ED         26 CPTCCS9              4   Num  CCS: CPT 9
+NEDS 2016 ED         27 CPTCCS10             4   Num  CCS: CPT 10
+NEDS 2016 ED         28 CPTCCS11             4   Num  CCS: CPT 11
+NEDS 2016 ED         29 CPTCCS12             4   Num  CCS: CPT 12
+NEDS 2016 ED         30 CPTCCS13             4   Num  CCS: CPT 13
+NEDS 2016 ED         31 CPTCCS14             4   Num  CCS: CPT 14
+NEDS 2016 ED         32 CPTCCS15             4   Num  CCS: CPT 15
+NEDS 2016 ED         33 NCPT                 4   Num  Number of CPT/HCPCS procedures for this visit
