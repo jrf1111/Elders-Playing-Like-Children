@@ -53,10 +53,11 @@ blank_to_na = function(x){
 	x
 }
 
+ids = c("key_ed", "hosp_ed", "discwt", "year")
+
 
 #core 2010 -------------------------------------------------------------------------------------------------
 
-ids = c("key_ed", "hosp_ed", "discwt", "year")
 
 temp = read_dta("Data/NEDS_2010_Core.dta", 
 								col_select = c(
@@ -814,10 +815,6 @@ colnames(temp) = c("AGE", "AMONTH", "AWEEKEND", "DIED_VISIT",
 
 colnames(temp) = tolower(colnames(temp))
 
-temp = temp %>% mutate_if(is.character, blank_to_na)
-
-temp = temp %>% mutate_if(is.character, factor)
-
 
 
 saveRDS(temp, "Data/NEDS_2016_CORE.RDS")
@@ -889,11 +886,13 @@ temp = temp %>% select(-starts_with("dx"))
 
 
 
+temp %>% select(c(ids, "age", "female")) %>% 
+	saveRDS(., "Data/NEDS_2016_demos.RDS")
 
 
-saveRDS(temp[, c(ids, "age", "female")], "Data/NEDS_2016_demos.RDS")
+temp %>% select(c(ids, "died_visit", "disp_ed", "edevent")) %>% 
+	saveRDS(., "Data/NEDS_2016_outcomes.RDS")
 
-saveRDS(temp[, c(ids, "died_visit", "disp_ed", "edevent")], "Data/NEDS_2016_outcomes.RDS")
 
 
 rm(temp)
