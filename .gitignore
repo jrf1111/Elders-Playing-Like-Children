@@ -30,5 +30,8 @@ vignettes/*.pdf
 **/**/.DS_Store
 # Data files since there is a max file size of 100MB and 1GB limit for the total repo
 Data/
+#Protocols
+Elders Playing Like Children IRB App.docx
+EPLC_IRB_App.docx
 #Temp files
 [~$]*.*
