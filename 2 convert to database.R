@@ -35,6 +35,266 @@ dbColumnInfo(query)
 rm(query)
 
 
+
+
+
+#dx ----
+files = list.files("Data/", pattern = "dx", full.names = T)
+
+for(i in 1:length(files)){
+	file = files[i]
+	temp = readRDS(file)
+	temp$key_ed = as.character(temp$key_ed)
+	if(file == "Data//NEDS_2015Q1Q3_dx.RDS"){temp$year = "2015Q1Q3"}
+	if(file == "Data//NEDS_2015Q4_dx.RDS"){temp$year = "2015Q4"}
+	dbWriteTable(neds, "dx", temp, append = TRUE)
+	rm(temp)
+	print(file)
+}
+
+
+
+query = dbSendQuery(neds, "SELECT * from dx limit 20")
+print(dbFetch(query))
+dbColumnInfo(query)
+rm(query)
+
+
+
+
+
+
+
+
+
+#ecodes ----
+files = list.files("Data/", pattern = "ecode", full.names = T)
+
+for(i in 1:length(files)){
+	file = files[i]
+	temp = readRDS(file)
+	temp$key_ed = as.character(temp$key_ed)
+	dbWriteTable(neds, "ecodes", temp, append = TRUE)
+	rm(temp)
+	print(file)
+}
+
+
+
+query = dbSendQuery(neds, "SELECT * from ecodes limit 20")
+print(dbFetch(query))
+dbColumnInfo(query)
+rm(query)
+
+
+
+
+
+
+
+
+#outcomes ----
+files = list.files("Data/", pattern = "outcome", full.names = T)
+
+for(i in 1:length(files)){
+	file = files[i]
+	temp = readRDS(file)
+	temp$key_ed = as.character(temp$key_ed)
+	dbWriteTable(neds, "outcomes", temp, append = TRUE)
+	rm(temp)
+	print(file)
+}
+
+
+
+query = dbSendQuery(neds, "SELECT * from outcomes limit 20")
+print(dbFetch(query))
+dbColumnInfo(query)
+rm(query)
+
+
+
+
+
+
+
+
+
+
+
+
+#IP ----
+files = list.files("Data/", pattern = "IP", full.names = T)
+
+for(i in 1:length(files)){
+	file = files[i]
+	temp = readRDS(file)
+	temp$key_ed = as.character(temp$key_ed)
+	dbWriteTable(neds, "ip", temp, append = TRUE)
+	rm(temp)
+	print(file)
+}
+
+
+
+
+query = dbSendQuery(neds, "SELECT * from ip limit 20")
+print(dbFetch(query))
+dbColumnInfo(query)
+rm(query)
+
+
+
+
+
+#hospital ----
+files = list.files("Data/", pattern = "Hospital", full.names = T)
+
+for(i in 1:length(files)){
+	file = files[i]
+	temp = readRDS(file)
+	dbWriteTable(neds, "hosp", temp, append = TRUE)
+	rm(temp)
+	print(file)
+}
+
+
+query = dbSendQuery(neds, "SELECT * from hosp limit 20")
+print(dbFetch(query))
+dbColumnInfo(query)
+rm(query)
+
+
+
+
+
+
+
+
+
+
+dbDisconnect(neds)
+
+
+
+
+
+
+
+
+
+
+# create indexes ----------------------------------------------------------
+
+
+neds = dbConnect(RSQLite::SQLite(), "Data/NEDS_DB.sqlite")
+
+dbListTables(neds)
+dbListFields(neds, "demos")
+dbListFields(neds, "dx")
+dbListFields(neds, "ecodes")
+dbListFields(neds, "hosp")
+dbListFields(neds, "ip")
+dbListFields(neds, "outcomes")
+
+
+
+
+
+dbExecute(neds, "CREATE INDEX index_key_ed ON demos (key_ed)")
+dbGetQuery(neds, "PRAGMA index_list(demos)")
+
+
+dbExecute(neds, "CREATE INDEX index_key_ed ON dx (key_ed)")
+dbGetQuery(neds, "PRAGMA index_list(dx)")
+
+
+dbExecute(neds, "CREATE INDEX index_key_ed ON ecodes (key_ed)")
+dbGetQuery(neds, "PRAGMA index_list(ecodes)")
+
+
+dbExecute(neds, "CREATE INDEX index_key_ed ON ip (key_ed)")
+dbGetQuery(neds, "PRAGMA index_list(ip)")
+
+
+dbExecute(neds, "CREATE INDEX index_key_ed ON outcomes (key_ed)")
+dbGetQuery(neds, "PRAGMA index_list(outcomes)")
+
+
+dbExecute(neds, "CREATE INDEX index_hosp_ed ON hosp (hosp_ed)")
+dbGetQuery(neds, "PRAGMA index_list(hosp)")
+
+
+
+
+# setup keys --------------------------------------------------------------
+#Dont think this is going to work...or that is needs to. See
+#https://stackoverflow.com/questions/26308134/left-join-on-non-primary-key
+#and
+#https://mode.com/sql-tutorial/sql-joins-where-vs-on/
+
+
+neds = dbConnect(RSQLite::SQLite(), "Data/NEDS_DB.sqlite")
+
+
+dbListTables(neds)
+dbListFields(neds, "demos")
+dbListFields(neds, "dx")
+dbListFields(neds, "ecodes")
+dbListFields(neds, "hosp")
+dbListFields(neds, "ip")
+dbListFields(neds, "outcomes")
+
+dbSendQuery(neds, "ALTER TABLE demos 
+						MODIFY 'key_ed' VARCHAR NOT NULL")
+
+
+dbSendQuery(neds, "ALTER TABLE demos ADD PRIMARY KEY ('key_ed');")
+
+dbSendQuery(neds, 
+						"ALTER TABLE demos
+						ADD CONSTRAINT pk_ed PRIMARY KEY (key_ed);")
+
+
+
+
+
+
+
+
+
+
+query = dbSendQuery(neds, "SELECT * from demos limit 20")
+print(dbFetch(query))
+dbColumnInfo(query)
+rm(query)
+
+
+
+
+dbSendQuery(neds,
+"PRAGMA foreign_keys=off;
+
+BEGIN TRANSACTION;
+
+ALTER TABLE demos RENAME TO old_demos;
+
+CREATE TABLE demos
+(age INTEGER,
+discwt DOUBLE,
+female DOUBLE,
+hosp_ed DOUBLE,
+key_ed VARCHAR,
+year DOUBLE,
+PRIMARY KEY (key_ed) );
+
+INSERT INTO demos SELECT * FROM old_demos;
+
+COMMIT;
+
+PRAGMA foreign_keys=on;")
+
+
 # to update table format (from https://www.techonthenet.com/sqlite/primary_keys.php)
 # Let's look at an example of how to add a primary key to an existing table in SQLite. 
 # So say, we already have an employees table with the following definition:
@@ -69,7 +329,7 @@ rm(query)
 # COMMIT;
 # 
 # PRAGMA foreign_keys=on;
-# 
+
 # In this example, we've created a primary key on the employees table 
 # called employees_pk which consists of the employee_id column. 
 # The original table will still exist in the database called old_employees. 
@@ -78,234 +338,3 @@ rm(query)
 #   
 #   DROP TABLE old_employees;
 #   
-
-
-# temp = readRDS(files[1])
-# str(temp)
-# rm(temp)
-# 
-# dbSendQuery(neds,
-# 						"CREATE TABLE demos(
-#     age INTEGER,
-#     discwt REAL,
-#     female INTEGER,
-#     hosp_ed TEXT,
-#     key_ed TEXT PRIMARY KEY,
-#     year TEXT
-#   );"
-# )
-
-
-
-
-#dx ----
-files = list.files("Data/", pattern = "dx", full.names = T)
-
-for(i in 1:length(files)){
-	file = files[i]
-	temp = readRDS(file)
-	temp$key_ed = as.character(temp$key_ed)
-	if(file == "Data//NEDS_2015Q1Q3_dx.RDS"){temp$year = "2015Q1Q3"}
-	if(file == "Data//NEDS_2015Q4_dx.RDS"){temp$year = "2015Q4"}
-	dbWriteTable(neds, "dx", temp, append = TRUE)
-	rm(temp)
-	print(file)
-}
-
-
-
-query = dbSendQuery(neds, "SELECT * from dx limit 20")
-print(dbFetch(query))
-dbColumnInfo(query)
-rm(query)
-
-
-# temp = readRDS(files[1])
-# str(temp)
-# rm(temp)
-# 
-# dbSendQuery(neds,
-# 						"CREATE TABLE dx(
-#     age INTEGER,
-#     discwt REAL,
-#     female INTEGER,
-#     hosp_ed TEXT,
-#     key_ed TEXT PRIMARY KEY,
-#     year TEXT
-#   );"
-# )
-
-
-
-
-
-
-
-
-#ecodes ----
-files = list.files("Data/", pattern = "ecode", full.names = T)
-
-for(i in 1:length(files)){
-	file = files[i]
-	temp = readRDS(file)
-	temp$key_ed = as.character(temp$key_ed)
-	dbWriteTable(neds, "ecodes", temp, append = TRUE)
-	rm(temp)
-	print(file)
-}
-
-
-
-query = dbSendQuery(neds, "SELECT * from ecodes limit 20")
-print(dbFetch(query))
-dbColumnInfo(query)
-rm(query)
-
-
-# temp = readRDS(files[1])
-# str(temp)
-# rm(temp)
-# 
-# dbSendQuery(neds,
-# 						"CREATE TABLE ecodes(
-#     age INTEGER,
-#     discwt REAL,
-#     female INTEGER,
-#     hosp_ed TEXT,
-#     key_ed TEXT PRIMARY KEY,
-#     year TEXT
-#   );"
-# )
-
-
-
-
-
-
-
-
-#outcomes ----
-files = list.files("Data/", pattern = "outcome", full.names = T)
-
-for(i in 1:length(files)){
-	file = files[i]
-	temp = readRDS(file)
-	temp$key_ed = as.character(temp$key_ed)
-	dbWriteTable(neds, "outcomes", temp, append = TRUE)
-	rm(temp)
-	print(file)
-}
-
-
-
-query = dbSendQuery(neds, "SELECT * from outcomes limit 20")
-print(dbFetch(query))
-dbColumnInfo(query)
-rm(query)
-
-
-# temp = readRDS(files[1])
-# str(temp)
-# rm(temp)
-# 
-# dbSendQuery(neds,
-# 						"CREATE TABLE outcomes(
-#     age INTEGER,
-#     discwt REAL,
-#     female INTEGER,
-#     hosp_ed TEXT,
-#     key_ed TEXT PRIMARY KEY,
-#     year TEXT
-#   );"
-# )
-
-
-
-
-
-
-
-
-
-#IP ----
-files = list.files("Data/", pattern = "IP", full.names = T)
-
-for(i in 1:length(files)){
-	file = files[i]
-	temp = readRDS(file)
-	temp$key_ed = as.character(temp$key_ed)
-	dbWriteTable(neds, "ip", temp, append = TRUE)
-	rm(temp)
-	print(file)
-}
-
-
-
-
-query = dbSendQuery(neds, "SELECT * from ip limit 20")
-print(dbFetch(query))
-dbColumnInfo(query)
-rm(query)
-
-
-# temp = readRDS(files[1])
-# str(temp)
-# rm(temp)
-# 
-# dbSendQuery(neds,
-# 						"CREATE TABLE ip(
-#     age INTEGER,
-#     discwt REAL,
-#     female INTEGER,
-#     hosp_ed TEXT,
-#     key_ed TEXT PRIMARY KEY,
-#     year TEXT
-#   );"
-# )
-
-
-
-
-
-
-#hospital ----
-files = list.files("Data/", pattern = "Hospital", full.names = T)
-
-for(i in 1:length(files)){
-	file = files[i]
-	temp = readRDS(file)
-	dbWriteTable(neds, "hosp", temp, append = TRUE)
-	rm(temp)
-	print(file)
-}
-
-
-query = dbSendQuery(neds, "SELECT * from hosp limit 20")
-print(dbFetch(query))
-dbColumnInfo(query)
-rm(query)
-
-
-# temp = readRDS(files[1])
-# str(temp)
-# rm(temp)
-# 
-# dbSendQuery(neds,
-# 						"CREATE TABLE hosp(
-#     age INTEGER,
-#     discwt REAL,
-#     female INTEGER,
-#     hosp_ed TEXT,
-#     key_ed TEXT PRIMARY KEY,
-#     year TEXT
-#   );"
-# )
-
-
-
-
-
-
-
-
-dbDisconnect(neds)
