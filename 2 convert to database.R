@@ -191,38 +191,106 @@ neds = dbConnect(RSQLite::SQLite(), "Data/NEDS_DB.sqlite")
 
 dbListTables(neds)
 dbListFields(neds, "demos")
-dbListFields(neds, "dx")
-dbListFields(neds, "ecodes")
 dbListFields(neds, "hosp")
-dbListFields(neds, "ip")
-dbListFields(neds, "outcomes")
-
-
-
 
 
 dbExecute(neds, "CREATE INDEX index_key_ed ON demos (key_ed)")
 dbGetQuery(neds, "PRAGMA index_list(demos)")
 
 
-dbExecute(neds, "CREATE INDEX index_key_ed ON dx (key_ed)")
-dbGetQuery(neds, "PRAGMA index_list(dx)")
-
-
-dbExecute(neds, "CREATE INDEX index_key_ed ON ecodes (key_ed)")
-dbGetQuery(neds, "PRAGMA index_list(ecodes)")
-
-
-dbExecute(neds, "CREATE INDEX index_key_ed ON ip (key_ed)")
-dbGetQuery(neds, "PRAGMA index_list(ip)")
-
-
-dbExecute(neds, "CREATE INDEX index_key_ed ON outcomes (key_ed)")
-dbGetQuery(neds, "PRAGMA index_list(outcomes)")
-
-
 dbExecute(neds, "CREATE INDEX index_hosp_ed ON hosp (hosp_ed)")
 dbGetQuery(neds, "PRAGMA index_list(hosp)")
+
+
+
+
+
+
+# standardize dx strings --------------------------------------------------
+query = dbSendQuery(neds, "SELECT dx1 FROM dx LIMIT 20")
+print(dbFetch(query))
+
+
+# dx1 with length of 3
+query = dbSendQuery(neds, 
+										"SELECT dx1 || '00' AS dx1s
+										FROM dx
+										WHERE LENGTH(dx1) = 3
+										LIMIT 50")
+print(dbFetch(query))
+
+
+
+dbSendQuery(neds, 
+						"UPDATE dx
+						 SET dx1 = (dx1 || '00')
+						 WHERE LENGTH(dx1) = 3")
+
+query = dbSendQuery(neds, "SELECT dx1 FROM dx LIMIT 50")
+print(dbFetch(query))
+
+
+
+
+
+
+# dx1 with length of 4
+query = dbSendQuery(neds, 
+										"SELECT dx1 || '0' AS dx1s
+										FROM dx
+										WHERE LENGTH(dx1) = 4
+										LIMIT 50")
+print(dbFetch(query))
+
+
+dbSendQuery(neds, 
+						"UPDATE dx
+						 SET dx1 = (dx1 || '0')
+						 WHERE LENGTH(dx1) = 4")
+
+query = dbSendQuery(neds, "SELECT dx1 FROM dx LIMIT 50")
+print(dbFetch(query))
+
+
+
+
+
+# make table of injury dxs for filtering ----------------------------------
+
+
+
+# make table of ecodes for filtering ----------------------------------
+
+
+
+
+
+# filters -------------------------------------------------------
+
+
+
+# joins -------------------------------------------------------
+
+
+query = dbSendQuery(neds, 
+										"SELECT demos.key_ed AS key_ed,
+										        demos.age AS age,
+										        demos.discwt AS demos_discwt,
+										        demos.hosp_ed AS hosp_ed,
+										        demos.year AS year,
+										        dx.dx1 AS dx1,
+										FROM demos
+										INNER JOIN dx
+										ON (demos.key_ed = dx.key_ed AND demos.age > 49)")
+
+
+print(dbFetch(query))
+dbColumnInfo(query)
+
+
+
+
+
 
 
 
@@ -338,3 +406,21 @@ PRAGMA foreign_keys=on;")
 #   
 #   DROP TABLE old_employees;
 #   
+
+
+
+
+
+
+
+
+
+
+# disconnect from DB ------------------------------------------------------
+
+
+
+dbDisconnect(neds)
+
+
+
