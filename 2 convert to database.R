@@ -556,6 +556,8 @@ dbSendQuery(neds,
 						
 						hcupfile character,
 						disp_ip double,
+						
+						
 						died_visit double,
 						disp_ed double,
 						edevent double
@@ -582,7 +584,7 @@ for(i in 1:length(tables)){
 rm(tables, q, i, r)
 
 
-
+#vars in SELECT command have to be in same order as in the creation of join_res 
 dbSendQuery(neds, 
 						"INSERT INTO join_res
 						 SELECT demos.age,  demos.discwt,  demos.female,  demos.hosp_ed,  demos.key_ed,  demos.year,
@@ -600,16 +602,43 @@ dbSendQuery(neds,
 						 INNER JOIN ecodes
 						 ON dx.key_ed = ecodes.key_ed
 						 
-						 INNER JOIN ip
-						 ON ecodes.key_ed = ip.key_ed
+						 LEFT JOIN hosp
+						 ON ecodes.hosp_ed = hosp.hosp_ed
+						 
+						 LEFT JOIN ip
+						 ON hosp.key_ed = ip.key_ed
 						 
 						 INNER JOIN outcomes
 						 ON ip.key_ed = outcomes.key_ed
 						 
-						 LEFT JOIN hosp
-						 ON demos.hosp_ed = hosp.hosp_ed")
+						 ")
 
 
+# ROWS Fetched: 0 [complete]
+# Changed: 1724623
+
+
+
+
+# confirm proper join -----------------------------------------------------
+
+dbListFields(neds, "join_res")
+dbGetQuery(neds, 
+					 'SELECT COUNT(*), hosp_trauma FROM join_res WHERE hosp_ed < 10012 GROUP BY hosp_ed')
+
+dbGetQuery(neds, 
+					 'SELECT COUNT(*), hosp_trauma FROM join_res WHERE hosp_ed < 10012 GROUP BY hosp_trauma')
+
+dbGetQuery(neds, 
+					 'SELECT COUNT(*), hosp_trauma FROM join_res WHERE hosp_ed < 10012 GROUP BY hosp_ed')
+
+
+
+# export join_res ---------------------------------------------------------
+
+join_res = dbReadTable(neds, "join_res")
+
+summary(join_res)
 
 
 
