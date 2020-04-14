@@ -10,7 +10,7 @@ library(data.table)
 
 #create database ----
 neds = dbConnect(RSQLite::SQLite(), "Data/NEDS_DB.sqlite")
-dbSendQuery(neds, "PRAGMA foreign_keys=ON")
+
 
 
 
@@ -370,7 +370,7 @@ rm(exclude)
 # ~ filter on injury dx ----
 dbSendQuery(neds, 
 						"DELETE FROM dx
-										WHERE dx1 NOT IN (SELECT f.injury_dx FROM injury_dx f)")
+										WHERE dx1 NOT IN (SELECT f.injury_dx FROM injury_dx AS f)")
 
 
 
@@ -418,7 +418,7 @@ dbGetQuery(neds,
 # ~ filter on ecodes ----
 dbSendQuery(neds, 
 						"DELETE FROM ecodes
-										WHERE SUBSTR(ecode1, 1, 4) IN (SELECT f.exclude FROM ecode_exclude f)")
+										WHERE SUBSTR(ecode1, 1, 4) IN (SELECT f.exclude FROM ecode_exclude AS f)")
 
 #confirm filter (should be zero)
 dbGetQuery(neds, 
@@ -437,7 +437,7 @@ dbGetQuery(neds,
 
 dbSendQuery(neds, 
 						"DELETE FROM ecodes
-										WHERE SUBSTR(ecode2, 1, 4) IN (SELECT f.exclude FROM ecode_exclude f)")
+										WHERE SUBSTR(ecode2, 1, 4) IN (SELECT f.exclude FROM ecode_exclude AS f)")
 
 #confirm filter (should be zero)
 dbGetQuery(neds, 
@@ -458,7 +458,7 @@ dbGetQuery(neds,
 
 dbSendQuery(neds, 
 						"DELETE FROM ecodes
-										WHERE SUBSTR(ecode3, 1, 4) IN (SELECT f.exclude FROM ecode_exclude f)")
+										WHERE SUBSTR(ecode3, 1, 4) IN (SELECT f.exclude FROM ecode_exclude AS f)")
 
 #confirm filter (should be zero)
 dbGetQuery(neds, 
@@ -477,7 +477,7 @@ dbGetQuery(neds,
 
 dbSendQuery(neds, 
 						"DELETE FROM ecodes
-										WHERE SUBSTR(ecode4, 1, 4) IN (SELECT f.exclude FROM ecode_exclude f)")
+										WHERE SUBSTR(ecode4, 1, 4) IN (SELECT f.exclude FROM ecode_exclude AS f)")
 
 #confirm filter (should be zero)
 dbGetQuery(neds, 
@@ -491,6 +491,19 @@ dbGetQuery(neds,
 					 WHERE SUBSTR(ecode4, 1, 4) = "E850"')
 
 
+
+
+
+
+
+# create indexes ----------------------------------------------------------
+#indexes take a while to create but they speed up the joins on the key_ed column by ~4-5x
+
+dbExecute(neds, "CREATE INDEX index_key_ed_demos ON demos (key_ed)")
+dbExecute(neds, "CREATE INDEX index_key_ed_dx ON dx (key_ed)")
+dbExecute(neds, "CREATE INDEX index_key_ed_ecodes ON ecodes (key_ed)")
+dbExecute(neds, "CREATE INDEX index_key_ed_ip ON ip (key_ed)")
+dbExecute(neds, "CREATE INDEX index_key_ed_outcomes ON outcomes (key_ed)")
 
 
 
@@ -516,51 +529,42 @@ rm(tables, q, i)
 #create table for join results to go into
 dbSendQuery(neds, 
 						"CREATE TABLE join_res (
-						age integer,
-						discwt double,
-						female double,
-						hosp_ed double,
-						key_ed character,
-						year character,
+						key_ed CHARACTER,
+						hosp_ed DOUBLE,
+						year CHARACTER,
+						discwt DOUBLE,
+						age INTEGER,
+						female INTEGER,
 						
+						died_visit INTEGER,
+						disp_ed INTEGER,
+						edevent INTEGER,
 						
-						dx1 character,
-						dx2 character,
-						dx3 character,
-						dx4 character,
-						dx5 character,
-						dx6 character,
-						dx7 character,
-						dx8 character,
-						dx9 character,
-						dx10 character,
-						dx11 character,
-						dx12 character,
-						dx13 character,
-						dx14 character,
-						dx15 character,
+						dx1 CHARACTER,
+						dx2 CHARACTER,
+						dx3 CHARACTER,
+						dx4 CHARACTER,
+						dx5 CHARACTER,
+						dx6 CHARACTER,
+						dx7 CHARACTER,
+						dx8 CHARACTER,
+						dx9 CHARACTER,
+						dx10 CHARACTER,
+						dx11 CHARACTER,
+						dx12 CHARACTER,
+						dx13 CHARACTER,
+						dx14 CHARACTER,
+						dx15 CHARACTER,
 						
+						ecode1 CHARACTER,
+						ecode2 CHARACTER,
+						ecode3 CHARACTER,
+						ecode4 CHARACTER,
 						
-						ecode1 character,
-						ecode2 character,
-						ecode3 character,
-						ecode4 character,
+						hcupfile CHARACTER,
+						disp_ip INTEGER,
 						
-						
-						hospwt double,
-						hosp_control double,
-						hosp_region double,
-						hosp_trauma double,
-						neds_stratum double,
-						
-						
-						hcupfile character,
-						disp_ip double,
-						
-						
-						died_visit double,
-						disp_ed double,
-						edevent double
+						neds_stratum INTEGER
 						)")
 
 
@@ -584,38 +588,39 @@ for(i in 1:length(tables)){
 rm(tables, q, i, r)
 
 
-#vars in SELECT command have to be in same order as in the creation of join_res 
+
+#~45 mins with key_ed indexes
+#vars in SELECT command have to be in same order as in the creation of join_res
 dbSendQuery(neds, 
 						"INSERT INTO join_res
-						 SELECT demos.age,  demos.discwt,  demos.female,  demos.hosp_ed,  demos.key_ed,  demos.year,
+						 SELECT demos.key_ed, demos.hosp_ed, demos.year, demos.discwt, demos.age, demos.female,  
+						 outcomes.died_visit, outcomes.disp_ed,  outcomes.edevent,
 						 dx.dx1,  dx.dx2,  dx.dx3,  dx.dx4,  dx.dx5,  dx.dx6,  dx.dx7,  dx.dx8,  dx.dx9,  dx.dx10, 
 						 dx.dx11,  dx.dx12,  dx.dx13,  dx.dx14,  dx.dx15,
 						 ecodes.ecode1,  ecodes.ecode2,  ecodes.ecode3,  ecodes.ecode4, 
-						 hosp.hospwt,  hosp.hosp_control,  hosp.hosp_region,  hosp.hosp_trauma, hosp.neds_stratum,
-						 ip.hcupfile, ip.disp_ip, 
-						 outcomes.died_visit, outcomes.disp_ed,  outcomes.edevent
+						 ip.hcupfile, ip.disp_ip,
+						 hosp.neds_stratum
+						 
 						 
 						 FROM demos
+						 LEFT JOIN outcomes
+						 ON demos.key_ed = outcomes.key_ed
+						 
 						 INNER JOIN dx
 						 ON demos.key_ed = dx.key_ed
 						 
 						 INNER JOIN ecodes
-						 ON dx.key_ed = ecodes.key_ed
-						 
-						 LEFT JOIN hosp
-						 ON ecodes.hosp_ed = hosp.hosp_ed
+						 ON demos.key_ed = ecodes.key_ed
 						 
 						 LEFT JOIN ip
-						 ON hosp.key_ed = ip.key_ed
+						 ON demos.key_ed = ip.key_ed
 						 
-						 INNER JOIN outcomes
-						 ON ip.key_ed = outcomes.key_ed
-						 
-						 ")
+						 LEFT JOIN hosp
+						 ON demos.hosp_ed = hosp.hosp_ed")
 
 
 # ROWS Fetched: 0 [complete]
-# Changed: 1724623
+# Changed: 35060586
 
 
 
@@ -623,22 +628,117 @@ dbSendQuery(neds,
 # confirm proper join -----------------------------------------------------
 
 dbListFields(neds, "join_res")
+
+
+dbGetQuery(neds, 'SELECT MIN(age) FROM join_res')
+
+
+dbGetQuery(neds, 'SELECT COUNT(*), died_visit FROM join_res GROUP BY died_visit')
+
+
+dbGetQuery(neds, 'SELECT COUNT(*), edevent FROM join_res GROUP BY edevent')
+
+
+dbGetQuery(neds, 'SELECT COUNT(*), disp_ed FROM join_res GROUP BY disp_ed')
+
+
+dbGetQuery(neds, 'SELECT COUNT(*), disp_ip FROM join_res GROUP BY disp_ip')
+
+
+dbGetQuery(neds, 'SELECT COUNT(*), female FROM join_res GROUP BY female')
+
+
+#these last few should all give counts of zero
 dbGetQuery(neds, 
-					 'SELECT COUNT(*), hosp_trauma FROM join_res WHERE hosp_ed < 10012 GROUP BY hosp_ed')
+					 'SELECT COUNT(*), dx1
+					 FROM join_res
+					 WHERE dx1 NOT IN (SELECT f.injury_dx FROM injury_dx AS f)
+					 GROUP BY dx1')
+
+
 
 dbGetQuery(neds, 
-					 'SELECT COUNT(*), hosp_trauma FROM join_res WHERE hosp_ed < 10012 GROUP BY hosp_trauma')
+					 'SELECT COUNT(*), ecode1
+					 FROM join_res
+					 WHERE SUBSTR(ecode1, 1, 4) IN (SELECT f.exclude FROM ecode_exclude AS f)
+					 GROUP BY ecode1')
+
+
 
 dbGetQuery(neds, 
-					 'SELECT COUNT(*), hosp_trauma FROM join_res WHERE hosp_ed < 10012 GROUP BY hosp_ed')
+					 'SELECT COUNT(*), ecode2
+					 FROM join_res
+					 WHERE SUBSTR(ecode2, 1, 4) IN (SELECT f.exclude FROM ecode_exclude AS f)
+					 GROUP BY ecode1')
 
 
 
-# export join_res ---------------------------------------------------------
+dbGetQuery(neds, 
+					 'SELECT COUNT(*), ecode3
+					 FROM join_res
+					 WHERE SUBSTR(ecode3, 1, 4) IN (SELECT f.exclude FROM ecode_exclude AS f)
+					 GROUP BY ecode1')
 
-join_res = dbReadTable(neds, "join_res")
 
-summary(join_res)
+
+dbGetQuery(neds, 
+					 'SELECT COUNT(*), ecode4
+					 FROM join_res
+					 WHERE SUBSTR(ecode4, 1, 4) IN (SELECT f.exclude FROM ecode_exclude AS f)
+					 GROUP BY ecode1')
+
+
+
+
+
+gc()
+
+
+
+
+# export dxs to calculate TMPM -------------------------------------------
+
+dbSendQuery(neds, 
+						"CREATE TABLE dx_final (
+						key_ed CHARACTER,
+
+						dx1 CHARACTER,
+						dx2 CHARACTER,
+						dx3 CHARACTER,
+						dx4 CHARACTER,
+						dx5 CHARACTER,
+						dx6 CHARACTER,
+						dx7 CHARACTER,
+						dx8 CHARACTER,
+						dx9 CHARACTER,
+						dx10 CHARACTER,
+						dx11 CHARACTER,
+						dx12 CHARACTER,
+						dx13 CHARACTER,
+						dx14 CHARACTER,
+						dx15 CHARACTER
+						)")
+
+
+dbSendQuery(neds, 
+						"INSERT INTO dx_final
+						 SELECT join_res.key_ed, 
+						 join_res.dx1,  join_res.dx2,  join_res.dx3,  join_res.dx4,  join_res.dx5,  
+						 join_res.dx6,  join_res.dx7,  join_res.dx8,  join_res.dx9,  join_res.dx10, 
+						 join_res.dx11,  join_res.dx12,  join_res.dx13,  join_res.dx14,  join_res.dx15
+						 FROM join_res")
+
+
+
+dx = dbReadTable(neds, "dx_final")
+
+
+library(tmpm)
+
+
+
+
+
 
 
 
