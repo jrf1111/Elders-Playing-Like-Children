@@ -47,6 +47,7 @@ for(i in 1:length(files)){
 	temp$key_ed = as.character(temp$key_ed)
 	if(file == "Data//NEDS_2015Q1Q3_dx.RDS"){temp$year = "2015Q1Q3"}
 	if(file == "Data//NEDS_2015Q4_dx.RDS"){temp$year = "2015Q4"}
+	temp$year = as.character(temp$year)
 	dbWriteTable(neds, "dx", temp, append = TRUE)
 	rm(temp)
 	print(file)
@@ -54,7 +55,7 @@ for(i in 1:length(files)){
 
 
 
-query = dbSendQuery(neds, "SELECT * from dx limit 20")
+query = dbSendQuery(neds, "SELECT * FROM dx limit 20")
 dbFetch(query)
 dbColumnInfo(query)
 rm(query)
@@ -130,6 +131,7 @@ for(i in 1:length(files)){
 	file = files[i]
 	temp = readRDS(file)
 	temp$key_ed = as.character(temp$key_ed)
+	temp = temp[, c("key_ed", "hosp_ed", "disp_ip")]
 	dbWriteTable(neds, "ip", temp, append = TRUE)
 	rm(temp)
 	print(file)
@@ -173,7 +175,6 @@ rm(query)
 
 
 
-dbDisconnect(neds)
 
 
 
@@ -184,38 +185,17 @@ dbDisconnect(neds)
 
 
 
-# create indexes ----------------------------------------------------------
 
-
-neds = dbConnect(RSQLite::SQLite(), "Data/NEDS_DB.sqlite")
-
-dbListTables(neds)
-dbListFields(neds, "demos")
-dbListFields(neds, "hosp")
-
-#create index
-dbExecute(neds, "CREATE INDEX index_key_ed ON demos (key_ed)")
-dbGetQuery(neds, "PRAGMA index_list(demos)")     #verify index was created
-
-
-dbExecute(neds, "CREATE INDEX index_hosp_ed ON hosp (hosp_ed)")
-dbGetQuery(neds, "PRAGMA index_list(hosp)")
-
-
-
-
-
-
-# standardize dx strings --------------------------------------------------
+# standardize dx1 strings --------------------------------------------------
 dbGetQuery(neds, "SELECT dx1 FROM dx LIMIT 20")
 
 
 # dx1 with length of 3
-dbSendQuery(neds, 
+dbGetQuery(neds, 
 						"SELECT dx1 || '00' AS dx1s
 										FROM dx
 										WHERE LENGTH(dx1) = 3
-										LIMIT 50")
+										LIMIT 20")
 
 
 
@@ -224,7 +204,7 @@ dbSendQuery(neds,
 						 SET dx1 = (dx1 || '00')
 						 WHERE LENGTH(dx1) = 3")
 
-dbSendQuery(neds, "SELECT dx1 FROM dx LIMIT 50")
+dbGetQuery(neds, "SELECT dx1 FROM dx LIMIT 50")
 
 
 
@@ -232,191 +212,28 @@ dbSendQuery(neds, "SELECT dx1 FROM dx LIMIT 50")
 
 
 # dx1 with length of 4
-dbSendQuery(neds, 
+dbGetQuery(neds, 
 						"SELECT dx1 || '0' AS dx1s
 										FROM dx
 										WHERE LENGTH(dx1) = 4
-										LIMIT 50")
-
-
+										LIMIT 20")
 
 dbSendQuery(neds, 
 						"UPDATE dx
 						 SET dx1 = (dx1 || '0')
 						 WHERE LENGTH(dx1) = 4")
 
-dbSendQuery(neds, "SELECT dx1 FROM dx LIMIT 50")
+dbGetQuery(neds, "SELECT dx1 FROM dx LIMIT 50")
 
 
 
 
 
 
+# filters -------------------------------------------------------
 
-#update other dxs
-dbSendQuery(neds, 
-						"UPDATE dx
-						 SET dx2 = (dx2 || '00')
-						 WHERE LENGTH(dx2) = 3")
-
-dbSendQuery(neds, 
-						"UPDATE dx
-						 SET dx2 = (dx2 || '0')
-						 WHERE LENGTH(dx2) = 4")
-
-
-dbSendQuery(neds, 
-						"UPDATE dx
-						 SET dx3 = (dx3 || '00')
-						 WHERE LENGTH(dx3) = 3")
-
-dbSendQuery(neds, 
-						"UPDATE dx
-						 SET dx3 = (dx3 || '0')
-						 WHERE LENGTH(dx3) = 4")
-
-
-dbSendQuery(neds, 
-						"UPDATE dx
-						 SET dx4 = (dx4 || '00')
-						 WHERE LENGTH(dx4) = 3")
-
-dbSendQuery(neds, 
-						"UPDATE dx
-						 SET dx4 = (dx4 || '0')
-						 WHERE LENGTH(dx4) = 4")
-
-
-dbSendQuery(neds, 
-						"UPDATE dx
-						 SET dx5 = (dx5 || '00')
-						 WHERE LENGTH(dx5) = 3")
-
-dbSendQuery(neds, 
-						"UPDATE dx
-						 SET dx5 = (dx5 || '0')
-						 WHERE LENGTH(dx5) = 4")
-
-
-dbSendQuery(neds, 
-						"UPDATE dx
-						 SET dx6 = (dx6 || '00')
-						 WHERE LENGTH(dx6) = 3")
-
-dbSendQuery(neds, 
-						"UPDATE dx
-						 SET dx6 = (dx6 || '0')
-						 WHERE LENGTH(dx6) = 4")
-
-
-dbSendQuery(neds, 
-						"UPDATE dx
-						 SET dx7 = (dx7 || '00')
-						 WHERE LENGTH(dx7) = 3")
-
-dbSendQuery(neds, 
-						"UPDATE dx
-						 SET dx7 = (dx7 || '0')
-						 WHERE LENGTH(dx7) = 4")
-
-
-dbSendQuery(neds, 
-						"UPDATE dx
-						 SET dx8 = (dx8 || '00')
-						 WHERE LENGTH(dx8) = 3")
-
-dbSendQuery(neds, 
-						"UPDATE dx
-						 SET dx8 = (dx8 || '0')
-						 WHERE LENGTH(dx8) = 4")
-
-
-dbSendQuery(neds, 
-						"UPDATE dx
-						 SET dx9 = (dx9 || '00')
-						 WHERE LENGTH(dx9) = 3")
-
-dbSendQuery(neds, 
-						"UPDATE dx
-						 SET dx9 = (dx9 || '0')
-						 WHERE LENGTH(dx9) = 4")
-
-
-dbSendQuery(neds, 
-						"UPDATE dx
-						 SET dx10 = (dx10 || '00')
-						 WHERE LENGTH(dx10) = 3")
-
-dbSendQuery(neds, 
-						"UPDATE dx
-						 SET dx10 = (dx10 || '0')
-						 WHERE LENGTH(dx10) = 4")
-
-
-dbSendQuery(neds, 
-						"UPDATE dx
-						 SET dx11 = (dx11 || '00')
-						 WHERE LENGTH(dx11) = 3")
-
-dbSendQuery(neds, 
-						"UPDATE dx
-						 SET dx11 = (dx11 || '0')
-						 WHERE LENGTH(dx11) = 4")
-
-
-dbSendQuery(neds, 
-						"UPDATE dx
-						 SET dx12 = (dx12 || '00')
-						 WHERE LENGTH(dx12) = 3")
-
-dbSendQuery(neds, 
-						"UPDATE dx
-						 SET dx12 = (dx12 || '0')
-						 WHERE LENGTH(dx12) = 4")
-
-
-dbSendQuery(neds, 
-						"UPDATE dx
-						 SET dx13 = (dx13 || '00')
-						 WHERE LENGTH(dx13) = 3")
-
-dbSendQuery(neds, 
-						"UPDATE dx
-						 SET dx13 = (dx13 || '0')
-						 WHERE LENGTH(dx13) = 4")
-
-
-dbSendQuery(neds, 
-						"UPDATE dx
-						 SET dx14 = (dx14 || '00')
-						 WHERE LENGTH(dx14) = 3")
-
-dbSendQuery(neds, 
-						"UPDATE dx
-						 SET dx14 = (dx14 || '0')
-						 WHERE LENGTH(dx14) = 4")
-
-
-dbSendQuery(neds, 
-						"UPDATE dx
-						 SET dx15 = (dx15 || '00')
-						 WHERE LENGTH(dx15) = 3")
-
-dbSendQuery(neds, 
-						"UPDATE dx
-						 SET dx15 = (dx15 || '0')
-						 WHERE LENGTH(dx15) = 4")
-
-
-
-
-
-
-
-
-
-
-# make table of injury dxs for filtering ----------------------------------
+# ~ injury dx filter ---------------------------------------
+# ~~ make table of injury dxs for filtering ----------------------------------
 
 #sequence of ICD9 injury codes
 injury_codes = c(seq(800, 904.9, 0.01),
@@ -462,130 +279,67 @@ rm(injury_codes)
 
 
 
-# make table of ecodes for filtering ----------------------------------
-
-
-
-#Exclude: injuries including burns, bites/stings, overexertion, 
-#                  poisoning, or misadventures of medical/surgical care
-
-
-exclude = c(
-	
-	# E890-E899  Accidents Caused By Fire And Flames
-	paste0("E", 890:899),
-	
-	# E990 Injury due to war operations by fires and conflagrations
-	paste0("E", 990),
-	
-	# E906 Other injury caused by animals
-	paste0("E", 906),
-	
-	# E927 Overexertion and strenuous movements
-	paste0("E", 927),
-	
-	# E850-E858  Accidental Poisoning By Drugs, Medicinal Substances, And Biologicals
-	paste0("E", 850:858),
-	
-	# E860-E869  Accidental Poisoning By Other Solid And Liquid Substances, Gases, And Vapors
-	paste0("E", 860:869),
-	
-	# E905 Venomous animals and plants as the cause of poisoning and toxic reactions
-	paste0("E", 905), 
-	
-	# E950 Suicide and self-inflicted poisoning by solid or liquid substances
-	# E951 Suicide and self-inflicted poisoning by gases in domestic use
-	# E952 Suicide and self-inflicted poisoning by other gases and vapors
-	paste0("E", 950:952), 
-	
-	# E962 Assault by poisoning
-	paste0("E", 962),
-	
-	# E980 Poisoning by solid or liquid substances undetermined whether accidentally or purposely inflicted
-	# E981 Poisoning by gases in domestic use undetermined whether accidentally or purposely inflicted
-	# E982 Poisoning by other gases undetermined whether accidentally or purposely inflicted
-	paste0("E", 980:982),
-	
-	# E870-E876  Misadventures To Patients During Surgical And Medical Care
-	paste0("E", 870:876),
-	
-	# E878-E879  Surgical And Medical Procedures As The Cause Of Abnormal Reaction Of Patient
-	# 						Or Later Complication, Without Mention Of Misadventure At The Time Of Procedure
-	paste0("E", 878:879),
-	
-	# E930-E949  Drugs, Medicinal And Biological Substances Causing Adverse Effects In Therapeutic Use
-	paste0("E", 930:949))
-
-
-
-
-
-
-#make table of ecodes to exclude in DB
-dbWriteTable(neds, "ecode_exclude",  data.frame(exclude = exclude)  )
-
-#confirm it was created
-dbListTables(neds)
-dbListFields(neds, "ecode_exclude")
-dbGetQuery(neds, "SELECT * FROM ecode_exclude LIMIT 20")
-rm(exclude)
-
-
-
-# filters -------------------------------------------------------
-
-
-# ~ filter on injury dx ----
+# ~~ filter on injury dx ----
 dbSendQuery(neds, 
 						"DELETE FROM dx
 										WHERE dx1 NOT IN (SELECT f.injury_dx FROM injury_dx AS f)")
+
+
+dbSendQuery(neds, 
+						"DELETE FROM demos
+										WHERE key_ed NOT IN (SELECT f.key_ed FROM dx AS f)")
+
+
+dbSendQuery(neds, 
+						"DELETE FROM ip
+										WHERE key_ed NOT IN (SELECT f.key_ed FROM dx AS f)")
+
+
+dbSendQuery(neds, 
+						"DELETE FROM outcomes
+										WHERE key_ed NOT IN (SELECT f.key_ed FROM dx AS f)")
+
+
+dbSendQuery(neds, 
+						"DELETE FROM ecodes
+										WHERE key_ed NOT IN (SELECT f.key_ed FROM dx AS f)")
+
+
+
+# ~~ standardize other dx strings ----------------
+
+
+for(i in 2:15){
+	
+	var = paste0("dx", i)
+	command = paste0("UPDATE dx set ", var, 
+									 " = (", var, " || '00') WHERE LENGTH(", var, ") = 3")
+	dbSendQuery(neds, command)
+	
+	
+	command = paste0("UPDATE dx set ", var, 
+									 " = (", var, " || '0') WHERE LENGTH(", var, ") = 4")
+	dbSendQuery(neds, command)
+	print(var)
+}
+
+
 
 
 # ~~ NULL out non-injury dxs to reduce file size -----
 
 #skip dx1 since already filtered above
 
-dbSendQuery(neds, 
-						"UPDATE dx SET dx2 = NULL WHERE dx2 NOT IN (SELECT f.injury_dx FROM injury_dx AS f)")
 
-dbSendQuery(neds, 
-						"UPDATE dx SET dx3 = NULL WHERE dx3 NOT IN (SELECT f.injury_dx FROM injury_dx AS f)")
 
-dbSendQuery(neds, 
-						"UPDATE dx SET dx4 = NULL WHERE dx4 NOT IN (SELECT f.injury_dx FROM injury_dx AS f)")
-
-dbSendQuery(neds, 
-						"UPDATE dx SET dx5 = NULL WHERE dx5 NOT IN (SELECT f.injury_dx FROM injury_dx AS f)")
-
-dbSendQuery(neds, 
-						"UPDATE dx SET dx6 = NULL WHERE dx6 NOT IN (SELECT f.injury_dx FROM injury_dx AS f)")
-
-dbSendQuery(neds, 
-						"UPDATE dx SET dx7 = NULL WHERE dx7 NOT IN (SELECT f.injury_dx FROM injury_dx AS f)")
-
-dbSendQuery(neds, 
-						"UPDATE dx SET dx8 = NULL WHERE dx8 NOT IN (SELECT f.injury_dx FROM injury_dx AS f)")
-
-dbSendQuery(neds, 
-						"UPDATE dx SET dx9 = NULL WHERE dx9 NOT IN (SELECT f.injury_dx FROM injury_dx AS f)")
-
-dbSendQuery(neds, 
-						"UPDATE dx SET dx10 = NULL WHERE dx10 NOT IN (SELECT f.injury_dx FROM injury_dx AS f)")
-
-dbSendQuery(neds, 
-						"UPDATE dx SET dx11 = NULL WHERE dx11 NOT IN (SELECT f.injury_dx FROM injury_dx AS f)")
-
-dbSendQuery(neds, 
-						"UPDATE dx SET dx12 = NULL WHERE dx12 NOT IN (SELECT f.injury_dx FROM injury_dx AS f)")
-
-dbSendQuery(neds, 
-						"UPDATE dx SET dx13 = NULL WHERE dx13 NOT IN (SELECT f.injury_dx FROM injury_dx AS f)")
-
-dbSendQuery(neds, 
-						"UPDATE dx SET dx14 = NULL WHERE dx14 NOT IN (SELECT f.injury_dx FROM injury_dx AS f)")
-
-dbSendQuery(neds, 
-						"UPDATE dx SET dx15 = NULL WHERE dx15 NOT IN (SELECT f.injury_dx FROM injury_dx AS f)")
+for(i in 2:15){
+	
+	var = paste0("dx", i)
+	command = paste0("UPDATE dx SET ", var, " = NULL WHERE ", var, " NOT IN (SELECT f.injury_dx FROM injury_dx AS f)")
+	dbSendQuery(neds, command)
+	print(var)
+	
+}
 
 
 
@@ -607,7 +361,7 @@ dbGetQuery(neds,
 
 
 
-# ~ filter on age ----
+# ~ age filter ----
 dbSendQuery(neds, 
 						"DELETE FROM demos
 										WHERE age < 50")
@@ -624,18 +378,166 @@ dbGetQuery(neds,
 
 
 
+dbSendQuery(neds, 
+						"DELETE FROM dx
+										WHERE key_ed NOT IN (SELECT f.key_ed FROM demos AS f)")
 
 
+dbSendQuery(neds, 
+						"DELETE FROM ip
+										WHERE key_ed NOT IN (SELECT f.key_ed FROM demos AS f)")
 
 
+dbSendQuery(neds, 
+						"DELETE FROM outcomes
+										WHERE key_ed NOT IN (SELECT f.key_ed FROM demos AS f)")
 
 
-
-
-# ~ filter on ecodes ----
 dbSendQuery(neds, 
 						"DELETE FROM ecodes
-										WHERE SUBSTR(ecode1, 1, 4) IN (SELECT f.exclude FROM ecode_exclude AS f)")
+										WHERE key_ed NOT IN (SELECT f.key_ed FROM demos AS f)")
+
+
+
+
+
+
+
+
+
+# ~ ecode filter ----------------------------------------
+# ~~ make table of ecodes for filtering ------------------
+
+
+
+#Exclude: injuries including burns, bites/stings, overexertion, 
+#                  poisoning, or misadventures of medical/surgical care
+
+
+exclude = c(
+	
+	# E850-E858  Accidental Poisoning By Drugs, Medicinal Substances, And Biologicals
+	paste0("E", 850:858),
+	
+	# E860-E869  Accidental Poisoning By Other Solid And Liquid Substances, Gases, And Vapors
+	paste0("E", 860:869),
+	
+	
+	# E870-E876  Misadventures To Patients During Surgical And Medical Care
+	paste0("E", 870:876),
+	
+	# E878-E879  Surgical And Medical Procedures As The Cause Of Abnormal Reaction Of Patient
+	# 						Or Later Complication, Without Mention Of Misadventure At The Time Of Procedure
+	paste0("E", 878:879),
+	
+	# E890-E899  Accidents Caused By Fire And Flames
+	paste0("E", 890:899),
+	
+	
+	
+	# E990 Injury due to war operations by fires and conflagrations
+	paste0("E", 990),
+	
+	# E905 Venomous animals and plants as the cause of poisoning and toxic reactions
+	paste0("E", 905), 
+	
+	# E906 Other injury caused by animals
+	paste0("E", 906),
+	
+	
+	# E924 Accident caused by hot substance or object caustic or corrosive material and steam
+	paste0("E", 924), 
+	
+	
+	# E927 Overexertion and strenuous movements
+	paste0("E", 927),
+	
+	
+	# E930-E949  Drugs, Medicinal And Biological Substances Causing Adverse Effects In Therapeutic Use
+	paste0("E", 930:949),
+	
+	# E950 Suicide and self-inflicted poisoning by solid or liquid substances
+	# E951 Suicide and self-inflicted poisoning by gases in domestic use
+	# E952 Suicide and self-inflicted poisoning by other gases and vapors
+	paste0("E", 950:952), 
+	
+	# E958.1 Suicide and self-inflicted injury by burns, fire
+	# E958.2 Suicide and self-inflicted injury by scald
+	# E958.7 Suicide and self-inflicted injury by caustic substances, except poisoning
+	paste0("E", 958.1), 
+	paste0("E", 958.2), 
+	paste0("E", 958.7), 
+	
+	# E961 Assault by corrosive or caustic substance, except poisoning
+	paste0("E", 961), 
+	
+	# E962 Assault by poisoning
+	paste0("E", 962),
+	
+	#E968.0 Assault by fire
+	paste0("E", 968.0), 
+	#E968.3 Assault by hot liquid
+	paste0("E", 968.3), 
+	
+	#E972 Injury due to legal intervention by gas (poisoning mech)
+	paste0("E", 972),
+	
+	
+	# E980 Poisoning by solid or liquid substances undetermined whether accidentally or purposely inflicted
+	# E981 Poisoning by gases in domestic use undetermined whether accidentally or purposely inflicted
+	# E982 Poisoning by other gases undetermined whether accidentally or purposely inflicted
+	paste0("E", 980:982),
+	
+	
+	# E988.1 Injury by burns or fire, undetermined whether accidentally or purposely inflicted
+	# E988.2 Injury by scald, undetermined whether accidentally or purposely inflicted
+	# E988.7 Injury by caustic substances, except poisoning, undetermined whether accidentally or purposely inflicted
+	paste0("E", 988.1),
+	paste0("E", 988.2), 
+	paste0("E", 988.7)
+	
+	)
+
+
+exclude = gsub(".", "", exclude, fixed = T) #remove periods
+
+
+
+
+#make table of ecodes to exclude in DB
+dbWriteTable(neds, "ecode_exclude",  data.frame(exclude = exclude)  )
+
+#confirm it was created
+dbListTables(neds)
+dbListFields(neds, "ecode_exclude")
+dbGetQuery(neds, "SELECT * FROM ecode_exclude LIMIT 20")
+rm(exclude)
+
+
+
+# ~~ filter on ecodes ----
+
+
+#the below for loop is the equivalent of running the following for ecode1, ecode2, ecode3, and ecode4:
+# dbSendQuery(neds, 
+# 						"DELETE FROM ecodes
+# 										WHERE SUBSTR(ecode1, 1, 4) IN (SELECT f.exclude FROM ecode_exclude AS f)")
+# dbSendQuery(neds, 
+# 						"DELETE FROM ecodes
+# 										WHERE ecode1 IN (SELECT f.exclude FROM ecode_exclude AS f)")
+
+for(i in 1:4){
+	var = paste0("ecode", i)
+	command = paste0("DELETE FROM ecodes WHERE ",
+									 "SUBSTR(", var, ", 1, 4) IN (SELECT f.exclude FROM ecode_exclude AS f)")
+	dbSendQuery(neds, command)
+	
+	command = paste0("DELETE FROM ecodes WHERE ", var, " IN (SELECT f.exclude FROM ecode_exclude AS f)")
+	dbSendQuery(neds, command)
+	print(var)
+}
+rm(i, var, command)
+
 
 #confirm filter (should be zero)
 dbGetQuery(neds, 
@@ -649,14 +551,6 @@ dbGetQuery(neds,
 					 WHERE SUBSTR(ecode1, 1, 4) = "E850"')
 
 
-
-
-
-dbSendQuery(neds, 
-						"DELETE FROM ecodes
-										WHERE SUBSTR(ecode2, 1, 4) IN (SELECT f.exclude FROM ecode_exclude AS f)")
-
-#confirm filter (should be zero)
 dbGetQuery(neds, 
 					 'SELECT COUNT(ecode2)
 					 FROM ecodes
@@ -667,17 +561,6 @@ dbGetQuery(neds,
 					 FROM ecodes
 					 WHERE SUBSTR(ecode2, 1, 4) = "E850"')
 
-
-
-
-
-
-
-dbSendQuery(neds, 
-						"DELETE FROM ecodes
-										WHERE SUBSTR(ecode3, 1, 4) IN (SELECT f.exclude FROM ecode_exclude AS f)")
-
-#confirm filter (should be zero)
 dbGetQuery(neds, 
 					 'SELECT COUNT(ecode3)
 					 FROM ecodes
@@ -689,14 +572,6 @@ dbGetQuery(neds,
 					 WHERE SUBSTR(ecode3, 1, 4) = "E850"')
 
 
-
-
-
-dbSendQuery(neds, 
-						"DELETE FROM ecodes
-										WHERE SUBSTR(ecode4, 1, 4) IN (SELECT f.exclude FROM ecode_exclude AS f)")
-
-#confirm filter (should be zero)
 dbGetQuery(neds, 
 					 'SELECT COUNT(ecode4)
 					 FROM ecodes
@@ -713,8 +588,39 @@ dbGetQuery(neds,
 
 
 
+
+dbSendQuery(neds, 
+						"DELETE FROM dx
+										WHERE key_ed NOT IN (SELECT f.key_ed FROM ecodes AS f)")
+
+
+dbSendQuery(neds, 
+						"DELETE FROM ip
+										WHERE key_ed NOT IN (SELECT f.key_ed FROM ecodes AS f)")
+
+
+dbSendQuery(neds, 
+						"DELETE FROM outcomes
+										WHERE key_ed NOT IN (SELECT f.key_ed FROM ecodes AS f)")
+
+
+dbSendQuery(neds, 
+						"DELETE FROM demos
+										WHERE key_ed NOT IN (SELECT f.key_ed FROM ecodes AS f)")
+
+
+
+
+
+
+
+
+
+
+
 # create indexes ----------------------------------------------------------
 #indexes take a while to create but they speed up the joins on the key_ed column by ~4-5x
+
 
 dbExecute(neds, "CREATE INDEX index_key_ed_demos ON demos (key_ed)")
 dbExecute(neds, "CREATE INDEX index_key_ed_dx ON dx (key_ed)")
@@ -778,7 +684,6 @@ dbSendQuery(neds,
 						ecode3 CHARACTER,
 						ecode4 CHARACTER,
 						
-						hcupfile CHARACTER,
 						disp_ip INTEGER,
 						
 						neds_stratum INTEGER
@@ -800,51 +705,91 @@ for(i in 1:length(tables)){
 	r = dbColumnInfo(q)
 	dbClearResult(q)
 	cat(paste0(tables[i], ".", r$name, sep = ", "))
-	
 }
 rm(tables, q, i, r)
 
 
 
-#takes about 45 mins with the key_ed indexes and about 6 hours without the indexes
+
+
+
+
+
+
+#takes about 45 mins with the key_ed indexes and >6 hours without the indexes
 #vars in SELECT command have to be in same order as in the creation of join_res
 dbSendQuery(neds, 
 						"INSERT INTO join_res
-						 SELECT demos.key_ed, demos.hosp_ed, demos.year, demos.discwt, demos.age, demos.female,  
-						 outcomes.died_visit, outcomes.disp_ed,  outcomes.edevent,
-						 dx.dx1,  dx.dx2,  dx.dx3,  dx.dx4,  dx.dx5,  dx.dx6,  dx.dx7,  dx.dx8,  dx.dx9,  dx.dx10, 
-						 dx.dx11,  dx.dx12,  dx.dx13,  dx.dx14,  dx.dx15,
-						 ecodes.ecode1,  ecodes.ecode2,  ecodes.ecode3,  ecodes.ecode4, 
-						 ip.hcupfile, ip.disp_ip,
-						 hosp.neds_stratum
+						 SELECT a.key_ed, a.hosp_ed, a.year, a.discwt, a.age, a.female,  
+						 b.died_visit, b.disp_ed,  b.edevent,
+						 c.dx1,  c.dx2,  c.dx3,  c.dx4,  c.dx5,  c.dx6,  c.dx7,  c.dx8,  c.dx9,  c.dx10, 
+						 c.dx11,  c.dx12,  c.dx13,  c.dx14,  c.dx15,
+						 d.ecode1,  d.ecode2,  d.ecode3,  d.ecode4, 
+						 e.disp_ip,
+						 f.neds_stratum
 						 
 						 
-						 FROM demos
-						 LEFT JOIN outcomes
-						 ON demos.key_ed = outcomes.key_ed
+						 FROM demos AS a
+						 LEFT JOIN outcomes AS b
+						 ON a.key_ed = b.key_ed
 						 
-						 INNER JOIN dx
-						 ON demos.key_ed = dx.key_ed
+						 INNER JOIN dx AS c
+						 ON b.key_ed = c.key_ed
 						 
-						 INNER JOIN ecodes
-						 ON demos.key_ed = ecodes.key_ed
+						 INNER JOIN ecodes AS d
+						 ON c.key_ed = d.key_ed
 						 
-						 LEFT JOIN ip
-						 ON demos.key_ed = ip.key_ed
+						 LEFT JOIN ip AS e
+						 ON d.key_ed = e.key_ed
 						 
-						 LEFT JOIN hosp
-						 ON demos.hosp_ed = hosp.hosp_ed")
+						 LEFT JOIN hosp AS f
+						 ON e.hosp_ed = f.hosp_ed")
 
 
 # ROWS Fetched: 0 [complete]
-# Changed: 35060586
+# Changed: 15288839
+
+
+
+# ~ delete duplicates that were added in the join -----------------------------------------------------
+
+dbListFields(neds, "join_res")
+
+dbExecute(neds, "CREATE INDEX index_key_ed_join_res ON join_res (key_ed)")
+
+
+dbGetQuery(neds,
+					 'SELECT COUNT(*), key_ed FROM join_res
+					 GROUP BY key_ed
+					 ORDER BY COUNT(*) DESC')
+
+
+dbGetQuery(neds,
+					 "SELECT * FROM join_res
+					 WHERE key_ed = '3201000011321'")
+
+
+
+dbSendQuery(neds,
+					 "DELETE FROM join_res
+					 WHERE rowid NOT IN (SELECT MIN(rowid) FROM join_res GROUP BY key_ed)")
+# ROWS Fetched: 0 [complete]
+# Changed: 1025459
+
+dbGetQuery(neds,
+					 'SELECT COUNT(*), key_ed FROM join_res
+					 GROUP BY key_ed
+					 ORDER BY COUNT(*) DESC LIMIT 20')
+
+
+dbGetQuery(neds,
+					 "SELECT * FROM join_res
+					 WHERE key_ed = '3201000011321'")
 
 
 
 
 # ~ confirm proper join -----------------------------------------------------
-
-dbListFields(neds, "join_res")
 
 
 dbGetQuery(neds, 'SELECT * FROM join_res LIMIT 5')
@@ -871,7 +816,8 @@ dbGetQuery(neds, 'SELECT COUNT(*), female FROM join_res GROUP BY female')
 dbGetQuery(neds, 
 					 'SELECT COUNT(*), dx2
 					 FROM join_res
-					 GROUP BY dx2')
+					 GROUP BY dx2
+					 ORDER BY COUNT(*) DESC LIMIT 20')
 
 
 #these last few should all give counts of zero
@@ -895,7 +841,7 @@ dbGetQuery(neds,
 					 'SELECT COUNT(*), ecode2
 					 FROM join_res
 					 WHERE SUBSTR(ecode2, 1, 4) IN (SELECT f.exclude FROM ecode_exclude AS f)
-					 GROUP BY ecode1')
+					 GROUP BY ecode2')
 
 
 
@@ -903,7 +849,7 @@ dbGetQuery(neds,
 					 'SELECT COUNT(*), ecode3
 					 FROM join_res
 					 WHERE SUBSTR(ecode3, 1, 4) IN (SELECT f.exclude FROM ecode_exclude AS f)
-					 GROUP BY ecode1')
+					 GROUP BY ecode3')
 
 
 
@@ -911,7 +857,7 @@ dbGetQuery(neds,
 					 'SELECT COUNT(*), ecode4
 					 FROM join_res
 					 WHERE SUBSTR(ecode4, 1, 4) IN (SELECT f.exclude FROM ecode_exclude AS f)
-					 GROUP BY ecode1')
+					 GROUP BY ecode4')
 
 
 
@@ -922,7 +868,7 @@ gc()
 
 
 
-# export dxs to calculate TMPM -------------------------------------------
+# export dxs & calculate TMPM -------------------------------------------
 
 dbSendQuery(neds, 
 						"CREATE TABLE dx_final (
@@ -954,20 +900,22 @@ dbSendQuery(neds,
 						 join_res.dx11,  join_res.dx12,  join_res.dx13,  join_res.dx14,  join_res.dx15
 						 FROM join_res")
 
+# ROWS Fetched: 0 [complete]
+# Changed: 12511200
 
-gc()
+
 dx = dbReadTable(neds, "dx_final")
 dx = as.data.table(dx)
 gc()
 
 
 #save dx file just in case
-fwrite(dx, "Data/dx_final.csv")
+fwrite(dx, "Data/final/dx_final.csv")
 
-dx = fread("Data/dx_final.csv")
+dx = fread("Data/final/dx_final.csv")
 
 
-#get ICD9 dx codes in proper format: numeric, ###.##
+#get ICD9 dx codes in proper format for tmpm: numeric, ###.##
 dx = dx %>% mutate_at(vars(starts_with("dx")), function(x){ as.numeric(x)/100  } )
 
 
@@ -1109,9 +1057,18 @@ tmpm4 = function(Pdat){
 	}
 	
 	
-	marcs = apply(Pdat, 1, get_marcs) %>%
-		t() %>% #transposing takes a little bit...
-		as_tibble()
+	# marcs = matrix(NA, nrow = nrow(Pdat), ncol = 6)
+	# colnames(marcs) = c("marc1", "marc2", "marc3", "marc4", "marc5", "same_region")
+	# marcs = as_tibble(marcs)
+
+	# for(i in 1:nrow(Pdat)){
+	# 	marcs[i, ] = get_marcs(Pdat[i, ])
+	# }
+	
+	
+	marcs = apply(Pdat, 1, get_marcs)
+	marcs = as_tibble(t(marcs)) #transposing takes a little bit...
+
 	
 	
 	marcs$Imarc = marcs$marc1 * marcs$marc2
@@ -1132,6 +1089,61 @@ tmpm4 = function(Pdat){
 	
 	
 	
+}
+
+
+
+
+#parallel version of tmpm4, not really any faster
+tmpm4p = function(Pdat, cores = 6, max_combine = max(c(ceiling(nrow(Pdat)*0.1), 100))){
+
+
+	get_marcs = function(x){
+		marclist <- ICs[match(x[-1], ICs$index), ]
+		marclist <- marclist[order(marclist$marc, decreasing = T), ]
+		marclist <- marclist[1:5, ]
+		marclist$marc[is.na(marclist$marc)] = 0
+		
+		marclist$index = NULL
+		
+		if (marclist$marc[1] != 0 & marclist$marc[2] != 0 & marclist$bodyregion[1] == marclist$bodyregion[2]) {
+			same_region = 1
+		} else same_region = 0
+		
+		marclist = c(marclist$marc, same_region)
+		names(marclist) = c(paste0("marc", 1:5), "same_region")
+		
+		marclist
+	}
+	
+
+	library(foreach)
+	library(doParallel)
+
+	doParallel::registerDoParallel(cores = cores)
+	marcs = foreach::foreach(i = 1:nrow(Pdat), .combine=dplyr::bind_rows, 
+													 .multicombine = T, .maxcombine = max_combine) %dopar% {
+		get_marcs(Pdat[i, ])
+	}
+	doParallel::stopImplicitCluster()
+
+	marcs = as.data.frame(marcs)
+	marcs$Imarc = marcs$marc1 * marcs$marc2
+	
+	
+	Model_Calc = 
+		{1.406958 * marcs$marc1} + 
+		{1.409992 * marcs$marc2} + 
+		{0.5205343 * marcs$marc3} +
+		{0.4150946 * marcs$marc4} + 
+		{0.8883929 * marcs$marc5} + 
+		{-0.0890527 * marcs$same_region} - 
+		{0.7782696 * marcs$Imarc} - 2.217565
+	
+	
+	pnorm(Model_Calc)
+	
+
 }
 
 
@@ -1171,72 +1183,229 @@ tmpm5 = function(Pdat){
 	)
 	
 
+	Model_Calc = {betas %*% marcs} - 2.217565
 	
 	
-	Model_Calc = {betas * marcs} - 2.217565
+	Model_Calc = pnorm(Model_Calc)
+	
+	c(Model_Calc)
 	
 	
-	pnorm(Model_Calc)
+}
+
+#parallel version of tmpm5, not really any faster
+tmpm5p = function(Pdat, cores = 6, max_combine = max(c(ceiling(nrow(Pdat)*0.1), 100))){
+
+	get_marcs = function(x){
+		marclist <- ICs[match(x[-1], ICs$index), ]
+		marclist <- marclist[order(marclist$marc, decreasing = T), ]
+		marclist <- marclist[1:5, ]
+		marclist$marc[is.na(marclist$marc)] = 0
+
+		marclist$index = NULL
+
+		if (marclist$marc[1] != 0 & marclist$marc[2] != 0 & marclist$bodyregion[1] == marclist$bodyregion[2]) {
+			same_region = 1
+		} else same_region = 0
+
+		Imarc = marclist$marc[1]*marclist$marc[2]
+
+		marclist = c(marclist$marc, same_region, Imarc)
+		names(marclist) = c(paste0("marc", 1:5), "same_region", "Imarc")
+
+		marclist
+	}
+
+
+	library(foreach)
+	library(doParallel)
+	doParallel::registerDoParallel(cores = cores)
+	marcs = foreach::foreach(i = 1:nrow(Pdat), .combine=dplyr::bind_rows, 
+													 .multicombine = T, .maxcombine = max_combine) %dopar% {
+		get_marcs(Pdat[i, ])
+	}
+	doParallel::stopImplicitCluster()
+
+	marcs = as.matrix(marcs)
 	
+	betas = c(1.406958,      #marc1
+						1.409992,      #marc2
+						0.5205343,     #marc3
+						0.4150946,     #marc4
+						0.8883929,     #marc5
+						-0.0890527,    #same_region
+						-0.7782696     #Imarc
+	)
 	
-	
-	
+	betas = matrix(betas, ncol = 1)
+
+	Model_Calc = {marcs %*% betas} - 2.217565
+
+	Model_Calc = pnorm(Model_Calc)
+
+	c(Model_Calc)
 }
 
 
 
 
+mb = microbenchmark::microbenchmark(
+	{tmpm(dx[1:100, ], ILex = 9)},
+	{tmpm2(dx[1:100, ])},
+	{tmpm3(dx[1:100, ])},
+	{tmpm4(dx[1:100, ])},
+	{tmpm4p(dx[1:100, ])},
+	{tmpm4p(dx[1:100, ], max_combine = 100)},
+	{tmpm4p(dx[1:100, ], max_combine = 50)},
+	{tmpm5(dx[1:100, ])},
+	{tmpm5p(dx[1:100, ])},
+	{tmpm5p(dx[1:100, ], max_combine = 100)},
+	{tmpm5p(dx[1:100, ], max_combine = 50)},
+	times = 200, 
+	control = list(warmup = 20))
 
-ns = c(1000, 2500, 5000, 10000, 20000, 50000)
-times = vector("character", length(ns))
-times2 = vector("character", length(ns))
-times3 = vector("character", length(ns))
-times4 = vector("character", length(ns))
 gc()
-set.seed(11)
-for(i in 1:length(ns)){
-	
-	start = Sys.time(); tmpm(dx[1:ns[i], ], ILex = 9); stop = Sys.time()
-	times[i] = format(stop-start, units = "secs")
-	
-	start = Sys.time(); tmpm2(dx[1:ns[i], ]); stop = Sys.time()
-	times2[i] = format(stop-start, units = "secs")
-	
-	start = Sys.time(); tmpm3(dx[1:ns[i], ]); stop = Sys.time()
-	times3[i] = format(stop-start, units = "secs")
-	
-	start = Sys.time(); tmpm4(dx[1:ns[i], ]); stop = Sys.time()
-	times4[i] = format(stop-start, units = "secs")
-}
-
-times = times %>% gsub(" secs", "", .) %>% as.numeric()
-times2 = times2 %>% gsub(" secs", "", .) %>% as.numeric()
-times3 = times3 %>% gsub(" secs", "", .) %>% as.numeric()
-times4 = times4 %>% gsub(" secs", "", .) %>% as.numeric()
+mb2 = microbenchmark::microbenchmark(
+	{tmpm(dx[1:1000, ], ILex = 9)},
+	{tmpm2(dx[1:1000, ])},
+	{tmpm3(dx[1:1000, ])},
+	{tmpm4(dx[1:1000, ])},
+	{tmpm4p(dx[1:1000, ])},
+	{tmpm4p(dx[1:1000, ], max_combine = 1000)},
+	{tmpm4p(dx[1:1000, ], max_combine = 500)},
+	{tmpm5(dx[1:1000, ])},
+	{tmpm5p(dx[1:1000, ])},
+	{tmpm5p(dx[1:1000, ], max_combine = 1000)},
+	{tmpm5p(dx[1:1000, ], max_combine = 500)},
+	times = 200, 
+	control = list(warmup = 5))
+gc()
 
 
-plot(ns, times, ylim = c(0, 60))
-points(ns, times2, col = "red")
-points(ns, times3, col = "blue")
-points(ns, times4, col = "green")
-
-median(times2/times)  #about twice as fast :)
-median(times3/times)  #faster
-median(times4/times)  #faster still :)
-
-
-summary(lag(times, 1)/times)
-summary(lag(times2, 1)/times2)
-summary(lag(times3, 1)/times3)
-summary(lag(times4, 1)/times4)
-
-
-all.equal(tmpm(dx[1:500, ], ILex = 9)$pDeath, tmpm2(dx[1:500, ])$pDeath )  #with the same result
-all.equal(tmpm(dx[1:500, ], ILex = 9)$pDeath, tmpm3(dx[1:500, ])$pDeath )  #with the same result
-all.equal(tmpm(dx[1:500, ], ILex = 9)$pDeath, tmpm4(dx[1:500, ]) )  #with the same result
+mb3 = microbenchmark::microbenchmark(
+	{tmpm(dx[1:5000, ], ILex = 9)},
+	{tmpm2(dx[1:5000, ])},
+	{tmpm3(dx[1:5000, ])},
+	{tmpm4(dx[1:5000, ])},
+	{tmpm4p(dx[1:5000, ])},
+	{tmpm4p(dx[1:5000, ], max_combine = 5000)},
+	{tmpm4p(dx[1:5000, ], max_combine = 2500)},
+	{tmpm5(dx[1:5000, ])},
+	{tmpm5p(dx[1:5000, ])},
+	{tmpm5p(dx[1:5000, ], max_combine = 5000)},
+	{tmpm5p(dx[1:5000, ], max_combine = 2500)},
+	times = 200, 
+	control = list(warmup = 5))
+gc()
 
 
-rm(i, ns, times, times2, times3, start, stop, tmpm2, tmpm3)
+mb
+ggplot2::autoplot(mb)
+
+mb2
+ggplot2::autoplot(mb2)
+
+mb3
+ggplot2::autoplot(mb3)
+
+
+
+
+
+
+
+
+
+temp = tmpm(dx[1:1000, ], ILex = 9)$pDeath
+all.equal(temp, tmpm2(dx[1:1000, ])$pDeath )  #same results
+all.equal(temp, tmpm3(dx[1:1000, ])$pDeath )  #same results
+all.equal(temp, tmpm4(dx[1:1000, ]) )  #same results
+all.equal(temp, tmpm4p(dx[1:1000, ]) )  #same results
+all.equal(temp, tmpm5(dx[1:1000, ]) )  #same results
+all.equal(temp, tmpm5p(dx[1:1000, ]) )  #same results
+
+
+
+
+# 
+# 
+# 
+# library(lineprof)
+# v4 = lineprof( tmpm4(dx[1:1000, ])  )
+# 
+# v4p = lineprof( tmpm4p(dx[1:1000, ])  )
+# 
+# v5 = lineprof( tmpm5(dx[1:1000, ])  )
+# v5p = lineprof( tmpm5p(dx[1:1000, ])  )
+
+
+
+
+
+
+
+
+
+
+
+
+
+mb2 = microbenchmark::microbenchmark(
+	{tmpm(dx[1:5000, ], ILex = 9)},
+	{tmpm2(dx[1:5000, ])},
+	{tmpm3(dx[1:5000, ])},
+	{tmpm4(dx[1:5000, ])},
+	{tmpm4p(dx[1:5000, ])},
+	{tmpm4p(dx[1:5000, ], max_combine = 5000)},
+	{tmpm4p(dx[1:5000, ], max_combine = 2500)},
+	{tmpm4p(dx[1:5000, ], max_combine = 1000)},
+	{tmpm5(dx[1:5000, ])},
+	{tmpm5p(dx[1:5000, ])},
+	{tmpm5p(dx[1:5000, ], max_combine = 5000)},
+	{tmpm5p(dx[1:5000, ], max_combine = 2500)},
+	{tmpm5p(dx[1:5000, ], max_combine = 1000)},
+	times = 50)
+
+mb2
+ggplot2::autoplot(mb2)
+
+
+
+
+
+mb3 = microbenchmark::microbenchmark(
+	{tmpm(dx[1:10000, ], ILex = 9)},
+	{tmpm2(dx[1:10000, ])},
+	{tmpm3(dx[1:10000, ])},
+	{tmpm4(dx[1:10000, ])},
+	{tmpm4p(dx[1:10000, ])},
+	{tmpm4p(dx[1:10000, ], max_combine = 10000)},
+	{tmpm4p(dx[1:10000, ], max_combine = 5000)},
+	{tmpm4p(dx[1:10000, ], max_combine = 2500)},
+	{tmpm5(dx[1:10000, ])},
+	{tmpm5p(dx[1:10000, ])},
+	{tmpm5p(dx[1:10000, ], max_combine = 10000)},
+	{tmpm5p(dx[1:10000, ], max_combine = 5000)},
+	{tmpm5p(dx[1:10000, ], max_combine = 2500)},
+	times = 50)
+
+mb3
+ggplot2::autoplot(mb3)
+
+
+
+
+
+
+
+
+rm(temp, mb, tmpm2, tmpm3, tmpm5)
+
+
+
+
+
+
 
 
 
@@ -1246,38 +1415,71 @@ dx = dx%>% mutate_all(., factor)
 
 
 #do in chunks to reduce memory pressure
+#takes about 4 hours with six cores
 dx$pDeath = NA_real_
 
-chunk.size = 50000
+chunk.size = 20000
 nchunks = ceiling( nrow(dx)/chunk.size)
 
 starts = seq(1, nrow(dx), chunk.size)
 ends = c(seq(chunk.size, nrow(dx), chunk.size), nrow(dx))
 
-warning("Looks like this will take at least ", (times4[6]*length(starts))/60/60, " hours")
 
-Sys.time()
-for(i in 1:nchunks){
-	dx$pDeath[ starts[i]:ends[i] ] = tmpm4(dx[ starts[i]:ends[i], ]) 
+max_cores = parallel::detectCores()
+choices = c("No, don't use parallel processing",
+						paste("Yes, use parallel processing with", 2:max_cores, "cores") )
+
+res = menu(choices, 
+					 title = "Use parallel processing (multiple processors) to calculate TMPM?")
+
+writeLines(c(""), "Data/tmpm_log.txt") #make file to monitor progress
+
+if(res>1){
+	library(foreach)
+	library(doParallel)
+	
+	doParallel::registerDoParallel(cores = res)
+	print(Sys.time())
+	dx$pDeath = foreach::foreach(i = 1:nchunks, .combine=c, .multicombine = T, .maxcombine = 5000) %dopar% {
+		sink("Data/tmpm_log.txt", append=TRUE)
+		cat(paste(Sys.time(), ":\t\t chunk", i, "of", nchunks, "\t\t", round( (i/nchunks)*100,2), "%\n"))
+		tmpm4(dx[ starts[i]:ends[i], ])
+	}
+	print(Sys.time())
+	doParallel::stopImplicitCluster()
+	
+} else {
+	print(Sys.time())
+	for(i in 1:nchunks){
+		dx$pDeath[ starts[i]:ends[i] ] = tmpm4(dx[ starts[i]:ends[i], ]) 
+	}
+	print(Sys.time())
 }
-Sys.time()
+
+
+
+
+
+
 gc()
 
 
 dx[, paste0("dx", 1:15) ] = NULL
 
-saveRDS(dx, "Data/tmpm.RDS")
+dir.create("Data/final/")
+saveRDS(dx, "Data/final/tmpm.RDS")
 
 #don't need backup of all dxs anymore
-file.remove("Data/dx_final.csv")
+file.remove("Data/final/dx_final.csv")
 
+dbDisconnect(neds)
 rm(list = ls())
 gc()
 
 
 
 
-# export ecodes for recoding and consolidation  --------------------------------------
+# export ecodes, recode, and consolidate  --------------------------------------
 
 
 
@@ -1290,8 +1492,6 @@ dbSendQuery(neds,
 						"DELETE FROM ecodes
 										WHERE key_ed NOT IN (SELECT f.key_ed FROM join_res AS f)")
 
-# ROWS Fetched: 0 [complete]
-# Changed: 184913890
 
 
 ecodes = dbReadTable(neds, "ecodes")
@@ -1326,6 +1526,8 @@ icd_map = read_csv("https://raw.githubusercontent.com/jrf1111/ICD10-to-ICD9/mast
 
 #select needed vars
 icd_map = icd_map[, c("icd9_ecode", "icd9_mechanism", "icd9_intent")]
+icd_map = icd_map[!is.na(icd_map$icd9_ecode), ]
+
 
 
 #reformat to match ecodes file
@@ -1375,17 +1577,21 @@ ecodes = ecodes[, c("key_ed", "hosp_ed",
 										"ecode3", "mech3", "intent3", 
 										"ecode4", "mech4", "intent4")]
 
+#remove duplicates
+ecodes = ecodes[!duplicated(ecodes$key_ed), ]
 
-saveRDS(ecodes, "Data/ecodes_final.RDS")
+ecodes = ecodes[!is.na(ecodes$key_ed), ]
+
+
+saveRDS(ecodes, "Data/final/ecodes_final.RDS")
 
 rm(ecodes, icd_map, dx_recode)
-
 
 # disconnect from DB ------------------------------------------------------
 
 
 
 dbDisconnect(neds)
-
+rm(neds)
 
 
