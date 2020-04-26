@@ -518,25 +518,13 @@ rm(exclude)
 # ~~ filter on ecodes ----
 
 
-#the below for loop is the equivalent of running the following for ecode1, ecode2, ecode3, and ecode4:
-# dbSendQuery(neds, 
-# 						"DELETE FROM ecodes
-# 										WHERE SUBSTR(ecode1, 1, 4) IN (SELECT f.exclude FROM ecode_exclude AS f)")
-# dbSendQuery(neds, 
-# 						"DELETE FROM ecodes
-# 										WHERE ecode1 IN (SELECT f.exclude FROM ecode_exclude AS f)")
-
-for(i in 1:4){
-	var = paste0("ecode", i)
-	command = paste0("DELETE FROM ecodes WHERE ",
-									 "SUBSTR(", var, ", 1, 4) IN (SELECT f.exclude FROM ecode_exclude AS f)")
-	dbSendQuery(neds, command)
-	
-	command = paste0("DELETE FROM ecodes WHERE ", var, " IN (SELECT f.exclude FROM ecode_exclude AS f)")
-	dbSendQuery(neds, command)
-	print(var)
-}
-rm(i, var, command)
+#Per Alan, only filter on ecode1
+dbSendQuery(neds,
+						"DELETE FROM ecodes
+										WHERE SUBSTR(ecode1, 1, 4) IN (SELECT f.exclude FROM ecode_exclude AS f)")
+dbSendQuery(neds,
+						"DELETE FROM ecodes
+										WHERE ecode1 IN (SELECT f.exclude FROM ecode_exclude AS f)")
 
 
 #confirm filter (should be zero)
@@ -549,39 +537,6 @@ dbGetQuery(neds,
 					 'SELECT COUNT(ecode1)
 					 FROM ecodes
 					 WHERE SUBSTR(ecode1, 1, 4) = "E850"')
-
-
-dbGetQuery(neds, 
-					 'SELECT COUNT(ecode2)
-					 FROM ecodes
-					 WHERE SUBSTR(ecode2, 1, 4) = "E890"')
-
-dbGetQuery(neds, 
-					 'SELECT COUNT(ecode2)
-					 FROM ecodes
-					 WHERE SUBSTR(ecode2, 1, 4) = "E850"')
-
-dbGetQuery(neds, 
-					 'SELECT COUNT(ecode3)
-					 FROM ecodes
-					 WHERE SUBSTR(ecode3, 1, 4) = "E890"')
-
-dbGetQuery(neds, 
-					 'SELECT COUNT(ecode3)
-					 FROM ecodes
-					 WHERE SUBSTR(ecode3, 1, 4) = "E850"')
-
-
-dbGetQuery(neds, 
-					 'SELECT COUNT(ecode4)
-					 FROM ecodes
-					 WHERE SUBSTR(ecode4, 1, 4) = "E890"')
-
-dbGetQuery(neds, 
-					 'SELECT COUNT(ecode4)
-					 FROM ecodes
-					 WHERE SUBSTR(ecode4, 1, 4) = "E850"')
-
 
 
 
