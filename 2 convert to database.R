@@ -186,46 +186,17 @@ rm(query)
 
 
 
-# standardize dx1 strings --------------------------------------------------
-dbGetQuery(neds, "SELECT dx1 FROM dx LIMIT 20")
 
 
-# dx1 with length of 3
-dbGetQuery(neds, 
-						"SELECT dx1 || '00' AS dx1s
-										FROM dx
-										WHERE LENGTH(dx1) = 3
-										LIMIT 20")
+# create indexes ----------------------------------------------------------
+#indexes take a while to create but they speed up the joins and filters
 
 
-
-dbSendQuery(neds, 
-						"UPDATE dx
-						 SET dx1 = (dx1 || '00')
-						 WHERE LENGTH(dx1) = 3")
-
-dbGetQuery(neds, "SELECT dx1 FROM dx LIMIT 50")
-
-
-
-
-
-
-# dx1 with length of 4
-dbGetQuery(neds, 
-						"SELECT dx1 || '0' AS dx1s
-										FROM dx
-										WHERE LENGTH(dx1) = 4
-										LIMIT 20")
-
-dbSendQuery(neds, 
-						"UPDATE dx
-						 SET dx1 = (dx1 || '0')
-						 WHERE LENGTH(dx1) = 4")
-
-dbGetQuery(neds, "SELECT dx1 FROM dx LIMIT 50")
-
-
+dbExecute(neds, "CREATE INDEX index_key_ed_demos ON demos (key_ed)")
+dbExecute(neds, "CREATE INDEX index_key_ed_dx ON dx (key_ed)")
+dbExecute(neds, "CREATE INDEX index_key_ed_ecodes ON ecodes (key_ed)")
+dbExecute(neds, "CREATE INDEX index_key_ed_ip ON ip (key_ed)")
+dbExecute(neds, "CREATE INDEX index_key_ed_outcomes ON outcomes (key_ed)")
 
 
 
@@ -274,6 +245,50 @@ dbListFields(neds, "injury_dx")
 dbGetQuery(neds, "SELECT * FROM injury_dx LIMIT 50")
 
 rm(injury_codes)
+
+
+
+
+
+# ~~ standardize dx1 strings --------------------------------------------------
+dbGetQuery(neds, "SELECT dx1 FROM dx LIMIT 20")
+
+
+# dx1 with length of 3
+dbGetQuery(neds, 
+					 "SELECT dx1 || '00' AS dx1s
+										FROM dx
+										WHERE LENGTH(dx1) = 3
+										LIMIT 20")
+
+
+
+dbSendQuery(neds, 
+						"UPDATE dx
+						 SET dx1 = (dx1 || '00')
+						 WHERE LENGTH(dx1) = 3")
+
+dbGetQuery(neds, "SELECT dx1 FROM dx LIMIT 50")
+
+
+
+
+
+
+# dx1 with length of 4
+dbGetQuery(neds, 
+					 "SELECT dx1 || '0' AS dx1s
+										FROM dx
+										WHERE LENGTH(dx1) = 4
+										LIMIT 20")
+
+dbSendQuery(neds, 
+						"UPDATE dx
+						 SET dx1 = (dx1 || '0')
+						 WHERE LENGTH(dx1) = 4")
+
+dbGetQuery(neds, "SELECT dx1 FROM dx LIMIT 50")
+
 
 
 
@@ -496,7 +511,7 @@ exclude = c(
 	paste0("E", 988.2), 
 	paste0("E", 988.7)
 	
-	)
+)
 
 
 exclude = gsub(".", "", exclude, fixed = T) #remove periods
@@ -571,17 +586,6 @@ dbSendQuery(neds,
 
 
 
-
-
-# create indexes ----------------------------------------------------------
-#indexes take a while to create but they speed up the joins on the key_ed column by ~4-5x
-
-
-dbExecute(neds, "CREATE INDEX index_key_ed_demos ON demos (key_ed)")
-dbExecute(neds, "CREATE INDEX index_key_ed_dx ON dx (key_ed)")
-dbExecute(neds, "CREATE INDEX index_key_ed_ecodes ON ecodes (key_ed)")
-dbExecute(neds, "CREATE INDEX index_key_ed_ip ON ip (key_ed)")
-dbExecute(neds, "CREATE INDEX index_key_ed_outcomes ON outcomes (key_ed)")
 
 
 
@@ -702,7 +706,7 @@ dbSendQuery(neds,
 
 
 # ROWS Fetched: 0 [complete]
-# Changed: 15288839
+# Changed: 15724244
 
 
 
@@ -716,30 +720,20 @@ dbExecute(neds, "CREATE INDEX index_key_ed_join_res ON join_res (key_ed)")
 dbGetQuery(neds,
 					 'SELECT COUNT(*), key_ed FROM join_res
 					 GROUP BY key_ed
-					 ORDER BY COUNT(*) DESC')
-
-
-dbGetQuery(neds,
-					 "SELECT * FROM join_res
-					 WHERE key_ed = '3201000011321'")
+					 ORDER BY COUNT(*) DESC LIMIT 10')
 
 
 
 dbSendQuery(neds,
-					 "DELETE FROM join_res
+						"DELETE FROM join_res
 					 WHERE rowid NOT IN (SELECT MIN(rowid) FROM join_res GROUP BY key_ed)")
 # ROWS Fetched: 0 [complete]
-# Changed: 1025459
+# Changed: 2954194
 
 dbGetQuery(neds,
 					 'SELECT COUNT(*), key_ed FROM join_res
 					 GROUP BY key_ed
-					 ORDER BY COUNT(*) DESC LIMIT 20')
-
-
-dbGetQuery(neds,
-					 "SELECT * FROM join_res
-					 WHERE key_ed = '3201000011321'")
+					 ORDER BY COUNT(*) DESC LIMIT 10')
 
 
 
@@ -792,35 +786,6 @@ dbGetQuery(neds,
 
 
 
-dbGetQuery(neds, 
-					 'SELECT COUNT(*), ecode2
-					 FROM join_res
-					 WHERE SUBSTR(ecode2, 1, 4) IN (SELECT f.exclude FROM ecode_exclude AS f)
-					 GROUP BY ecode2')
-
-
-
-dbGetQuery(neds, 
-					 'SELECT COUNT(*), ecode3
-					 FROM join_res
-					 WHERE SUBSTR(ecode3, 1, 4) IN (SELECT f.exclude FROM ecode_exclude AS f)
-					 GROUP BY ecode3')
-
-
-
-dbGetQuery(neds, 
-					 'SELECT COUNT(*), ecode4
-					 FROM join_res
-					 WHERE SUBSTR(ecode4, 1, 4) IN (SELECT f.exclude FROM ecode_exclude AS f)
-					 GROUP BY ecode4')
-
-
-
-
-
-gc()
-
-
 
 
 # export dxs & calculate TMPM -------------------------------------------
@@ -856,7 +821,7 @@ dbSendQuery(neds,
 						 FROM join_res")
 
 # ROWS Fetched: 0 [complete]
-# Changed: 12511200
+# Changed: 12770050
 
 
 dx = dbReadTable(neds, "dx_final")
@@ -890,7 +855,7 @@ ICs$lexi = NULL
 
 tmpm2 = function(Pdat){
 	xBeta <- NULL
-
+	
 	MortModel <- function(marc1, marc2, marc3, marc4, marc5, S_Region, Interaction) {
 		xBeta <- (1.406958 * marc1) + (1.409992 * marc2) + 
 			(0.5205343 * marc3) + (0.4150946 * marc4) + 
@@ -934,7 +899,7 @@ tmpm2 = function(Pdat){
 
 
 tmpm3 = function(Pdat){
-
+	
 	
 	# MortModel <- function(marc1, marc2, marc3, marc4, marc5, S_Region, Interaction) {
 	# 	xBeta <- (1.406958 * marc1) + (1.409992 * marc2) + 
@@ -984,14 +949,14 @@ tmpm3 = function(Pdat){
 	
 	
 	pDeath <- apply(Pdat, 1, app)
-
+	
 	return(data.frame(pDeath = pDeath))
 	
 }
 
 
 tmpm4 = function(Pdat){
-
+	
 	
 	get_marcs = function(x){
 		marclist <- ICs[match(x[-1], ICs$index), ]
@@ -1015,7 +980,7 @@ tmpm4 = function(Pdat){
 	# marcs = matrix(NA, nrow = nrow(Pdat), ncol = 6)
 	# colnames(marcs) = c("marc1", "marc2", "marc3", "marc4", "marc5", "same_region")
 	# marcs = as_tibble(marcs)
-
+	
 	# for(i in 1:nrow(Pdat)){
 	# 	marcs[i, ] = get_marcs(Pdat[i, ])
 	# }
@@ -1023,7 +988,7 @@ tmpm4 = function(Pdat){
 	
 	marcs = apply(Pdat, 1, get_marcs)
 	marcs = as_tibble(t(marcs)) #transposing takes a little bit...
-
+	
 	
 	
 	marcs$Imarc = marcs$marc1 * marcs$marc2
@@ -1040,7 +1005,7 @@ tmpm4 = function(Pdat){
 	
 	
 	pnorm(Model_Calc)
-
+	
 	
 	
 	
@@ -1051,8 +1016,8 @@ tmpm4 = function(Pdat){
 
 #parallel version of tmpm4, not really any faster
 tmpm4p = function(Pdat, cores = 6, max_combine = max(c(ceiling(nrow(Pdat)*0.1), 100))){
-
-
+	
+	
 	get_marcs = function(x){
 		marclist <- ICs[match(x[-1], ICs$index), ]
 		marclist <- marclist[order(marclist$marc, decreasing = T), ]
@@ -1071,17 +1036,17 @@ tmpm4p = function(Pdat, cores = 6, max_combine = max(c(ceiling(nrow(Pdat)*0.1), 
 		marclist
 	}
 	
-
+	
 	library(foreach)
 	library(doParallel)
-
+	
 	doParallel::registerDoParallel(cores = cores)
 	marcs = foreach::foreach(i = 1:nrow(Pdat), .combine=dplyr::bind_rows, 
 													 .multicombine = T, .maxcombine = max_combine) %dopar% {
-		get_marcs(Pdat[i, ])
-	}
+													 	get_marcs(Pdat[i, ])
+													 }
 	doParallel::stopImplicitCluster()
-
+	
 	marcs = as.data.frame(marcs)
 	marcs$Imarc = marcs$marc1 * marcs$marc2
 	
@@ -1098,7 +1063,7 @@ tmpm4p = function(Pdat, cores = 6, max_combine = max(c(ceiling(nrow(Pdat)*0.1), 
 	
 	pnorm(Model_Calc)
 	
-
+	
 }
 
 
@@ -1137,7 +1102,7 @@ tmpm5 = function(Pdat){
 						-0.7782696     #Imarc
 	)
 	
-
+	
 	Model_Calc = {betas %*% marcs} - 2.217565
 	
 	
@@ -1150,37 +1115,37 @@ tmpm5 = function(Pdat){
 
 #parallel version of tmpm5, not really any faster
 tmpm5p = function(Pdat, cores = 6, max_combine = max(c(ceiling(nrow(Pdat)*0.1), 100))){
-
+	
 	get_marcs = function(x){
 		marclist <- ICs[match(x[-1], ICs$index), ]
 		marclist <- marclist[order(marclist$marc, decreasing = T), ]
 		marclist <- marclist[1:5, ]
 		marclist$marc[is.na(marclist$marc)] = 0
-
+		
 		marclist$index = NULL
-
+		
 		if (marclist$marc[1] != 0 & marclist$marc[2] != 0 & marclist$bodyregion[1] == marclist$bodyregion[2]) {
 			same_region = 1
 		} else same_region = 0
-
+		
 		Imarc = marclist$marc[1]*marclist$marc[2]
-
+		
 		marclist = c(marclist$marc, same_region, Imarc)
 		names(marclist) = c(paste0("marc", 1:5), "same_region", "Imarc")
-
+		
 		marclist
 	}
-
-
+	
+	
 	library(foreach)
 	library(doParallel)
 	doParallel::registerDoParallel(cores = cores)
 	marcs = foreach::foreach(i = 1:nrow(Pdat), .combine=dplyr::bind_rows, 
 													 .multicombine = T, .maxcombine = max_combine) %dopar% {
-		get_marcs(Pdat[i, ])
-	}
+													 	get_marcs(Pdat[i, ])
+													 }
 	doParallel::stopImplicitCluster()
-
+	
 	marcs = as.matrix(marcs)
 	
 	betas = c(1.406958,      #marc1
@@ -1193,11 +1158,11 @@ tmpm5p = function(Pdat, cores = 6, max_combine = max(c(ceiling(nrow(Pdat)*0.1), 
 	)
 	
 	betas = matrix(betas, ncol = 1)
-
+	
 	Model_Calc = {marcs %*% betas} - 2.217565
-
+	
 	Model_Calc = pnorm(Model_Calc)
-
+	
 	c(Model_Calc)
 }
 
@@ -1217,7 +1182,7 @@ mb = microbenchmark::microbenchmark(
 	{tmpm5p(dx[1:100, ], max_combine = 100)},
 	{tmpm5p(dx[1:100, ], max_combine = 50)},
 	times = 200, 
-	control = list(warmup = 20))
+	control = list(warmup = 5))
 
 gc()
 mb2 = microbenchmark::microbenchmark(
@@ -1237,31 +1202,11 @@ mb2 = microbenchmark::microbenchmark(
 gc()
 
 
-mb3 = microbenchmark::microbenchmark(
-	{tmpm(dx[1:5000, ], ILex = 9)},
-	{tmpm2(dx[1:5000, ])},
-	{tmpm3(dx[1:5000, ])},
-	{tmpm4(dx[1:5000, ])},
-	{tmpm4p(dx[1:5000, ])},
-	{tmpm4p(dx[1:5000, ], max_combine = 5000)},
-	{tmpm4p(dx[1:5000, ], max_combine = 2500)},
-	{tmpm5(dx[1:5000, ])},
-	{tmpm5p(dx[1:5000, ])},
-	{tmpm5p(dx[1:5000, ], max_combine = 5000)},
-	{tmpm5p(dx[1:5000, ], max_combine = 2500)},
-	times = 200, 
-	control = list(warmup = 5))
-gc()
-
-
 mb
 ggplot2::autoplot(mb)
 
 mb2
 ggplot2::autoplot(mb2)
-
-mb3
-ggplot2::autoplot(mb3)
 
 
 
@@ -1281,79 +1226,6 @@ all.equal(temp, tmpm5p(dx[1:1000, ]) )  #same results
 
 
 
-
-# 
-# 
-# 
-# library(lineprof)
-# v4 = lineprof( tmpm4(dx[1:1000, ])  )
-# 
-# v4p = lineprof( tmpm4p(dx[1:1000, ])  )
-# 
-# v5 = lineprof( tmpm5(dx[1:1000, ])  )
-# v5p = lineprof( tmpm5p(dx[1:1000, ])  )
-
-
-
-
-
-
-
-
-
-
-
-
-
-mb2 = microbenchmark::microbenchmark(
-	{tmpm(dx[1:5000, ], ILex = 9)},
-	{tmpm2(dx[1:5000, ])},
-	{tmpm3(dx[1:5000, ])},
-	{tmpm4(dx[1:5000, ])},
-	{tmpm4p(dx[1:5000, ])},
-	{tmpm4p(dx[1:5000, ], max_combine = 5000)},
-	{tmpm4p(dx[1:5000, ], max_combine = 2500)},
-	{tmpm4p(dx[1:5000, ], max_combine = 1000)},
-	{tmpm5(dx[1:5000, ])},
-	{tmpm5p(dx[1:5000, ])},
-	{tmpm5p(dx[1:5000, ], max_combine = 5000)},
-	{tmpm5p(dx[1:5000, ], max_combine = 2500)},
-	{tmpm5p(dx[1:5000, ], max_combine = 1000)},
-	times = 50)
-
-mb2
-ggplot2::autoplot(mb2)
-
-
-
-
-
-mb3 = microbenchmark::microbenchmark(
-	{tmpm(dx[1:10000, ], ILex = 9)},
-	{tmpm2(dx[1:10000, ])},
-	{tmpm3(dx[1:10000, ])},
-	{tmpm4(dx[1:10000, ])},
-	{tmpm4p(dx[1:10000, ])},
-	{tmpm4p(dx[1:10000, ], max_combine = 10000)},
-	{tmpm4p(dx[1:10000, ], max_combine = 5000)},
-	{tmpm4p(dx[1:10000, ], max_combine = 2500)},
-	{tmpm5(dx[1:10000, ])},
-	{tmpm5p(dx[1:10000, ])},
-	{tmpm5p(dx[1:10000, ], max_combine = 10000)},
-	{tmpm5p(dx[1:10000, ], max_combine = 5000)},
-	{tmpm5p(dx[1:10000, ], max_combine = 2500)},
-	times = 50)
-
-mb3
-ggplot2::autoplot(mb3)
-
-
-
-
-
-
-
-
 rm(temp, mb, tmpm2, tmpm3, tmpm5)
 
 
@@ -1370,10 +1242,10 @@ dx = dx%>% mutate_all(., factor)
 
 
 #do in chunks to reduce memory pressure
-#takes about 4 hours with six cores
+#takes about 20 mins with 7 cores and chunk.size = 1000
 dx$pDeath = NA_real_
 
-chunk.size = 20000
+chunk.size = 1000
 nchunks = ceiling( nrow(dx)/chunk.size)
 
 starts = seq(1, nrow(dx), chunk.size)
@@ -1395,10 +1267,10 @@ if(res>1){
 	
 	doParallel::registerDoParallel(cores = res)
 	print(Sys.time())
-	dx$pDeath = foreach::foreach(i = 1:nchunks, .combine=c, .multicombine = T, .maxcombine = 5000) %dopar% {
-		sink("Data/tmpm_log.txt", append=TRUE)
-		cat(paste(Sys.time(), ":\t\t chunk", i, "of", nchunks, "\t\t", round( (i/nchunks)*100,2), "%\n"))
-		tmpm4(dx[ starts[i]:ends[i], ])
+	dx$pDeath = foreach::foreach(i = 1:nchunks, .combine=c, .multicombine = T, .maxcombine = 1000) %dopar% {
+		try(sink("Data/tmpm_log.txt", append=TRUE))
+		try(cat(paste(Sys.time(), ":\t\t chunk", i, "of", nchunks, "\t\t", round( (i/nchunks)*100,2), "%\n")))
+		tmpm5(dx[ starts[i]:ends[i], ])
 	}
 	print(Sys.time())
 	doParallel::stopImplicitCluster()
@@ -1411,7 +1283,7 @@ if(res>1){
 	print(Sys.time())
 }
 
-
+rm(max_cores, res, starts, ends, choices, chunk.size, nchunks)
 
 
 
