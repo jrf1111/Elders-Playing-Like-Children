@@ -1,7 +1,8 @@
 library(tidyverse)
 library(dplyr)
 library(dbplyr)
-library(RSQLite)
+# library(RSQLite) # starts throwing "Error: database or disk is full" after updating to R v4, use postgresql instead
+library(RPostgreSQL)
 library(DBI)
 library(data.table)
 
@@ -9,7 +10,166 @@ library(data.table)
 
 
 #create database ----
-neds = dbConnect(RSQLite::SQLite(), "Data/NEDS_DB.sqlite")
+# neds = dbConnect(RSQLite::SQLite(), "Data/NEDS_DB.sqlite")
+
+#need to start the server in the Postgresql app first
+pg = dbDriver("PostgreSQL")
+neds = dbConnect(pg, 
+								 user="jr-f", 
+								 password="",
+								 host="localhost",
+								 port=5430,
+								 dbname="jr-f")
+
+
+
+
+
+
+# ~ dx ----
+files = list.files("Data/", pattern = "dx", full.names = T)
+
+for(i in 5:length(files)){
+	file = files[i]
+	temp = readRDS(file)
+	temp$key_ed = as.character(temp$key_ed)
+	if(file == "Data//NEDS_2015Q1Q3_dx.RDS"){temp$year = "2015Q1Q3"}
+	if(file == "Data//NEDS_2015Q4_dx.RDS"){temp$year = "2015Q4"}
+	temp$year = as.character(temp$year)
+	dbWriteTable(neds, "dx", temp, append = TRUE, row.names=FALSE)
+	rm(temp)
+	print(file)
+}
+
+###########################################################
+
+
+# issues with NEDS_2015Q1Q3_dx.RDS below
+
+
+###########################################################
+
+
+# dbWriteTable(neds, "dx", temp[, c("discwt", "dx3")]  , append = TRUE, row.names=FALSE); dbSendQuery(neds, "DROP TABLE dx")
+# Error in postgresqlgetResult(new.con) : 
+# 	RS-DBI driver: (could not Retrieve the result : ERROR:  invalid byte sequence for encoding "UTF8": 0xf0
+# 									CONTEXT:  COPY dx, line 11864529
+# 	)
+# 
+# dbWriteTable(neds, "dx", temp[, c("discwt", "dx4")]  , append = TRUE, row.names=FALSE); dbSendQuery(neds, "DROP TABLE dx")
+# Error in postgresqlgetResult(new.con) : 
+# 	RS-DBI driver: (could not Retrieve the result : ERROR:  invalid byte sequence for encoding "UTF8": 0xe5 0x7f 0xe5
+# 									CONTEXT:  COPY dx, line 20844363
+# 	)
+# 
+# 
+# 
+# dbWriteTable(neds, "dx", temp[, c("discwt", "dx5")]  , append = TRUE, row.names=FALSE); dbSendQuery(neds, "DROP TABLE dx")
+# Error in postgresqlgetResult(new.con) : 
+# 	RS-DBI driver: (could not Retrieve the result : ERROR:  invalid byte sequence for encoding "UTF8": 0xe5 0x7f 0xe5
+# 									CONTEXT:  COPY dx, line 11864529
+# 	)
+# 
+# dbWriteTable(neds, "dx", temp[, c("discwt", "dx6")]  , append = TRUE, row.names=FALSE)
+# Error in postgresqlgetResult(new.con) : 
+# 	RS-DBI driver: (could not Retrieve the result : ERROR:  invalid byte sequence for encoding "UTF8": 0xe5 0x7f 0xe5
+# 									CONTEXT:  COPY dx, line 11864529
+# 	)
+# 
+# 
+# 
+# dbWriteTable(neds, "dx", temp[, c("discwt", "dx7")]  , append = TRUE, row.names=FALSE)
+# Error in postgresqlgetResult(new.con) : 
+# 	RS-DBI driver: (could not Retrieve the result : ERROR:  invalid byte sequence for encoding "UTF8": 0xe5 0x7f 0xe5
+# 									CONTEXT:  COPY dx, line 20841524
+# 	)
+# 
+# 
+# 
+# dbWriteTable(neds, "dx", temp[, c("discwt", "dx8")]  , append = TRUE, row.names=FALSE)
+# Error in postgresqlgetResult(new.con) : 
+# 	RS-DBI driver: (could not Retrieve the result : ERROR:  invalid byte sequence for encoding "UTF8": 0xe5 0x7f 0xe5
+# 									CONTEXT:  COPY dx, line 20841524
+# 	)
+# 
+# 
+# 
+# 
+# dbWriteTable(neds, "dx", temp[, c("discwt", "dx9")]  , append = TRUE, row.names=FALSE)
+# Error in postgresqlgetResult(new.con) : 
+# 	RS-DBI driver: (could not Retrieve the result : ERROR:  invalid byte sequence for encoding "UTF8": 0xe5 0x7f 0xe5
+# 									CONTEXT:  COPY dx, line 20841524
+# 	)
+# 
+# 
+# dbWriteTable(neds, "dx", temp[, c("discwt", "dx10")]  , append = TRUE, row.names=FALSE)
+# Error in postgresqlgetResult(new.con) : 
+# 	RS-DBI driver: (could not Retrieve the result : ERROR:  invalid byte sequence for encoding "UTF8": 0xe5 0x7f 0xe5
+# 									CONTEXT:  COPY dx, line 20841524
+# 	)
+# 
+# 
+# 
+# dbWriteTable(neds, "dx", temp[, c("discwt", "dx11")]  , append = TRUE, row.names=FALSE)
+# Error in postgresqlgetResult(new.con) : 
+# 	RS-DBI driver: (could not Retrieve the result : ERROR:  invalid byte sequence for encoding "UTF8": 0xe5 0x7f 0xe5
+# 									CONTEXT:  COPY dx, line 20841524
+# 	)
+# 
+# 
+# dbWriteTable(neds, "dx", temp[, c("discwt", "dx12")]  , append = TRUE, row.names=FALSE)
+# Error in postgresqlgetResult(new.con) : 
+# 	RS-DBI driver: (could not Retrieve the result : ERROR:  invalid byte sequence for encoding "UTF8": 0xe5 0x7f 0xe5
+# 									CONTEXT:  COPY dx, line 20841524
+# 	)
+# 
+# 
+# 
+# dbWriteTable(neds, "dx", temp[, c("discwt", "dx13")]  , append = TRUE, row.names=FALSE)
+# Error in postgresqlgetResult(new.con) : 
+# 	RS-DBI driver: (could not Retrieve the result : ERROR:  invalid byte sequence for encoding "UTF8": 0xe5 0x7f 0xe5
+# 									CONTEXT:  COPY dx, line 20841524
+# 	)
+# 
+# 
+# dbWriteTable(neds, "dx", temp[, c("discwt", "dx14")]  , append = TRUE, row.names=FALSE)
+# Error in postgresqlgetResult(new.con) : 
+# 	RS-DBI driver: (could not Retrieve the result : ERROR:  invalid byte sequence for encoding "UTF8": 0xe5 0x7f 0xe5
+# 									CONTEXT:  COPY dx, line 20841524
+# 	)
+# 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+query = dbSendQuery(neds, "SELECT * FROM dx LIMIT 20")
+dbFetch(query)
+dbColumnInfo(query)
+rm(query)
+
+
+n = dbGetQuery(neds, "SELECT COUNT(key_ed) FROM dx")
+n = as.integer(n)
+cat("Initial N_obs = ", n, "\n", file = "nobs log.txt")
+gc()
 
 
 
@@ -29,36 +189,11 @@ for(i in 1:length(files)){
 }
 
 
-query = dbSendQuery(neds, "SELECT * from demos limit 20")
+query = dbSendQuery(neds, "SELECT * FROM demos LIMIT 20")
 dbFetch(query)
 dbColumnInfo(query)
 rm(query)
-
-
-
-
-
-# ~ dx ----
-files = list.files("Data/", pattern = "dx", full.names = T)
-
-for(i in 1:length(files)){
-	file = files[i]
-	temp = readRDS(file)
-	temp$key_ed = as.character(temp$key_ed)
-	if(file == "Data//NEDS_2015Q1Q3_dx.RDS"){temp$year = "2015Q1Q3"}
-	if(file == "Data//NEDS_2015Q4_dx.RDS"){temp$year = "2015Q4"}
-	temp$year = as.character(temp$year)
-	dbWriteTable(neds, "dx", temp, append = TRUE)
-	rm(temp)
-	print(file)
-}
-
-
-
-query = dbSendQuery(neds, "SELECT * FROM dx limit 20")
-dbFetch(query)
-dbColumnInfo(query)
-rm(query)
+gc()
 
 
 
@@ -82,11 +217,11 @@ for(i in 1:length(files)){
 
 
 
-query = dbSendQuery(neds, "SELECT * from ecodes limit 20")
+query = dbSendQuery(neds, "SELECT * FROM ecodes LIMIT 20")
 dbFetch(query)
 dbColumnInfo(query)
 rm(query)
-
+gc()
 
 
 
@@ -108,11 +243,11 @@ for(i in 1:length(files)){
 
 
 
-query = dbSendQuery(neds, "SELECT * from outcomes limit 20")
+query = dbSendQuery(neds, "SELECT * FROM outcomes LIMIT 20")
 dbFetch(query)
 dbColumnInfo(query)
 rm(query)
-
+gc()
 
 
 
@@ -140,11 +275,11 @@ for(i in 1:length(files)){
 
 
 
-query = dbSendQuery(neds, "SELECT * from ip limit 20")
+query = dbSendQuery(neds, "SELECT * FROM ip LIMIT 20")
 dbFetch(query)
 dbColumnInfo(query)
 rm(query)
-
+gc()
 
 
 
@@ -161,10 +296,11 @@ for(i in 1:length(files)){
 }
 
 
-query = dbSendQuery(neds, "SELECT * from hosp limit 20")
+query = dbSendQuery(neds, "SELECT * FROM hosp LIMIT 20")
 dbFetch(query)
 dbColumnInfo(query)
 rm(query)
+gc()
 
 
 
@@ -187,9 +323,19 @@ rm(query)
 
 
 
-
-# create indexes ----------------------------------------------------------
+# add primary keys and create indexes ----------------------------------------------------------
 #indexes take a while to create but they speed up the joins and filters
+
+
+
+dbExecute(neds, "ALTER TABLE demos ADD PRIMARY KEY (key_ed)")
+dbExecute(neds, "ALTER TABLE dx ADD PRIMARY KEY (key_ed)")
+dbExecute(neds, "ALTER TABLE ecodes ADD PRIMARY KEY (key_ed)")
+dbExecute(neds, "ALTER TABLE ip ADD PRIMARY KEY (key_ed)")
+dbExecute(neds, "ALTER TABLE outcomes ADD PRIMARY KEY (key_ed)")
+
+
+
 
 
 dbExecute(neds, "CREATE INDEX index_key_ed_demos ON demos (key_ed)")
@@ -321,6 +467,11 @@ dbSendQuery(neds,
 
 
 
+n = dbGetQuery(neds, "SELECT COUNT(key_ed) FROM dx")
+n = as.integer(n)
+cat("N_obs after filtering on injury dx = ", n, "\n", file="nobs log.txt", append=T)
+
+
 # ~~ standardize other dx strings ----------------
 
 
@@ -415,6 +566,9 @@ dbSendQuery(neds,
 
 
 
+n = dbGetQuery(neds, "SELECT COUNT(key_ed) FROM dx")
+n = as.integer(n)
+cat("N_obs after filtering on age = ", n, "\n", file="nobs log.txt", append-T)
 
 
 
@@ -581,6 +735,12 @@ dbSendQuery(neds,
 
 
 
+
+
+
+n = dbGetQuery(neds, "SELECT COUNT(key_ed) FROM dx")
+n = as.integer(n)
+cat("N_obs after filtering on ecodes = ", n, "\n", file="nobs log.txt", append=T)
 
 
 
@@ -783,6 +943,18 @@ dbGetQuery(neds,
 					 FROM join_res
 					 WHERE SUBSTR(ecode1, 1, 4) IN (SELECT f.exclude FROM ecode_exclude AS f)
 					 GROUP BY ecode1')
+
+
+
+
+
+
+
+
+n = dbGetQuery(neds, "SELECT COUNT(key_ed) FROM join_res")
+n = as.integer(n)
+cat("N_obs after all filters = ", n, "\n", file="nobs log.txt", append = T)
+
 
 
 
@@ -1268,8 +1440,8 @@ if(res>1){
 	doParallel::registerDoParallel(cores = res)
 	print(Sys.time())
 	dx$pDeath = foreach::foreach(i = 1:nchunks, .combine=c, .multicombine = T, .maxcombine = 1000) %dopar% {
-		try(sink("Data/tmpm_log.txt", append=TRUE))
-		try(cat(paste(Sys.time(), ":\t\t chunk", i, "of", nchunks, "\t\t", round( (i/nchunks)*100,2), "%\n")))
+		try(cat(paste(Sys.time(), ":\t\t chunk", i, "of", nchunks, "\t\t", round( (i/nchunks)*100,2), "%\n"),
+						file="Data/tmpm_log.txt", append=TRUE))
 		tmpm5(dx[ starts[i]:ends[i], ])
 	}
 	print(Sys.time())
