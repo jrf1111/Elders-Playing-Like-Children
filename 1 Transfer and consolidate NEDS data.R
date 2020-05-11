@@ -483,7 +483,7 @@ beepr::beep()
 # - Q1-Q3 are ICD9, Q4 is ICD10
 
 
-# ~ 2015 Q1-Q3 dxs ---------------------------------------------------------------------------------------------
+# ~ 2015 Q1-Q3 dxs ----------------------------------------------------------------------------------------
 temp = read_dta("Data/NEDS_2015_Core.dta", 
 								col_select = ids
 								)
@@ -597,8 +597,8 @@ gc()
 
 
 
-temp = temp %>% mutate_if(is.character, blank_to_na)
-temp = temp %>% mutate_if(is.character, factor)
+temp = temp %>% mutate_at(vars(starts_with("dx")), blank_to_na)
+temp = temp %>% mutate_at(vars(starts_with("dx")), as.factor)
 
 
 saveRDS(temp, "Data/NEDS_2015Q1Q3_dx.RDS")
@@ -615,10 +615,10 @@ temp = read_dta("Data/NEDS_2015Q4_ED.dta",
 															 )
 								)
 
-temp = temp %>% mutate_if(is.character, blank_to_na)
+temp = temp %>% mutate_at(vars(starts_with("i10")), blank_to_na)
 
 #set inconsistent and invalid values to missing
-temp = temp %>% mutate_if(is.character, function(x){ x[x %in% c("incn", "invl")] = NA; x } )
+temp = temp %>% mutate_at(vars(starts_with("i10")), function(x){ x[x %in% c("incn", "invl")] = NA; x } )
 
 
 #convert ICD10 to ICD9
@@ -653,11 +653,43 @@ temp = read_dta("Data/NEDS_2015Q1Q3_ED.dta",
 								)
 )
 
-temp = temp %>% mutate_if(is.character, blank_to_na)
+temp = temp %>% mutate_at(vars(starts_with("ecode")), blank_to_na)
+
+
+#lots of invalid multibyte strings
+temp$ecode1[11633187] = NA #invalid multibyte string: "N/0\x82\001\036\004"
+temp$ecode1[11633194] = NA #invalid multibyte string: "uA\xb6x\"\017w"
+temp$ecode1[14034782] = NA #invalid multibyte string: "\177\xe5\177\xe5\177\xe5\177"
+temp$ecode1[14034783] = NA #invalid multibyte string: "\177\xe5\177\xe5\177\xe5\177"
+
+#take care of the rest here
+temp$ecode1[grepl("\\W", temp$ecode1)] = NA
+temp$ecode2[grepl("\\W", temp$ecode2)] = NA
+temp$ecode3[grepl("\\W", temp$ecode3)] = NA
+temp$ecode4[grepl("\\W", temp$ecode4)] = NA
+
+
 
 #convert any invalid values (ones that don't start with E) to missing
 temp = temp %>% mutate_at(vars(starts_with("ecode")),
 													function(x){ x[which(substr(x,1,1)!="E")] = NA; x  })
+
+
+
+#also lots of issues with hosp_ed
+temp$hosp_ed[grepl("\\W", temp$hosp_ed)] = NA
+temp$hosp_ed = as.numeric(temp$hosp_ed)
+temp$hosp_ed[which(nchar(temp$hosp_ed) != 5)] = NA
+temp = temp %>% fill(hosp_ed)
+temp$hosp_ed = as.character(temp$hosp_ed)
+
+
+#lots of blank key_ed values for some reason, plus some invalid multibyte strings
+temp = temp[temp$key_ed != "", ]
+temp = temp[!grepl("\\W", temp$key_ed), ]
+temp = temp[!grepl("\\D", temp$key_ed), ]
+
+
 
 
 saveRDS(temp, "Data/NEDS_2015Q1Q3_ecode.RDS")
@@ -677,7 +709,7 @@ temp = read_dta("Data/NEDS_2015Q4_ED.dta",
 								)
 )
 
-temp = temp %>% mutate_if(is.character, blank_to_na)
+temp = temp %>% mutate_at(vars(starts_with("i10_ecause")), blank_to_na)
 
 
 temp = temp %>% mutate_at(vars(starts_with("i10_ecause")), function(x){ x[x=="invl"]=NA; x  })

@@ -28,133 +28,37 @@ neds = dbConnect(pg,
 
 # ~ dx ----
 files = list.files("Data/", pattern = "dx", full.names = T)
+dbExecute(neds, "DROP TABLE dx")
 
-for(i in 5:length(files)){
+for(i in 1:length(files)){
 	file = files[i]
 	temp = readRDS(file)
 	temp$key_ed = as.character(temp$key_ed)
-	if(file == "Data//NEDS_2015Q1Q3_dx.RDS"){temp$year = "2015Q1Q3"}
+	if(file == "Data//NEDS_2015Q1Q3_dx.RDS"){
+		temp$year = "2015Q1Q3"
+		#fix encoding errors based on error log file:
+		#   /Users/jr-f/Library/Application Support/Postgres/var-12/postgresql.log
+		
+		#use this to replace any dxs with non-numeric characters with NA...
+		temp = temp %>% mutate_at(vars(starts_with("dx")), function(x)  x[which(str_detect(x, "\\D"))] = NA)
+		
+		#...instead of doing each observation individually
+		# temp[11864529, "dx3"] = NA  #invalid byte sequence: 0xf0 
+		# temp[11864529, "dx5"] = NA  #invalid byte sequence: 0xe5 0x7f 0xe5
+		# temp[11864529, "dx6"] = NA  #invalid byte sequence: 0xe5 0x7f 0xe5
+		# temp[20844363, paste0("dx", 3:6)] = NA  #invalid byte sequence: 0xe5 0x7f 0xe5
+		# temp[20841524, paste0("dx", 7:14)] = NA  #invalid byte sequence: 0xe5 0x7f 0xe5
+		# temp[21197997, paste0("dx", 1:7)] = NA  #values were: F0, D0B +, 0 �, 6http:/, /www.mi, crosoft, com/	
+		
+		
+		
+		}
 	if(file == "Data//NEDS_2015Q4_dx.RDS"){temp$year = "2015Q4"}
 	temp$year = as.character(temp$year)
 	dbWriteTable(neds, "dx", temp, append = TRUE, row.names=FALSE)
 	rm(temp)
 	print(file)
 }
-
-###########################################################
-
-
-# issues with NEDS_2015Q1Q3_dx.RDS below
-
-
-###########################################################
-
-
-# dbWriteTable(neds, "dx", temp[, c("discwt", "dx3")]  , append = TRUE, row.names=FALSE); dbSendQuery(neds, "DROP TABLE dx")
-# Error in postgresqlgetResult(new.con) : 
-# 	RS-DBI driver: (could not Retrieve the result : ERROR:  invalid byte sequence for encoding "UTF8": 0xf0
-# 									CONTEXT:  COPY dx, line 11864529
-# 	)
-# 
-# dbWriteTable(neds, "dx", temp[, c("discwt", "dx4")]  , append = TRUE, row.names=FALSE); dbSendQuery(neds, "DROP TABLE dx")
-# Error in postgresqlgetResult(new.con) : 
-# 	RS-DBI driver: (could not Retrieve the result : ERROR:  invalid byte sequence for encoding "UTF8": 0xe5 0x7f 0xe5
-# 									CONTEXT:  COPY dx, line 20844363
-# 	)
-# 
-# 
-# 
-# dbWriteTable(neds, "dx", temp[, c("discwt", "dx5")]  , append = TRUE, row.names=FALSE); dbSendQuery(neds, "DROP TABLE dx")
-# Error in postgresqlgetResult(new.con) : 
-# 	RS-DBI driver: (could not Retrieve the result : ERROR:  invalid byte sequence for encoding "UTF8": 0xe5 0x7f 0xe5
-# 									CONTEXT:  COPY dx, line 11864529
-# 	)
-# 
-# dbWriteTable(neds, "dx", temp[, c("discwt", "dx6")]  , append = TRUE, row.names=FALSE)
-# Error in postgresqlgetResult(new.con) : 
-# 	RS-DBI driver: (could not Retrieve the result : ERROR:  invalid byte sequence for encoding "UTF8": 0xe5 0x7f 0xe5
-# 									CONTEXT:  COPY dx, line 11864529
-# 	)
-# 
-# 
-# 
-# dbWriteTable(neds, "dx", temp[, c("discwt", "dx7")]  , append = TRUE, row.names=FALSE)
-# Error in postgresqlgetResult(new.con) : 
-# 	RS-DBI driver: (could not Retrieve the result : ERROR:  invalid byte sequence for encoding "UTF8": 0xe5 0x7f 0xe5
-# 									CONTEXT:  COPY dx, line 20841524
-# 	)
-# 
-# 
-# 
-# dbWriteTable(neds, "dx", temp[, c("discwt", "dx8")]  , append = TRUE, row.names=FALSE)
-# Error in postgresqlgetResult(new.con) : 
-# 	RS-DBI driver: (could not Retrieve the result : ERROR:  invalid byte sequence for encoding "UTF8": 0xe5 0x7f 0xe5
-# 									CONTEXT:  COPY dx, line 20841524
-# 	)
-# 
-# 
-# 
-# 
-# dbWriteTable(neds, "dx", temp[, c("discwt", "dx9")]  , append = TRUE, row.names=FALSE)
-# Error in postgresqlgetResult(new.con) : 
-# 	RS-DBI driver: (could not Retrieve the result : ERROR:  invalid byte sequence for encoding "UTF8": 0xe5 0x7f 0xe5
-# 									CONTEXT:  COPY dx, line 20841524
-# 	)
-# 
-# 
-# dbWriteTable(neds, "dx", temp[, c("discwt", "dx10")]  , append = TRUE, row.names=FALSE)
-# Error in postgresqlgetResult(new.con) : 
-# 	RS-DBI driver: (could not Retrieve the result : ERROR:  invalid byte sequence for encoding "UTF8": 0xe5 0x7f 0xe5
-# 									CONTEXT:  COPY dx, line 20841524
-# 	)
-# 
-# 
-# 
-# dbWriteTable(neds, "dx", temp[, c("discwt", "dx11")]  , append = TRUE, row.names=FALSE)
-# Error in postgresqlgetResult(new.con) : 
-# 	RS-DBI driver: (could not Retrieve the result : ERROR:  invalid byte sequence for encoding "UTF8": 0xe5 0x7f 0xe5
-# 									CONTEXT:  COPY dx, line 20841524
-# 	)
-# 
-# 
-# dbWriteTable(neds, "dx", temp[, c("discwt", "dx12")]  , append = TRUE, row.names=FALSE)
-# Error in postgresqlgetResult(new.con) : 
-# 	RS-DBI driver: (could not Retrieve the result : ERROR:  invalid byte sequence for encoding "UTF8": 0xe5 0x7f 0xe5
-# 									CONTEXT:  COPY dx, line 20841524
-# 	)
-# 
-# 
-# 
-# dbWriteTable(neds, "dx", temp[, c("discwt", "dx13")]  , append = TRUE, row.names=FALSE)
-# Error in postgresqlgetResult(new.con) : 
-# 	RS-DBI driver: (could not Retrieve the result : ERROR:  invalid byte sequence for encoding "UTF8": 0xe5 0x7f 0xe5
-# 									CONTEXT:  COPY dx, line 20841524
-# 	)
-# 
-# 
-# dbWriteTable(neds, "dx", temp[, c("discwt", "dx14")]  , append = TRUE, row.names=FALSE)
-# Error in postgresqlgetResult(new.con) : 
-# 	RS-DBI driver: (could not Retrieve the result : ERROR:  invalid byte sequence for encoding "UTF8": 0xe5 0x7f 0xe5
-# 									CONTEXT:  COPY dx, line 20841524
-# 	)
-# 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -168,7 +72,14 @@ rm(query)
 
 n = dbGetQuery(neds, "SELECT COUNT(key_ed) FROM dx")
 n = as.integer(n)
-cat("Initial N_obs = ", n, "\n", file = "nobs log.txt")
+cat("Initial N_obs = ", format(n, big.mark=","), "\n", file = "nobs log.txt")
+
+
+n = dbGetQuery(neds, "SELECT SUM(discwt) FROM dx")
+n = as.integer(n)
+cat("Initial sum_discwt = ", format(n, big.mark=","), "\n", file = "nobs log.txt", append=T)
+
+
 gc()
 
 
@@ -183,10 +94,12 @@ for(i in 1:length(files)){
 	file = files[i]
 	temp = readRDS(file)
 	temp$key_ed = as.character(temp$key_ed)
-	dbWriteTable(neds, "demos", temp, append = TRUE)
+	temp = temp[, c("key_ed", "female", "age")]
+	dbWriteTable(neds, "demos", temp, append = TRUE, row.names=FALSE)
 	rm(temp)
 	print(file)
 }
+
 
 
 query = dbSendQuery(neds, "SELECT * FROM demos LIMIT 20")
@@ -200,9 +113,6 @@ gc()
 
 
 
-
-
-
 # ~ ecodes ----
 files = list.files("Data/", pattern = "ecode", full.names = T)
 
@@ -210,7 +120,8 @@ for(i in 1:length(files)){
 	file = files[i]
 	temp = readRDS(file)
 	temp$key_ed = as.character(temp$key_ed)
-	dbWriteTable(neds, "ecodes", temp, append = TRUE)
+	temp = temp[, c("key_ed", paste0("ecode", 1:4))]
+	dbWriteTable(neds, "ecodes", temp, append = TRUE, row.names=FALSE)
 	rm(temp)
 	print(file)
 }
@@ -236,7 +147,8 @@ for(i in 1:length(files)){
 	file = files[i]
 	temp = readRDS(file)
 	temp$key_ed = as.character(temp$key_ed)
-	dbWriteTable(neds, "outcomes", temp, append = TRUE)
+	temp = temp[, c("key_ed", "edevent", "disp_ed", "died_visit")]
+	dbWriteTable(neds, "outcomes", temp, append = TRUE, row.names=FALSE)
 	rm(temp)
 	print(file)
 }
@@ -266,8 +178,8 @@ for(i in 1:length(files)){
 	file = files[i]
 	temp = readRDS(file)
 	temp$key_ed = as.character(temp$key_ed)
-	temp = temp[, c("key_ed", "hosp_ed", "disp_ip")]
-	dbWriteTable(neds, "ip", temp, append = TRUE)
+	temp = temp[, c("key_ed", "disp_ip")]
+	dbWriteTable(neds, "ip", temp, append = TRUE, row.names=FALSE)
 	rm(temp)
 	print(file)
 }
@@ -290,7 +202,7 @@ files = list.files("Data/", pattern = "Hospital", full.names = T)
 for(i in 1:length(files)){
 	file = files[i]
 	temp = readRDS(file)
-	dbWriteTable(neds, "hosp", temp, append = TRUE)
+	dbWriteTable(neds, "hosp", temp, append = TRUE, row.names=FALSE)
 	rm(temp)
 	print(file)
 }
@@ -330,6 +242,12 @@ gc()
 
 dbExecute(neds, "ALTER TABLE demos ADD PRIMARY KEY (key_ed)")
 dbExecute(neds, "ALTER TABLE dx ADD PRIMARY KEY (key_ed)")
+
+# Error in postgresqlExecStatement(conn, statement, ...) : 
+# 	RS-DBI driver: (could not Retrieve the result : ERROR:  could not create unique index "dx_pkey"
+# 									DETAIL:  Key (key_ed)=(1201500390439) is duplicated.
+# 	)
+
 dbExecute(neds, "ALTER TABLE ecodes ADD PRIMARY KEY (key_ed)")
 dbExecute(neds, "ALTER TABLE ip ADD PRIMARY KEY (key_ed)")
 dbExecute(neds, "ALTER TABLE outcomes ADD PRIMARY KEY (key_ed)")
@@ -469,7 +387,14 @@ dbSendQuery(neds,
 
 n = dbGetQuery(neds, "SELECT COUNT(key_ed) FROM dx")
 n = as.integer(n)
-cat("N_obs after filtering on injury dx = ", n, "\n", file="nobs log.txt", append=T)
+cat("N_obs after filtering on injury dx = ", format(n, big.mark=","), "\n", file="nobs log.txt", append=T)
+
+
+
+n = dbGetQuery(neds, "SELECT SUM(discwt) FROM dx")
+n = as.integer(n)
+cat("Sum_discwt after filtering on injury dx = ", format(n, big.mark=","), "\n", file = "nobs log.txt", append=T)
+
 
 
 # ~~ standardize other dx strings ----------------
@@ -478,12 +403,12 @@ cat("N_obs after filtering on injury dx = ", n, "\n", file="nobs log.txt", appen
 for(i in 2:15){
 	
 	var = paste0("dx", i)
-	command = paste0("UPDATE dx set ", var, 
+	command = paste0("UPDATE dx SET ", var, 
 									 " = (", var, " || '00') WHERE LENGTH(", var, ") = 3")
 	dbSendQuery(neds, command)
 	
 	
-	command = paste0("UPDATE dx set ", var, 
+	command = paste0("UPDATE dx SET ", var, 
 									 " = (", var, " || '0') WHERE LENGTH(", var, ") = 4")
 	dbSendQuery(neds, command)
 	print(var)
@@ -568,9 +493,14 @@ dbSendQuery(neds,
 
 n = dbGetQuery(neds, "SELECT COUNT(key_ed) FROM dx")
 n = as.integer(n)
-cat("N_obs after filtering on age = ", n, "\n", file="nobs log.txt", append-T)
+cat("N_obs after filtering on age = ", format(n, big.mark=","), "\n", file="nobs log.txt", append-T)
 
 
+
+
+n = dbGetQuery(neds, "SELECT SUM(discwt) FROM dx")
+n = as.integer(n)
+cat("Sum_discwt after filtering on age = ", format(n, big.mark=","), "\n", file = "nobs log.txt", append=T)
 
 
 
@@ -740,8 +670,13 @@ dbSendQuery(neds,
 
 n = dbGetQuery(neds, "SELECT COUNT(key_ed) FROM dx")
 n = as.integer(n)
-cat("N_obs after filtering on ecodes = ", n, "\n", file="nobs log.txt", append=T)
+cat("N_obs after filtering on ecodes = ", format(n, big.mark=","), "\n", file="nobs log.txt", append=T)
 
+
+
+n = dbGetQuery(neds, "SELECT SUM(discwt) FROM dx")
+n = as.integer(n)
+cat("Sum_discwt after filtering on ecodes = ", format(n, big.mark=","), "\n", file = "nobs log.txt", append=T)
 
 
 
@@ -839,10 +774,12 @@ rm(tables, q, i, r)
 #vars in SELECT command have to be in same order as in the creation of join_res
 dbSendQuery(neds, 
 						"INSERT INTO join_res
-						 SELECT a.key_ed, a.hosp_ed, a.year, a.discwt, a.age, a.female,  
+						 SELECT a.key_ed, a.age, a.female,  
 						 b.died_visit, b.disp_ed,  b.edevent,
-						 c.dx1,  c.dx2,  c.dx3,  c.dx4,  c.dx5,  c.dx6,  c.dx7,  c.dx8,  c.dx9,  c.dx10, 
+						 c.dx1,  c.dx2,  c.dx3,  c.dx4,  c.dx5,  c.dx6, 
+						 c.dx7,  c.dx8,  c.dx9,  c.dx10, 
 						 c.dx11,  c.dx12,  c.dx13,  c.dx14,  c.dx15,
+						 c.hosp_ed, c.year, c.discwt,
 						 d.ecode1,  d.ecode2,  d.ecode3,  d.ecode4, 
 						 e.disp_ip,
 						 f.neds_stratum
@@ -953,9 +890,14 @@ dbGetQuery(neds,
 
 n = dbGetQuery(neds, "SELECT COUNT(key_ed) FROM join_res")
 n = as.integer(n)
-cat("N_obs after all filters = ", n, "\n", file="nobs log.txt", append = T)
+cat("N_obs after all filters = ", format(n, big.mark=","), "\n", file="nobs log.txt", append = T)
 
 
+
+
+n = dbGetQuery(neds, "SELECT SUM(discwt) FROM join_res")
+n = as.integer(n)
+cat("Sum_discwt after all filters = ", format(n, big.mark=","), "\n", file = "nobs log.txt", append=T)
 
 
 
@@ -1341,45 +1283,45 @@ tmpm5p = function(Pdat, cores = 6, max_combine = max(c(ceiling(nrow(Pdat)*0.1), 
 
 
 
-mb = microbenchmark::microbenchmark(
-	{tmpm(dx[1:100, ], ILex = 9)},
-	{tmpm2(dx[1:100, ])},
-	{tmpm3(dx[1:100, ])},
-	{tmpm4(dx[1:100, ])},
-	{tmpm4p(dx[1:100, ])},
-	{tmpm4p(dx[1:100, ], max_combine = 100)},
-	{tmpm4p(dx[1:100, ], max_combine = 50)},
-	{tmpm5(dx[1:100, ])},
-	{tmpm5p(dx[1:100, ])},
-	{tmpm5p(dx[1:100, ], max_combine = 100)},
-	{tmpm5p(dx[1:100, ], max_combine = 50)},
-	times = 200, 
-	control = list(warmup = 5))
-
-gc()
-mb2 = microbenchmark::microbenchmark(
-	{tmpm(dx[1:1000, ], ILex = 9)},
-	{tmpm2(dx[1:1000, ])},
-	{tmpm3(dx[1:1000, ])},
-	{tmpm4(dx[1:1000, ])},
-	{tmpm4p(dx[1:1000, ])},
-	{tmpm4p(dx[1:1000, ], max_combine = 1000)},
-	{tmpm4p(dx[1:1000, ], max_combine = 500)},
-	{tmpm5(dx[1:1000, ])},
-	{tmpm5p(dx[1:1000, ])},
-	{tmpm5p(dx[1:1000, ], max_combine = 1000)},
-	{tmpm5p(dx[1:1000, ], max_combine = 500)},
-	times = 200, 
-	control = list(warmup = 5))
-gc()
-
-
-mb
-ggplot2::autoplot(mb)
-
-mb2
-ggplot2::autoplot(mb2)
-
+# mb = microbenchmark::microbenchmark(
+# 	{tmpm(dx[1:100, ], ILex = 9)},
+# 	{tmpm2(dx[1:100, ])},
+# 	{tmpm3(dx[1:100, ])},
+# 	{tmpm4(dx[1:100, ])},
+# 	{tmpm4p(dx[1:100, ])},
+# 	{tmpm4p(dx[1:100, ], max_combine = 100)},
+# 	{tmpm4p(dx[1:100, ], max_combine = 50)},
+# 	{tmpm5(dx[1:100, ])},
+# 	{tmpm5p(dx[1:100, ])},
+# 	{tmpm5p(dx[1:100, ], max_combine = 100)},
+# 	{tmpm5p(dx[1:100, ], max_combine = 50)},
+# 	times = 200, 
+# 	control = list(warmup = 5))
+# 
+# gc()
+# mb2 = microbenchmark::microbenchmark(
+# 	{tmpm(dx[1:1000, ], ILex = 9)},
+# 	{tmpm2(dx[1:1000, ])},
+# 	{tmpm3(dx[1:1000, ])},
+# 	{tmpm4(dx[1:1000, ])},
+# 	{tmpm4p(dx[1:1000, ])},
+# 	{tmpm4p(dx[1:1000, ], max_combine = 1000)},
+# 	{tmpm4p(dx[1:1000, ], max_combine = 500)},
+# 	{tmpm5(dx[1:1000, ])},
+# 	{tmpm5p(dx[1:1000, ])},
+# 	{tmpm5p(dx[1:1000, ], max_combine = 1000)},
+# 	{tmpm5p(dx[1:1000, ], max_combine = 500)},
+# 	times = 200, 
+# 	control = list(warmup = 5))
+# gc()
+# 
+# 
+# mb
+# ggplot2::autoplot(mb)
+# 
+# mb2
+# ggplot2::autoplot(mb2)
+# 
 
 
 
@@ -1424,12 +1366,14 @@ starts = seq(1, nrow(dx), chunk.size)
 ends = c(seq(chunk.size, nrow(dx), chunk.size), nrow(dx))
 
 
-max_cores = parallel::detectCores()
-choices = c("No, don't use parallel processing",
-						paste("Yes, use parallel processing with", 2:max_cores, "cores") )
+# max_cores = parallel::detectCores()
+# choices = c("No, don't use parallel processing",
+# 						paste("Yes, use parallel processing with", 2:max_cores, "cores") )
+# 
+# res = menu(choices, 
+# 					 title = "Use parallel processing (multiple processors) to calculate TMPM?")
 
-res = menu(choices, 
-					 title = "Use parallel processing (multiple processors) to calculate TMPM?")
+res = 7
 
 writeLines(c(""), "Data/tmpm_log.txt") #make file to monitor progress
 
@@ -1483,7 +1427,14 @@ gc()
 
 
 
-neds = dbConnect(RSQLite::SQLite(), "Data/NEDS_DB.sqlite")
+pg = dbDriver("PostgreSQL")
+neds = dbConnect(pg, 
+								 user="jr-f", 
+								 password="",
+								 host="localhost",
+								 port=5430,
+								 dbname="jr-f")
+
 
 
 
