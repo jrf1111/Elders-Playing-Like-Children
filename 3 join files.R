@@ -164,7 +164,7 @@ final$edevent = case_when(
 
 
 
-final$mortality = (final$died_visit == "Died in ED") | (final$died_visit == "Died in the hospital")
+final$mortality = (final$died_visit %in% "Died in ED") | (final$died_visit %in% "Died in the hospital")
 
 final$mortality = as.integer(final$mortality)
 
