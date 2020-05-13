@@ -11,7 +11,14 @@ library(data.table)
 
 
 #connect to database ----
-neds = dbConnect(RSQLite::SQLite(), "Data/NEDS_DB.sqlite")
+neds = dbConnect(dbDriver("PostgreSQL"), 
+								 user="jr-f", 
+								 password="",
+								 host="localhost",
+								 port=5432,
+								 dbname="neds")
+
+
 
 dbSendQuery(neds, 
 						"CREATE TABLE join_res_small AS 
