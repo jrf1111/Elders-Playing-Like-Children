@@ -1,0 +1,6 @@
+Sum_discwt after filtering on age =  79,494,797 
+N_obs after filtering on age =  17,841,288 
+N_obs after filtering on ecodes =  13,282,996 
+Sum_discwt after filtering on ecodes =  58,661,054 
+N_obs after all filters =  12,905,219 
+Sum_discwt after all filters =  58,661,054 

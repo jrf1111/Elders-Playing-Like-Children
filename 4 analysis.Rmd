@@ -14,88 +14,9 @@ library(data.table)
 
 mdata = fread("Data/final/final combined dataset.csv")
 
-
-
-
-mdata$female = as.integer(mdata$female)
-mdata$died_visit = as.integer(mdata$died_visit)
-mdata$died_visit = case_when(
-	mdata$died_visit == 0 ~ "Survived to discharge",
-	mdata$died_visit == 1 ~ "Died in ED",
-	mdata$died_visit == 2 ~ "Died in the hospital",
-	TRUE ~ NA_character_
-) %>% as.factor()
-
-
-mdata$disp_ed = as.integer(mdata$disp_ed)
-mdata$disp_ed = case_when(
-	mdata$disp_ed == 1 ~ "Routine",
-	mdata$disp_ed == 2 ~ "Transfer to short-term hospital",
-	mdata$disp_ed == 5 ~ "Transfer other",
-	mdata$disp_ed == 6 ~ "Home Health Care",
-	mdata$disp_ed == 7 ~ "Against medical advice",
-	mdata$disp_ed == 9 ~ "Admitted as inpatient",
-	mdata$disp_ed == 20 ~ "Died in ED",
-	mdata$disp_ed == 21 ~ "Discharged to law enforcement",
-	mdata$disp_ed == 98 ~ "Not admitted to this hospital, destination unknown",
-	mdata$disp_ed == 99 ~ "Not admitted to this hospital, discharged alive, destination unknown",
-	TRUE ~ NA_character_
-) %>% as.factor()
-
-
-
-mdata$disp_ip = as.integer(mdata$disp_ip)
-mdata$disp_ip = case_when(
-	mdata$disp_ip == 1 ~ "Routine",
-	mdata$disp_ip == 2 ~ "Transfer to short-term hospital",
-	mdata$disp_ip == 5 ~ "Transfer other",
-	mdata$disp_ip == 6 ~ "Home Health Care",
-	mdata$disp_ip == 7 ~ "Against medical advice",
-	mdata$disp_ip == 20 ~ "Died in hospital",
-	mdata$disp_ip == 99 ~ "Discharged alive, destination unknown",
-	TRUE ~ NA_character_
-) %>% as.factor()
-
-
-
-
-mdata$edevent = as.integer(mdata$edevent)
-mdata$edevent = case_when(
-	mdata$edevent == 1 ~ "Treated and released",
-	mdata$edevent == 2 ~ "Admitted as inpatient",
-	mdata$edevent == 3 ~ "Transferred to a short-term hospital",
-	mdata$edevent == 9 ~ "Died in the ED",
-	mdata$edevent == 98 ~ "Not admitted to this hospital, destination unknown",
-	mdata$edevent == 99 ~ "Not admitted to this hospital, discharged alive, destination unknown",
-	TRUE ~ NA_character_
-) %>% as.factor()
-
-
-
-
-
-mdata$mortality = (mdata$died_visit == "Died in ED") | (mdata$died_visit == "Died in the hospital")
-
-mdata$mortality = as.integer(mdata$mortality)
-
-
-
-
-mdata$mech1[mdata$mech1==""] = "UNSPECIFIED"
-
-
-
-
-
-mdata$age_group = case_when(
-	mdata$age %in% 50:65 ~ "50-65",
-	mdata$age %in% 66:80 ~ "66-80",
-	mdata$age >80 ~ "81+",
-	TRUE ~ NA_integer_
-)
-
-
-
+print(nrow(mdata))
+mdata = mdata[!is.na(mdata$age), ]
+print(nrow(mdata))
 
 med_iqi = function(x, w=mdata$discwt, na.rm=T){
 	

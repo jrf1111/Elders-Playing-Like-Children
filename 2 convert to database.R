@@ -10,17 +10,19 @@ library(data.table)
 
 
 #create database ----
-# neds = dbConnect(RSQLite::SQLite(), "Data/NEDS_DB.sqlite")
+system("postgres -D /usr/local/var/postgres")
+system("createdb --username 'jr-f' --host 'localhost'  --port 5432  neds")
 
-#need to start the server in the Postgresql app first
-pg = dbDriver("PostgreSQL")
-neds = dbConnect(pg, 
+
+neds = dbConnect(dbDriver("PostgreSQL"), 
 								 user="jr-f", 
 								 password="",
 								 host="localhost",
-								 port=5430,
-								 dbname="jr-f")
+								 port=5432,
+								 dbname="neds")
 
+
+dbExecute(neds, "SET work_mem = '2GB'")
 
 
 
@@ -28,7 +30,7 @@ neds = dbConnect(pg,
 
 # ~ dx ----
 files = list.files("Data/", pattern = "dx", full.names = T)
-dbExecute(neds, "DROP TABLE dx")
+dbExecute(neds, "DROP TABLE IF EXISTS dx")
 
 for(i in 1:length(files)){
 	file = files[i]
@@ -40,7 +42,9 @@ for(i in 1:length(files)){
 		#   /Users/jr-f/Library/Application Support/Postgres/var-12/postgresql.log
 		
 		#use this to replace any dxs with non-numeric characters with NA...
-		temp = temp %>% mutate_at(vars(starts_with("dx")), function(x)  x[which(str_detect(x, "\\D"))] = NA)
+		temp = temp %>% mutate_at(vars(starts_with("dx")), as.character)
+		
+		temp = temp %>% mutate_at(vars(starts_with("dx")), function(x) {x[which(str_detect(x, "\\D"))] = NA; x})
 		
 		#...instead of doing each observation individually
 		# temp[11864529, "dx3"] = NA  #invalid byte sequence: 0xf0 
@@ -52,8 +56,22 @@ for(i in 1:length(files)){
 		
 		
 		
-		}
+	}
 	if(file == "Data//NEDS_2015Q4_dx.RDS"){temp$year = "2015Q4"}
+	
+	#standardize the length of the strings
+	dx_recode = function(dx){
+		case_when( 
+			nchar(dx) == 3 ~ paste0(dx, "00"),
+			nchar(dx) == 4 ~ paste0(dx, "0"),
+			TRUE ~ dx
+		)
+	}
+	
+	temp = temp %>% mutate_at(vars(starts_with("dx")), dx_recode)  
+	
+	
+	
 	temp$year = as.character(temp$year)
 	dbWriteTable(neds, "dx", temp, append = TRUE, row.names=FALSE)
 	rm(temp)
@@ -85,16 +103,15 @@ gc()
 
 
 
-
-
 # ~ demographics ----
 files = list.files("Data/", pattern = "demos", full.names = T)
-
+dbExecute(neds, "DROP TABLE IF EXISTS demos")
 for(i in 1:length(files)){
 	file = files[i]
 	temp = readRDS(file)
 	temp$key_ed = as.character(temp$key_ed)
 	temp = temp[, c("key_ed", "female", "age")]
+	temp$female = as.integer(temp$female)
 	dbWriteTable(neds, "demos", temp, append = TRUE, row.names=FALSE)
 	rm(temp)
 	print(file)
@@ -115,7 +132,7 @@ gc()
 
 # ~ ecodes ----
 files = list.files("Data/", pattern = "ecode", full.names = T)
-
+dbExecute(neds, "DROP TABLE IF EXISTS ecodes")
 for(i in 1:length(files)){
 	file = files[i]
 	temp = readRDS(file)
@@ -142,7 +159,7 @@ gc()
 
 # ~ outcomes ----
 files = list.files("Data/", pattern = "outcome", full.names = T)
-
+dbExecute(neds, "DROP TABLE IF EXISTS outcomes")
 for(i in 1:length(files)){
 	file = files[i]
 	temp = readRDS(file)
@@ -173,7 +190,7 @@ gc()
 
 # ~ IP ----
 files = list.files("Data/", pattern = "IP", full.names = T)
-
+dbExecute(neds, "DROP TABLE IF EXISTS ip")
 for(i in 1:length(files)){
 	file = files[i]
 	temp = readRDS(file)
@@ -198,7 +215,7 @@ gc()
 
 # ~ hospital ----
 files = list.files("Data/", pattern = "Hospital", full.names = T)
-
+dbExecute(neds, "DROP TABLE IF EXISTS hosp")
 for(i in 1:length(files)){
 	file = files[i]
 	temp = readRDS(file)
@@ -235,25 +252,8 @@ gc()
 
 
 
-# add primary keys and create indexes ----------------------------------------------------------
-#indexes take a while to create but they speed up the joins and filters
 
-
-
-dbExecute(neds, "ALTER TABLE demos ADD PRIMARY KEY (key_ed)")
-dbExecute(neds, "ALTER TABLE dx ADD PRIMARY KEY (key_ed)")
-
-# Error in postgresqlExecStatement(conn, statement, ...) : 
-# 	RS-DBI driver: (could not Retrieve the result : ERROR:  could not create unique index "dx_pkey"
-# 									DETAIL:  Key (key_ed)=(1201500390439) is duplicated.
-# 	)
-
-dbExecute(neds, "ALTER TABLE ecodes ADD PRIMARY KEY (key_ed)")
-dbExecute(neds, "ALTER TABLE ip ADD PRIMARY KEY (key_ed)")
-dbExecute(neds, "ALTER TABLE outcomes ADD PRIMARY KEY (key_ed)")
-
-
-
+# create indexes ----------------------------------------------------------
 
 
 dbExecute(neds, "CREATE INDEX index_key_ed_demos ON demos (key_ed)")
@@ -301,7 +301,7 @@ injury_codes = dx_recode(injury_codes)
 
 
 #make table of injury codes in DB
-dbWriteTable(neds, "injury_dx",  data.frame(injury_dx = injury_codes)  )
+dbWriteTable(neds, "injury_dx",  data.frame(injury_dx = injury_codes), row.names=FALSE  )
 
 #confirm it was created
 dbListTables(neds)
@@ -314,74 +314,42 @@ rm(injury_codes)
 
 
 
-# ~~ standardize dx1 strings --------------------------------------------------
-dbGetQuery(neds, "SELECT dx1 FROM dx LIMIT 20")
-
-
-# dx1 with length of 3
-dbGetQuery(neds, 
-					 "SELECT dx1 || '00' AS dx1s
-										FROM dx
-										WHERE LENGTH(dx1) = 3
-										LIMIT 20")
-
-
-
-dbSendQuery(neds, 
-						"UPDATE dx
-						 SET dx1 = (dx1 || '00')
-						 WHERE LENGTH(dx1) = 3")
-
-dbGetQuery(neds, "SELECT dx1 FROM dx LIMIT 50")
-
-
-
-
-
-
-# dx1 with length of 4
-dbGetQuery(neds, 
-					 "SELECT dx1 || '0' AS dx1s
-										FROM dx
-										WHERE LENGTH(dx1) = 4
-										LIMIT 20")
-
-dbSendQuery(neds, 
-						"UPDATE dx
-						 SET dx1 = (dx1 || '0')
-						 WHERE LENGTH(dx1) = 4")
-
-dbGetQuery(neds, "SELECT dx1 FROM dx LIMIT 50")
-
-
-
-
-
 
 # ~~ filter on injury dx ----
 dbSendQuery(neds, 
 						"DELETE FROM dx
-										WHERE dx1 NOT IN (SELECT f.injury_dx FROM injury_dx AS f)")
+										WHERE dx1 NOT IN (SELECT injury_dx FROM injury_dx)")
+
+
+
+dbExecute(neds, "REINDEX INDEX index_key_ed_dx")
 
 
 dbSendQuery(neds, 
 						"DELETE FROM demos
-										WHERE key_ed NOT IN (SELECT f.key_ed FROM dx AS f)")
+										WHERE key_ed NOT IN (SELECT key_ed FROM dx)")
+
 
 
 dbSendQuery(neds, 
 						"DELETE FROM ip
-										WHERE key_ed NOT IN (SELECT f.key_ed FROM dx AS f)")
+										WHERE key_ed NOT IN (SELECT key_ed FROM dx)")
 
 
 dbSendQuery(neds, 
 						"DELETE FROM outcomes
-										WHERE key_ed NOT IN (SELECT f.key_ed FROM dx AS f)")
+										WHERE key_ed NOT IN (SELECT key_ed FROM dx)")
 
 
 dbSendQuery(neds, 
 						"DELETE FROM ecodes
-										WHERE key_ed NOT IN (SELECT f.key_ed FROM dx AS f)")
+										WHERE key_ed NOT IN (SELECT key_ed FROM dx)")
+
+
+dbExecute(neds, "REINDEX INDEX index_key_ed_demos")
+dbExecute(neds, "REINDEX INDEX index_key_ed_ip")
+dbExecute(neds, "REINDEX INDEX index_key_ed_outcomes")
+dbExecute(neds, "REINDEX INDEX index_key_ed_ecodes")
 
 
 
@@ -395,26 +363,7 @@ n = dbGetQuery(neds, "SELECT SUM(discwt) FROM dx")
 n = as.integer(n)
 cat("Sum_discwt after filtering on injury dx = ", format(n, big.mark=","), "\n", file = "nobs log.txt", append=T)
 
-
-
-# ~~ standardize other dx strings ----------------
-
-
-for(i in 2:15){
-	
-	var = paste0("dx", i)
-	command = paste0("UPDATE dx SET ", var, 
-									 " = (", var, " || '00') WHERE LENGTH(", var, ") = 3")
-	dbSendQuery(neds, command)
-	
-	
-	command = paste0("UPDATE dx SET ", var, 
-									 " = (", var, " || '0') WHERE LENGTH(", var, ") = 4")
-	dbSendQuery(neds, command)
-	print(var)
-}
-
-
+beepr::beep()
 
 
 # ~~ NULL out non-injury dxs to reduce file size -----
@@ -426,7 +375,7 @@ for(i in 2:15){
 for(i in 2:15){
 	
 	var = paste0("dx", i)
-	command = paste0("UPDATE dx SET ", var, " = NULL WHERE ", var, " NOT IN (SELECT f.injury_dx FROM injury_dx AS f)")
+	command = paste0("UPDATE dx SET ", var, " = NULL WHERE ", var, " NOT IN (SELECT injury_dx FROM injury_dx)")
 	dbSendQuery(neds, command)
 	print(var)
 	
@@ -438,17 +387,17 @@ for(i in 2:15){
 #confirm filter (should both be zero)
 # the `WHERE dx1 LIKE "2%"` part is to only look at if the dx starts with "2".
 dbGetQuery(neds, 
-					 'SELECT COUNT(*), dx1
+					 "SELECT COUNT(*), dx1
 					 FROM dx
-					 WHERE dx1 LIKE "2%"
-					 GROUP BY dx1')
+					 WHERE dx1 LIKE '2%'
+					 GROUP BY dx1")
 
 
 dbGetQuery(neds, 
-					 'SELECT COUNT(*), dx2
+					 "SELECT COUNT(*), dx2
 					 FROM dx
-					 WHERE dx2 LIKE "2%"
-					 GROUP BY dx2')
+					 WHERE dx2 LIKE '2%'
+					 GROUP BY dx2")
 
 
 
@@ -468,32 +417,38 @@ dbGetQuery(neds,
 					 FROM demos')
 
 
+dbExecute(neds, "REINDEX INDEX index_key_ed_demos")
+
 
 dbSendQuery(neds, 
 						"DELETE FROM dx
-										WHERE key_ed NOT IN (SELECT f.key_ed FROM demos AS f)")
+										WHERE key_ed NOT IN (SELECT key_ed FROM demos)")
 
 
 dbSendQuery(neds, 
 						"DELETE FROM ip
-										WHERE key_ed NOT IN (SELECT f.key_ed FROM demos AS f)")
+										WHERE key_ed NOT IN (SELECT key_ed FROM demos)")
 
 
 dbSendQuery(neds, 
 						"DELETE FROM outcomes
-										WHERE key_ed NOT IN (SELECT f.key_ed FROM demos AS f)")
+										WHERE key_ed NOT IN (SELECT key_ed FROM demos)")
 
 
 dbSendQuery(neds, 
 						"DELETE FROM ecodes
-										WHERE key_ed NOT IN (SELECT f.key_ed FROM demos AS f)")
+										WHERE key_ed NOT IN (SELECT key_ed FROM demos)")
 
+dbExecute(neds, "REINDEX INDEX index_key_ed_ip")
+dbExecute(neds, "REINDEX INDEX index_key_ed_outcomes")
+dbExecute(neds, "REINDEX INDEX index_key_ed_ecodes")
+dbExecute(neds, "REINDEX INDEX index_key_ed_dx")
 
 
 
 n = dbGetQuery(neds, "SELECT COUNT(key_ed) FROM dx")
 n = as.integer(n)
-cat("N_obs after filtering on age = ", format(n, big.mark=","), "\n", file="nobs log.txt", append-T)
+cat("N_obs after filtering on age = ", format(n, big.mark=","), "\n", file="nobs log.txt", append=T)
 
 
 
@@ -604,7 +559,7 @@ exclude = gsub(".", "", exclude, fixed = T) #remove periods
 
 
 #make table of ecodes to exclude in DB
-dbWriteTable(neds, "ecode_exclude",  data.frame(exclude = exclude)  )
+dbWriteTable(neds, "ecode_exclude",  data.frame(exclude = exclude) , row.names=FALSE )
 
 #confirm it was created
 dbListTables(neds)
@@ -620,22 +575,27 @@ rm(exclude)
 #Per Alan, only filter on ecode1
 dbSendQuery(neds,
 						"DELETE FROM ecodes
-										WHERE SUBSTR(ecode1, 1, 4) IN (SELECT f.exclude FROM ecode_exclude AS f)")
+										WHERE SUBSTR(ecode1, 1, 4) IN (SELECT exclude FROM ecode_exclude)")
 dbSendQuery(neds,
 						"DELETE FROM ecodes
-										WHERE ecode1 IN (SELECT f.exclude FROM ecode_exclude AS f)")
+										WHERE ecode1 IN (SELECT exclude FROM ecode_exclude)")
+
+
+dbExecute(neds, "REINDEX INDEX index_key_ed_ecodes")
+
+
 
 
 #confirm filter (should be zero)
 dbGetQuery(neds, 
-					 'SELECT COUNT(ecode1)
+					 "SELECT COUNT(ecode1)
 					 FROM ecodes
-					 WHERE SUBSTR(ecode1, 1, 4) = "E890"')
+					 WHERE SUBSTR(ecode1, 1, 4) = 'E890'")
 
 dbGetQuery(neds, 
-					 'SELECT COUNT(ecode1)
+					 "SELECT COUNT(ecode1)
 					 FROM ecodes
-					 WHERE SUBSTR(ecode1, 1, 4) = "E850"')
+					 WHERE SUBSTR(ecode1, 1, 4) = 'E850'")
 
 
 
@@ -645,23 +605,29 @@ dbGetQuery(neds,
 
 dbSendQuery(neds, 
 						"DELETE FROM dx
-										WHERE key_ed NOT IN (SELECT f.key_ed FROM ecodes AS f)")
+										WHERE key_ed NOT IN (SELECT key_ed FROM ecodes)")
 
 
 dbSendQuery(neds, 
 						"DELETE FROM ip
-										WHERE key_ed NOT IN (SELECT f.key_ed FROM ecodes AS f)")
+										WHERE key_ed NOT IN (SELECT key_ed FROM ecodes)")
 
 
 dbSendQuery(neds, 
 						"DELETE FROM outcomes
-										WHERE key_ed NOT IN (SELECT f.key_ed FROM ecodes AS f)")
+										WHERE key_ed NOT IN (SELECT key_ed FROM ecodes)")
 
 
 dbSendQuery(neds, 
 						"DELETE FROM demos
-										WHERE key_ed NOT IN (SELECT f.key_ed FROM ecodes AS f)")
+										WHERE key_ed NOT IN (SELECT key_ed FROM ecodes)")
 
+
+
+dbExecute(neds, "REINDEX INDEX index_key_ed_ip")
+dbExecute(neds, "REINDEX INDEX index_key_ed_outcomes")
+dbExecute(neds, "REINDEX INDEX index_key_ed_demos")
+dbExecute(neds, "REINDEX INDEX index_key_ed_dx")
 
 
 
@@ -703,42 +669,48 @@ rm(tables, q, i)
 
 
 
+
+
+
+
 #create table for join results to go into
 dbSendQuery(neds, 
 						"CREATE TABLE join_res (
-						key_ed CHARACTER,
-						hosp_ed DOUBLE,
-						year CHARACTER,
-						discwt DOUBLE,
+						key_ed VARCHAR,
 						age INTEGER,
 						female INTEGER,
 						
-						died_visit INTEGER,
-						disp_ed INTEGER,
-						edevent INTEGER,
+						died_visit VARCHAR,
+						disp_ed VARCHAR,
+						edevent VARCHAR,
 						
-						dx1 CHARACTER,
-						dx2 CHARACTER,
-						dx3 CHARACTER,
-						dx4 CHARACTER,
-						dx5 CHARACTER,
-						dx6 CHARACTER,
-						dx7 CHARACTER,
-						dx8 CHARACTER,
-						dx9 CHARACTER,
-						dx10 CHARACTER,
-						dx11 CHARACTER,
-						dx12 CHARACTER,
-						dx13 CHARACTER,
-						dx14 CHARACTER,
-						dx15 CHARACTER,
+						dx1 VARCHAR,
+						dx2 VARCHAR,
+						dx3 VARCHAR,
+						dx4 VARCHAR,
+						dx5 VARCHAR,
+						dx6 VARCHAR,
+						dx7 VARCHAR,
+						dx8 VARCHAR,
+						dx9 VARCHAR,
+						dx10 VARCHAR,
+						dx11 VARCHAR,
+						dx12 VARCHAR,
+						dx13 VARCHAR,
+						dx14 VARCHAR,
+						dx15 VARCHAR,
 						
-						ecode1 CHARACTER,
-						ecode2 CHARACTER,
-						ecode3 CHARACTER,
-						ecode4 CHARACTER,
 						
-						disp_ip INTEGER,
+						hosp_ed FLOAT8,
+						year VARCHAR,
+						discwt FLOAT8,
+						
+						ecode1 VARCHAR,
+						ecode2 VARCHAR,
+						ecode3 VARCHAR,
+						ecode4 VARCHAR,
+						
+						disp_ip FLOAT8,
 						
 						neds_stratum INTEGER
 						)")
@@ -770,7 +742,7 @@ rm(tables, q, i, r)
 
 
 
-#takes about 45 mins with the key_ed indexes and >6 hours without the indexes
+
 #vars in SELECT command have to be in same order as in the creation of join_res
 dbSendQuery(neds, 
 						"INSERT INTO join_res
@@ -799,11 +771,9 @@ dbSendQuery(neds,
 						 ON d.key_ed = e.key_ed
 						 
 						 LEFT JOIN hosp AS f
-						 ON e.hosp_ed = f.hosp_ed")
+						 ON c.hosp_ed = f.hosp_ed")
 
 
-# ROWS Fetched: 0 [complete]
-# Changed: 15724244
 
 
 
@@ -821,9 +791,11 @@ dbGetQuery(neds,
 
 
 
+dbExecute(neds, "ALTER TABLE join_res ADD COLUMN row SERIAL")
+
 dbSendQuery(neds,
 						"DELETE FROM join_res
-					 WHERE rowid NOT IN (SELECT MIN(rowid) FROM join_res GROUP BY key_ed)")
+					 WHERE row NOT IN (SELECT MIN(row) FROM join_res GROUP BY key_ed)")
 # ROWS Fetched: 0 [complete]
 # Changed: 2954194
 
@@ -870,7 +842,7 @@ dbGetQuery(neds,
 dbGetQuery(neds, 
 					 'SELECT COUNT(*), dx1
 					 FROM join_res
-					 WHERE dx1 NOT IN (SELECT f.injury_dx FROM injury_dx AS f)
+					 WHERE dx1 NOT IN (SELECT injury_dx FROM injury_dx)
 					 GROUP BY dx1')
 
 
@@ -878,7 +850,7 @@ dbGetQuery(neds,
 dbGetQuery(neds, 
 					 'SELECT COUNT(*), ecode1
 					 FROM join_res
-					 WHERE SUBSTR(ecode1, 1, 4) IN (SELECT f.exclude FROM ecode_exclude AS f)
+					 WHERE SUBSTR(ecode1, 1, 4) IN (SELECT exclude FROM ecode_exclude)
 					 GROUP BY ecode1')
 
 
@@ -906,23 +878,23 @@ cat("Sum_discwt after all filters = ", format(n, big.mark=","), "\n", file = "no
 
 dbSendQuery(neds, 
 						"CREATE TABLE dx_final (
-						key_ed CHARACTER,
+						key_ed VARCHAR,
 
-						dx1 CHARACTER,
-						dx2 CHARACTER,
-						dx3 CHARACTER,
-						dx4 CHARACTER,
-						dx5 CHARACTER,
-						dx6 CHARACTER,
-						dx7 CHARACTER,
-						dx8 CHARACTER,
-						dx9 CHARACTER,
-						dx10 CHARACTER,
-						dx11 CHARACTER,
-						dx12 CHARACTER,
-						dx13 CHARACTER,
-						dx14 CHARACTER,
-						dx15 CHARACTER
+						dx1 VARCHAR,
+						dx2 VARCHAR,
+						dx3 VARCHAR,
+						dx4 VARCHAR,
+						dx5 VARCHAR,
+						dx6 VARCHAR,
+						dx7 VARCHAR,
+						dx8 VARCHAR,
+						dx9 VARCHAR,
+						dx10 VARCHAR,
+						dx11 VARCHAR,
+						dx12 VARCHAR,
+						dx13 VARCHAR,
+						dx14 VARCHAR,
+						dx15 VARCHAR
 						)")
 
 
@@ -934,8 +906,6 @@ dbSendQuery(neds,
 						 join_res.dx11,  join_res.dx12,  join_res.dx13,  join_res.dx14,  join_res.dx15
 						 FROM join_res")
 
-# ROWS Fetched: 0 [complete]
-# Changed: 12770050
 
 
 dx = dbReadTable(neds, "dx_final")
@@ -1340,7 +1310,7 @@ all.equal(temp, tmpm5p(dx[1:1000, ]) )  #same results
 
 
 
-rm(temp, mb, tmpm2, tmpm3, tmpm5)
+rm(temp, mb, tmpm2, tmpm3, tmpm4)
 
 
 
@@ -1409,14 +1379,13 @@ gc()
 
 dx[, paste0("dx", 1:15) ] = NULL
 
-dir.create("Data/final/")
+
 saveRDS(dx, "Data/final/tmpm.RDS")
 
 #don't need backup of all dxs anymore
 file.remove("Data/final/dx_final.csv")
+rm(dx, ICs)
 
-dbDisconnect(neds)
-rm(list = ls())
 gc()
 
 
@@ -1427,29 +1396,15 @@ gc()
 
 
 
-pg = dbDriver("PostgreSQL")
-neds = dbConnect(pg, 
-								 user="jr-f", 
-								 password="",
-								 host="localhost",
-								 port=5430,
-								 dbname="jr-f")
-
-
-
-
 dbSendQuery(neds, 
 						"DELETE FROM ecodes
-										WHERE key_ed NOT IN (SELECT f.key_ed FROM join_res AS f)")
+										WHERE key_ed NOT IN (SELECT key_ed FROM join_res)")
 
 
 
 ecodes = dbReadTable(neds, "ecodes")
 ecodes = as.data.table(ecodes)
 
-
-#drop unneeded vars
-ecodes[, c("discwt", "year")]= NULL
 
 
 
@@ -1521,7 +1476,7 @@ ecodes = plyr::join(ecodes, icd_map,
 
 
 #re-order vars
-ecodes = ecodes[, c("key_ed", "hosp_ed", 
+ecodes = ecodes[, c("key_ed", 
 										"ecode1", "mech1", "intent1",
 										"ecode2", "mech2", "intent2", 
 										"ecode3", "mech3", "intent3", 

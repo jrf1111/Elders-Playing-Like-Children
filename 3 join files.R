@@ -11,7 +11,14 @@ library(data.table)
 
 
 #connect to database ----
-neds = dbConnect(RSQLite::SQLite(), "Data/NEDS_DB.sqlite")
+neds = dbConnect(dbDriver("PostgreSQL"), 
+								 user="jr-f", 
+								 password="",
+								 host="localhost",
+								 port=5432,
+								 dbname="neds")
+
+
 
 dbSendQuery(neds, 
 						"CREATE TABLE join_res_small AS 
@@ -89,9 +96,99 @@ final = merge(final, tmpm,
 							by = "key_ed")
 
 
-#hosp_ed gets duplicated in the merge.  Remove it here.
-final$hosp_ed.y = NULL
-colnames(final) = str_replace_all(colnames(final), fixed(".x"), "")
+
+rm(mdata, ecodes, tmpm)
+
+
+
+
+
+# a little bit of cleaning --------------------------------------
+
+
+final$female = as.integer(final$female)
+
+final$died_visit = as.integer(final$died_visit)
+final$died_visit = case_when(
+	final$died_visit == 0 ~ "Survived to discharge",
+	final$died_visit == 1 ~ "Died in ED",
+	final$died_visit == 2 ~ "Died in the hospital",
+	TRUE ~ NA_character_
+) %>% as.factor()
+
+
+final$disp_ed = as.integer(final$disp_ed)
+final$disp_ed = case_when(
+	final$disp_ed == 1 ~ "Routine",
+	final$disp_ed == 2 ~ "Transfer to short-term hospital",
+	final$disp_ed == 5 ~ "Transfer other",
+	final$disp_ed == 6 ~ "Home Health Care",
+	final$disp_ed == 7 ~ "Against medical advice",
+	final$disp_ed == 9 ~ "Admitted as inpatient",
+	final$disp_ed == 20 ~ "Died in ED",
+	final$disp_ed == 21 ~ "Discharged to law enforcement",
+	final$disp_ed == 98 ~ "Not admitted to this hospital, destination unknown",
+	final$disp_ed == 99 ~ "Not admitted to this hospital, discharged alive, destination unknown",
+	TRUE ~ NA_character_
+) %>% as.factor()
+
+
+
+final$disp_ip = as.integer(final$disp_ip)
+final$disp_ip = case_when(
+	final$disp_ip == 1 ~ "Routine",
+	final$disp_ip == 2 ~ "Transfer to short-term hospital",
+	final$disp_ip == 5 ~ "Transfer other",
+	final$disp_ip == 6 ~ "Home Health Care",
+	final$disp_ip == 7 ~ "Against medical advice",
+	final$disp_ip == 20 ~ "Died in hospital",
+	final$disp_ip == 99 ~ "Discharged alive, destination unknown",
+	TRUE ~ NA_character_
+) %>% as.factor()
+
+
+
+
+final$edevent = as.integer(final$edevent)
+final$edevent = case_when(
+	final$edevent == 1 ~ "Treated and released",
+	final$edevent == 2 ~ "Admitted as inpatient",
+	final$edevent == 3 ~ "Transferred to a short-term hospital",
+	final$edevent == 9 ~ "Died in the ED",
+	final$edevent == 98 ~ "Not admitted to this hospital, destination unknown",
+	final$edevent == 99 ~ "Not admitted to this hospital, discharged alive, destination unknown",
+	TRUE ~ NA_character_
+) %>% as.factor()
+
+
+
+
+
+final$mortality = (final$died_visit == "Died in ED") | (final$died_visit == "Died in the hospital")
+
+final$mortality = as.integer(final$mortality)
+
+
+
+
+final$mech1[final$mech1==""] = "UNSPECIFIED"
+
+
+
+
+
+final$age_group = case_when(
+	final$age %in% 50:65 ~ "50-65",
+	final$age %in% 66:80 ~ "66-80",
+	final$age >80 ~ "81+",
+	TRUE ~ NA_character_
+) %>% as.factor()
+
+
+
+
+
+
 
 
 
@@ -102,7 +199,7 @@ final = final %>% mutate_if(is.character, as.factor)
 
 
 saveRDS(final, "Data/final/final combined dataset.RDS")
-
+fwrite(final, "Data/final/final combined dataset.csv")
 
 
 #remove everything----
