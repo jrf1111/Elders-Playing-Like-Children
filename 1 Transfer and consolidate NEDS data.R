@@ -1,7 +1,7 @@
 library(data.table)
 library(tidyverse)
 library(haven)
-
+install.packages("bit64")  #required for 64 bit integers used in key_ed
 
 
 
@@ -823,29 +823,50 @@ beepr::beep()
 
 # ~ core 2016 ------------------------------------------------------------
 
-temp = fread("Data/NEDS_2016_CORE.csv", 
-						 logical01 = F, keepLeadingZeros = T, stringsAsFactors = T,
-						 na.strings=c(getOption("datatable.na.strings","NA"), -1:-9, -66, -99, -100000000, "")
-						 )
-
-colnames(temp) = c("AGE", "AMONTH", "AWEEKEND", "DIED_VISIT", 
-									 "DISCWT", "DISP_ED", "DQTR", "DXVER", 
-									 "EDEVENT", "FEMALE", "HCUPFILE", 
-									 "HOSP_ED", "I10_DX1", "I10_DX2", 
-									 "I10_DX3", "I10_DX4", "I10_DX5", "I10_DX6",
-									 "I10_DX7", "I10_DX8", "I10_DX9", "I10_DX10",
-									 "I10_DX11", "I10_DX12", "I10_DX13", "I10_DX14",
-									 "I10_DX15", "I10_DX16", "I10_DX17", "I10_DX18", 
-									 "I10_DX19", "I10_DX20", "I10_DX21", "I10_DX22", 
-									 "I10_DX23", "I10_DX24", "I10_DX25", "I10_DX26", 
-									 "I10_DX27", "I10_DX28", "I10_DX29", "I10_DX30", 
-									 "I10_ECAUSE1", "I10_ECAUSE2", "I10_ECAUSE3", 
-									 "I10_ECAUSE4", "I10_NDX", "I10_NECAUSE", 
-									 "KEY_ED", "NEDS_STRATUM", "PAY1", "PAY2", 
-									 "PL_NCHS", "TOTCHG_ED", "YEAR", "ZIPINC_QRTL")
 
 
-colnames(temp) = tolower(colnames(temp))
+temp = fread("Data/NEDS_2016//NEDS_2016_CORE 49 55 1 thru 10.csv",
+						 stringsAsFactors = T) %>% data.table(., key = "key_ed")
+
+temp = temp %>% select(-c(aweekend, dqtr, dxver, amonth))
+
+
+
+temp2 = fread("Data/NEDS_2016//NEDS_2016_CORE 49 55 11 thru 20.csv",
+						 stringsAsFactors = T) %>% data.table(., key = "key_ed")
+
+temp2 = temp2 %>% select(key_ed, hosp_ed, num_range("i10_dx", 1:8))
+
+temp = data.table::merge.data.table(temp, temp2)
+rm(temp2)
+
+
+
+temp2 = fread("Data/NEDS_2016//NEDS_2016_CORE 49 55 21 thru 30.csv",
+							stringsAsFactors = T) %>% data.table(., key = "key_ed")
+
+temp2 = temp2 %>% select(key_ed, num_range("i10_dx", 9:15))
+
+temp = data.table::merge.data.table(temp, temp2)
+rm(temp2)
+gc()
+
+
+
+
+#"NEDS_2016_CORE 49 55 31 thru 40.csv" has dxs 19-28, which aren't needed
+
+
+
+temp2 = fread("Data/NEDS_2016//NEDS_2016_CORE 49 55 41 thru 50.csv",
+							stringsAsFactors = T) %>% data.table(., key = "key_ed")
+
+temp2 = temp2 %>% select(key_ed, i10_ecause1)
+
+temp = data.table::merge.data.table(temp, temp2)
+rm(temp2)
+gc()
+
 
 
 
@@ -853,17 +874,10 @@ saveRDS(temp, "Data/NEDS_2016_CORE.RDS")
 gc()
 
 
-#drop vars I don't need
-temp = temp %>% select(-num_range("i10_dx", range = 16:30))
-temp = temp %>% select(-c(i10_ndx, i10_necause, pay1, pay2, pl_nchs,
-													totchg_ed, amonth, aweekend, dxver, 
-													neds_stratum, zipinc_qrtl, dqtr))
 
 
 
-
-
-
+# ~~ ecodes ----
 #convert to icd9
 icd_map = read_csv("https://raw.githubusercontent.com/jrf1111/ICD10-to-ICD9/master/ICD10%20ecodes%20with%20ICD9%20links.csv")
 
@@ -883,19 +897,19 @@ temp = temp %>% mutate_at(vars(starts_with("i10_ecause")), icd10_to_icd9)
 
 colnames(temp) = gsub("i10_ecause", "ecode", colnames(temp))
 
-saveRDS(temp[, c(ids, "ecode1", "ecode2", "ecode3", "ecode4")], "Data/NEDS_2016_ecode.RDS")
+saveRDS(temp[, c(ids, "ecode1")], "Data/NEDS_2016_ecode.RDS")
 
 temp = temp %>% select(-starts_with("ecode"))
 
 
 
+rm(icd_map, icd10_to_icd9)
 
 
 
 
 
-
-
+# ~~ dxs ----
 #convert ICD10 to ICD9
 icd_map = read_csv("https://raw.githubusercontent.com/jrf1111/ICD10-to-ICD9/master/icd10toicd9gem.csv")
 
@@ -917,6 +931,7 @@ saveRDS(temp[, c(ids, paste0("dx", 1:15))], "Data/NEDS_2016_dx.RDS")
 temp = temp %>% select(-starts_with("dx"))
 
 
+# ~~ demos and outcomes ----
 
 temp %>% select(c(ids, "age", "female")) %>% 
 	saveRDS(., "Data/NEDS_2016_demos.RDS")
@@ -993,7 +1008,7 @@ temp = temp %>% mutate_if(is.character, factor)
 
 
 
-saveRDS(temp, "Data/NEDS_2016_HOSPITAL.RDS")
+saveRDS(temp, "Data/NEDS_2016_Hospital.RDS")
 rm(temp)
 gc()
 
@@ -1004,7 +1019,9 @@ gc()
 
 temp = fread("Data/NEDS_2016_ED.csv", 
 						 logical01 = F, keepLeadingZeros = T, stringsAsFactors = T,
-						 na.strings=c(getOption("datatable.na.strings","NA"), -1:-9, -99, -100000000)
+						 na.strings=c(getOption("datatable.na.strings","NA"), "",
+						 						 "invl", "incn2",
+						 						 -1:-9, -99, -999, -100000000)
 )
 
 colnames(temp) = c("HOSP_ED", "KEY_ED", "CPT1", "CPT2", 
@@ -1019,9 +1036,6 @@ colnames(temp) = c("HOSP_ED", "KEY_ED", "CPT1", "CPT2",
 
 colnames(temp) = tolower(colnames(temp))
 
-temp = temp %>% mutate_if(is.character, blank_to_na)
-
-temp = temp %>% mutate_if(is.character, factor)
 
 saveRDS(temp, "Data/NEDS_2016_ED.RDS")
 rm(temp)
