@@ -12,21 +12,28 @@ knitr::opts_chunk$set(echo = TRUE,
 library(tidyverse)
 library(data.table)
 
-mdata = fread("Data/final/final combined dataset.csv")
+mdata = fread("Data/final/final combined dataset.csv",
+							na.strings=c(getOption("datatable.na.strings","NA"), ""),
+							stringsAsFactors = TRUE
+							)
 
-print(nrow(mdata))
-mdata = mdata[!is.na(mdata$age), ]
-print(nrow(mdata))
 
-med_iqi = function(x, w=mdata$discwt, na.rm=T){
+
+
+
+med_iqi = function(x, w=mdata$discwt, na.rm=T, digits=2){
+	
+	digits = as.character(digits)
+	
+	fmt = paste0("%.", digits, "f [%.", digits, "f, %.", digits, "f]")
 	
 	if(is.null(w)){
-			sprintf("%.2f [%.2f, %.2f]",
+			sprintf(fmt,
 					quantile(x=x, probs = 0.5, na.rm = na.rm), 
 					quantile(x=x, probs = 0.25, na.rm = na.rm), 
 					quantile(x=x, probs = 0.75, na.rm = na.rm))
 	} else{
-			sprintf("%.2f [%.2f, %.2f]",
+			sprintf(fmt,
 					spatstat::weighted.quantile(x=x, w=w, probs = 0.5, na.rm = na.rm), 
 					spatstat::weighted.quantile(x=x, w=w, probs = 0.25, na.rm = na.rm), 
 					spatstat::weighted.quantile(x=x, w=w, probs = 0.75, na.rm = na.rm))
@@ -44,26 +51,35 @@ my.weighted.mean = function(x, w = mdata$discwt, na.rm=T){
 }
 
 
-cat_perc = function(x, w = mdata$discwt){
+cat_perc = function(df, x, w = "discwt"){
+	
+	df = as.data.frame(df)
+	x = df[, x]
+	w = df[, w]
+	rm(df)
 	
 	res = data.frame(var = unique(x))
 	res$n = NA_real_
 	res$perc = NA_real_
+	total = sum(w, na.rm = T)
 	
 	for(i in 1:nrow(res)){
 		res$n[i] = round( sum( w[x==res$var[i] ], na.rm = T ) )
-		res$perc[i] = round(my.weighted.mean(x == res$var[i])*100, 2)
 	}
 	
 	res$var = as.character(res$var)
 	res = res[!is.na(res$var), ]
-	res = rbind(res, 
-							c("Missing", 
-								round(sum(w[ is.na(x) ])),
-								round(my.weighted.mean(is.na(x))*100, 2)))
+	res = rbind(res, c("Missing", round(sum(w[ is.na(x) ])), NA))
+	res$n = as.numeric(res$n)
+	res$perc = round((res$n/total)*100, 2)
+	
+	
 	res
 	
 }
+
+
+
 
 
 ```
@@ -82,7 +98,7 @@ cat_perc = function(x, w = mdata$discwt){
 
 mdata %>%
 	summarise(n_obs = n(),
-						n_weighted = sum(discwt, na.rm = T), 
+						n_weighted = round(sum(discwt, na.rm = T)), 
 						age = med_iqi(age),
 						female = round(my.weighted.mean(female)*100, 2),
 						mortality = round(my.weighted.mean(mortality)*100, 2),
@@ -90,15 +106,15 @@ mdata %>%
 						) %>% kableExtra::kable()
 
 
-cat_perc(mdata$died_visit) %>% kableExtra::kable()
+cat_perc(mdata, "died_visit") %>% kableExtra::kable()
 
-cat_perc(mdata$disp_ed) %>% kableExtra::kable()
+cat_perc(mdata, "disp_ed") %>% kableExtra::kable()
 
-cat_perc(mdata$edevent) %>% kableExtra::kable()
+cat_perc(mdata, "edevent") %>% kableExtra::kable()
 
-cat_perc(mdata$disp_ip) %>% kableExtra::kable()
+cat_perc(mdata, "disp_ip") %>% kableExtra::kable()
 
-cat_perc(mdata$mech1) %>% kableExtra::kable()
+cat_perc(mdata, "mech1") %>% kableExtra::kable()
 
 
 
@@ -120,47 +136,80 @@ cat_perc(mdata$mech1) %>% kableExtra::kable()
 mdata %>%
 	group_by(age_group) %>%
 	summarise(n_obs = n(),
-						n_weighted = sum(discwt, na.rm = T), 
-						age = med_iqi(age),
-						female = round(my.weighted.mean(female)*100, 2),
-						mortality = round(my.weighted.mean(mortality)*100, 2),
-						pDeath = med_iqi(pDeath*100)) %>% 
+						n_weighted = round(sum(discwt, na.rm = T)), 
+						age = med_iqi(age, w = discwt),
+						female = round(my.weighted.mean(female, w = discwt)*100, 2),
+						mortality = round(my.weighted.mean(mortality, w = discwt)*100, 2),
+						pDeath = med_iqi(pDeath*100, w = discwt)) %>% 
 	ungroup() %>%
 	kableExtra::kable()
 
 
 
-mdata %>%
-	group_by(age_group) %>%
-	cat_perc(died_visit) %>% 
-	ungroup() %>%
+
+
+
+
+
+
+
+
+
+plyr::count(mdata,  c("age_group", "died_visit"), wt_var = "discwt") %>% 
+	group_by(age_group) %>% 
+    mutate(perc = round((freq/sum(freq))*100, 2) ) %>% 
+	ungroup() %>% 
+	mutate(freq = round(freq)) %>% 
+    pivot_wider(names_from = "age_group", 
+    						values_from = c("freq", "perc")) %>%
 	kableExtra::kable()
 
 
-mdata %>%
-	group_by(age_group) %>%
-	cat_perc(disp_ed) %>% 
-	ungroup() %>%
-	kableExtra::kable()
-
-mdata %>%
-	group_by(age_group) %>%
-	cat_perc(edevent) %>% 
-	ungroup() %>%
-	kableExtra::kable()
 
 
-mdata %>%
-	group_by(age_group) %>%
-	cat_perc(disp_ip) %>% 
-	ungroup() %>%
+
+
+
+
+plyr::count(mdata,  c("age_group", "disp_ed"), wt_var = "discwt") %>% 
+	group_by(age_group) %>% 
+    mutate(perc = round((freq/sum(freq))*100, 2) ) %>% 
+	ungroup() %>% 
+	mutate(freq = round(freq)) %>% 
+    pivot_wider(names_from = "age_group", 
+    						values_from = c("freq", "perc")) %>%
 	kableExtra::kable()
 
 
-mdata %>%
-	group_by(age_group) %>%
-	cat_perc(mech1)  %>% 
-	ungroup() %>%
+
+plyr::count(mdata,  c("age_group", "edevent"), wt_var = "discwt") %>% 
+	group_by(age_group) %>% 
+    mutate(perc = round((freq/sum(freq))*100, 2) ) %>% 
+	ungroup() %>% 
+	mutate(freq = round(freq)) %>% 
+    pivot_wider(names_from = "age_group", 
+    						values_from = c("freq", "perc")) %>%
+	kableExtra::kable()
+
+
+
+plyr::count(mdata,  c("age_group", "disp_ip"), wt_var = "discwt") %>% 
+	group_by(age_group) %>% 
+    mutate(perc = round((freq/sum(freq))*100, 2) ) %>% 
+	ungroup() %>% 
+	mutate(freq = round(freq)) %>% 
+    pivot_wider(names_from = "age_group", 
+    						values_from = c("freq", "perc")) %>%
+	kableExtra::kable()
+
+
+plyr::count(mdata,  c("age_group", "mech1"), wt_var = "discwt") %>% 
+	group_by(age_group) %>% 
+    mutate(perc = round((freq/sum(freq))*100, 2) ) %>% 
+	ungroup() %>% 
+	mutate(freq = round(freq)) %>% 
+    pivot_wider(names_from = "age_group", 
+    						values_from = c("freq", "perc")) %>%
 	kableExtra::kable()
 
 
@@ -187,48 +236,76 @@ mdata %>%
 mdata %>%
 	group_by(mech1) %>%
 	summarise(n_obs = n(),
-						n_weighted = sum(discwt, na.rm = T), 
-						age = med_iqi(age),
-						female = round(my.weighted.mean(female)*100, 2),
-						mortality = round(my.weighted.mean(mortality)*100, 2),
-						pDeath = med_iqi(pDeath*100)) %>% 
+						n_weighted = round(sum(discwt, na.rm = T)), 
+						age = med_iqi(age, w=discwt),
+						female = round(my.weighted.mean(female, w=discwt)*100, 2),
+						mortality = round(my.weighted.mean(mortality, w=discwt)*100, 2),
+						pDeath = med_iqi(pDeath*100, w=discwt)) %>% 
 	ungroup() %>%
 	kableExtra::kable()
 
 
 
-mdata %>%
-	group_by(mech1) %>%
-	cat_perc(died_visit) %>% 
-	ungroup() %>%
+
+plyr::count(mdata,  c("mech1", "died_visit"), wt_var = "discwt") %>% 
+	group_by(mech1) %>% 
+    mutate(perc = round((freq/sum(freq))*100, 2) ) %>% 
+	ungroup() %>% 
+	mutate(freq = round(freq)) %>% 
+    pivot_wider(names_from = "died_visit", 
+    						values_from = c("freq", "perc")) %>%
 	kableExtra::kable()
 
 
-mdata %>%
-	group_by(mech1) %>%
-	cat_perc(disp_ed) %>% 
-	ungroup() %>%
-	kableExtra::kable()
 
-mdata %>%
-	group_by(mech1) %>%
-	cat_perc(edevent) %>% 
-	ungroup() %>%
-	kableExtra::kable()
-
-
-mdata %>%
-	group_by(mech1) %>%
-	cat_perc(disp_ip) %>% 
-	ungroup() %>%
+plyr::count(mdata,  c("mech1", "disp_ed"), wt_var = "discwt") %>% 
+	group_by(mech1) %>% 
+    mutate(perc = round((freq/sum(freq))*100, 2) ) %>% 
+	ungroup() %>% 
+	mutate(freq = round(freq)) %>% 
+    pivot_wider(names_from = "disp_ed", 
+    						values_from = c("freq", "perc")) %>%
 	kableExtra::kable()
 
 
-mdata %>%
-	group_by(mech1) %>%
-	cat_perc(age_group)  %>% 
-	ungroup() %>%
+
+
+
+plyr::count(mdata,  c("mech1", "edevent"), wt_var = "discwt") %>% 
+	group_by(mech1) %>% 
+    mutate(perc = round((freq/sum(freq))*100, 2) ) %>% 
+	ungroup() %>% 
+	mutate(freq = round(freq)) %>% 
+    pivot_wider(names_from = "edevent", 
+    						values_from = c("freq", "perc")) %>%
 	kableExtra::kable()
+
+
+
+
+plyr::count(mdata,  c("mech1", "disp_ip"), wt_var = "discwt") %>% 
+	group_by(mech1) %>% 
+    mutate(perc = round((freq/sum(freq))*100, 2) ) %>% 
+	ungroup() %>% 
+	mutate(freq = round(freq)) %>% 
+    pivot_wider(names_from = "disp_ip", 
+    						values_from = c("freq", "perc")) %>%
+	kableExtra::kable()
+
+
+
+
+plyr::count(mdata,  c("mech1", "age_group"), wt_var = "discwt") %>% 
+	group_by(mech1) %>% 
+    mutate(perc = round((freq/sum(freq))*100, 2) ) %>% 
+	ungroup() %>% 
+	mutate(freq = round(freq)) %>% 
+    pivot_wider(names_from = "age_group", 
+    						values_from = c("freq", "perc")) %>%
+	kableExtra::kable()
+
+
+
 
 
 
@@ -256,15 +333,21 @@ Then, we will rank-order the ten most severe mechanisms of injury by median inju
 
 
 
-mdata %>%
+res = mdata %>%
 	group_by(mech1) %>%
 	summarise(n_obs = n(),
-						n_weighted = sum(discwt, na.rm = T), 
-						pDeath = med_iqi(pDeath)) %>%
+						n_weighted = round(sum(discwt, na.rm = T)), 
+						pDeath = med_iqi(pDeath*100, w = discwt, digits = 4)) %>%
 	ungroup() %>% 
-	arrange(desc(pDeath)) %>% 
-	kableExtra::kable()
+	arrange(desc(pDeath))
 
+
+res$rank = 1:nrow(res)
+res = res[, c("rank", "mech1", "n_obs", "n_weighted", "pDeath")]
+
+kableExtra::kable(res)
+
+rm(res)
 
 ```
 
@@ -280,14 +363,14 @@ Finally, we will compare the injury profiles and case mortality rates, stratifie
 
 
 
-res = mdata %>%
+mdata %>%
 	group_by(age_group, mech1) %>%
 	summarise(n_obs = n(),
-						n_weighted = sum(discwt, na.rm = T), 
-						age = med_iqi(age),
-						female = round(my.weighted.mean(female)*100, 2),
-						mortality = round(my.weighted.mean(mortality)*100, 2),
-						pDeath = med_iqi(pDeath*100)) %>% 
+						n_weighted = round(sum(discwt, na.rm = T)), 
+						age = med_iqi(age, w = discwt),
+						female = round(my.weighted.mean(female, w = discwt)*100, 2),
+						mortality = round(my.weighted.mean(mortality, w = discwt)*100, 2),
+						pDeath = med_iqi(pDeath*100, w = discwt)) %>% 
 	ungroup() %>%
 	kableExtra::kable()
 
@@ -295,6 +378,18 @@ res = mdata %>%
 ```
 
 
+\
+\
+\
+\
+
+https://m-clark.github.io/posts/2019-10-20-big-mixed-models/#additive-models-as-mixed-models
+```{r mixed model}
+library(mgcv)
+library(gammit)
+
+
+```
 
 
 

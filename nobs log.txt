@@ -1,6 +1,10 @@
-Sum_discwt after filtering on age =  79,494,797 
-N_obs after filtering on age =  17,841,288 
-N_obs after filtering on ecodes =  13,282,996 
-Sum_discwt after filtering on ecodes =  58,661,054 
-N_obs after all filters =  12,905,219 
-Sum_discwt after all filters =  58,661,054 
+Initial N_obs =  218,828,976 
+Initial sum_discwt =  986,145,713 
+N_obs after filtering on injury dx =  41,764,299 
+Sum_discwt after filtering on injury dx =  188,937,426 
+N_obs after filtering on age =  12,689,698 
+Sum_discwt after filtering on age =  57,325,931 
+N_obs after filtering on ecodes =  10,353,592 
+Sum_discwt after filtering on ecodes =  46,600,942 
+N_obs after all filters =  10,353,592 
+Sum_discwt after all filters =  46,600,942 

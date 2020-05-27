@@ -1,7 +1,8 @@
 library(tidyverse)
 library(dplyr)
 library(dbplyr)
-library(RSQLite)
+# library(RSQLite) # starts throwing "Error: database or disk is full" after updating to R v4, use postgresql instead
+library(RPostgreSQL)
 library(DBI)
 library(data.table)
 
@@ -11,6 +12,8 @@ library(data.table)
 
 
 #connect to database ----
+system("pg_ctl -D /usr/local/var/postgres start")
+
 neds = dbConnect(dbDriver("PostgreSQL"), 
 								 user="jr-f", 
 								 password="",
@@ -18,6 +21,8 @@ neds = dbConnect(dbDriver("PostgreSQL"),
 								 port=5432,
 								 dbname="neds")
 
+
+dbExecute(neds, "SET work_mem = '4GB'")
 
 
 dbSendQuery(neds, 
@@ -32,7 +37,7 @@ mdata = dbReadTable(neds, "join_res_small")
 
 #convert some vars to factors (to reduce object size)
 mdata = mdata %>% mutate_at(vars(key_ed, hosp_ed, year,
-																 female, died_visit, disp_ed, edevent,
+																 died_visit, disp_ed, edevent,
 																 disp_ip, neds_stratum), factor)
 
 
@@ -45,6 +50,7 @@ saveRDS(mdata, "Data/final/join_res_small.RDS")
 #disconnect from DB ----
 dbDisconnect(neds)
 rm(neds)
+system("pg_ctl -D /usr/local/var/postgres stop")
 
 
 
@@ -83,17 +89,15 @@ sum(ecodes$key_ed %in% mdata$key_ed)/nrow(ecodes)
 
 #join data -----
 
-mdata = as.data.table(mdata)
-ecodes = as.data.table(ecodes)
-tmpm = as.data.table(tmpm)
+mdata = data.table::data.table(mdata, key = "key_ed")
+ecodes = data.table::data.table(ecodes, key = "key_ed")
+tmpm = data.table::data.table(tmpm, key = "key_ed")
 
 
-final = merge(mdata, ecodes, 
-							by = "key_ed")
+final = data.table::merge.data.table(mdata, ecodes, by = "key_ed")
 
 
-final = merge(final, tmpm, 
-							by = "key_ed")
+final = data.table::merge.data.table(final, tmpm, by = "key_ed")
 
 
 
@@ -105,8 +109,10 @@ rm(mdata, ecodes, tmpm)
 
 # a little bit of cleaning --------------------------------------
 
-
+final$key_ed = as.factor(final$key_ed)
 final$female = as.integer(final$female)
+
+
 
 final$died_visit = as.integer(final$died_visit)
 final$died_visit = case_when(
@@ -171,7 +177,11 @@ final$mortality = as.integer(final$mortality)
 
 
 
-final$mech1[final$mech1==""] = "UNSPECIFIED"
+
+
+final$mech1[final$mech1=="" | is.na(final$mech1)] = "UNSPECIFIED"
+
+
 
 
 
@@ -183,6 +193,8 @@ final$age_group = case_when(
 	final$age >80 ~ "81+",
 	TRUE ~ NA_character_
 ) %>% as.factor()
+
+
 
 
 
