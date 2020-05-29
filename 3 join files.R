@@ -35,10 +35,6 @@ dbSendQuery(neds,
 #export from DB into R ----
 mdata = dbReadTable(neds, "join_res_small")
 
-#convert some vars to factors (to reduce object size)
-mdata = mdata %>% mutate_at(vars(key_ed, hosp_ed, year,
-																 died_visit, disp_ed, edevent,
-																 disp_ip, neds_stratum), factor)
 
 
 
@@ -110,11 +106,12 @@ rm(mdata, ecodes, tmpm)
 # a little bit of cleaning --------------------------------------
 
 final$key_ed = as.factor(final$key_ed)
+
 final$female = as.integer(final$female)
 
 
 
-final$died_visit = as.integer(final$died_visit)
+
 final$died_visit = case_when(
 	final$died_visit == 0 ~ "Survived to discharge",
 	final$died_visit == 1 ~ "Died in ED",
@@ -123,7 +120,7 @@ final$died_visit = case_when(
 ) %>% as.factor()
 
 
-final$disp_ed = as.integer(final$disp_ed)
+
 final$disp_ed = case_when(
 	final$disp_ed == 1 ~ "Routine",
 	final$disp_ed == 2 ~ "Transfer to short-term hospital",
@@ -140,7 +137,7 @@ final$disp_ed = case_when(
 
 
 
-final$disp_ip = as.integer(final$disp_ip)
+
 final$disp_ip = case_when(
 	final$disp_ip == 1 ~ "Routine",
 	final$disp_ip == 2 ~ "Transfer to short-term hospital",
@@ -155,7 +152,7 @@ final$disp_ip = case_when(
 
 
 
-final$edevent = as.integer(final$edevent)
+
 final$edevent = case_when(
 	final$edevent == 1 ~ "Treated and released",
 	final$edevent == 2 ~ "Admitted as inpatient",
