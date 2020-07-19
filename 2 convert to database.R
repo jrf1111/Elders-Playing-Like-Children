@@ -12,7 +12,7 @@ library(data.table)
 #create database ----
 
 
-#configure database
+#configure server
 conf_file = "/usr/local/var/postgres/postgresql.conf"
 
 cat("\nshared_buffers = 300MB", file = conf_file, append = T)
@@ -179,11 +179,6 @@ for(i in 1:length(files)){
 	
 	#standardize the length of the strings
 	temp = temp %>% mutate_at(vars(starts_with("dx")), dx_recode)
-
-	#null out non-injury dxs
-	temp = temp %>%
-		mutate_at(vars(starts_with("dx")),
-							function(x){x[!x %in% injury_codes] = NA; x})
 
 
 	temp$year = as.character(temp$year)

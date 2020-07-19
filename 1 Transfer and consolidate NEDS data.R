@@ -1,11 +1,11 @@
 library(data.table)
 library(tidyverse)
 library(haven)
-install.packages("bit64")  #required for 64 bit integers used in key_ed
+library(bit64)  #required for 64 bit integers used in key_ed
 
 
 
-#convert files to more memory effecient RDS files
+#convert files to more memory efficient RDS files
 files = list.files("Data/", pattern = "_Hospital.dta", full.names = T)
 for(i in files){
 	
@@ -19,6 +19,23 @@ for(i in files){
 	rm(temp) #remove data
 	
 }
+
+
+#2016 file in CSV form
+temp = fread("Data/NEDS_2016/NEDS_2016_HOSPITAL.csv", 
+						 header = FALSE) %>%
+	setnames(old = colnames(.), 
+					 new = c("discwt", "hospwt", "hosp_control", "hosp_ed",
+					 				"hosp_region", "hosp_trauma", "hosp_urcat4",
+					 				"hosp_ur_teach", "neds_stratum", "n_disc_u",
+					 				"n_hosp_u", "s_disc_u", "s_hosp_u", 
+					 				"total_edvisits", "year"))
+
+saveRDS(temp, "Data/NEDS_2016_Hospital.RDS")
+rm(temp)
+
+
+
 
 
 
@@ -38,6 +55,21 @@ for(i in files){
 }
 
 
+#2016 file in CSV form
+temp = fread("Data/NEDS_2016/NEDS_2016_IP.csv", 
+						 header = FALSE) %>%
+	setnames(old = colnames(.), 
+					 new = c("hosp_ed", "key_ed", "disp_ip", 
+					 				"drg", "drgver", "drg_nopoa", 
+					 				"i10_npr_ip", "i10_pr_ip1", "i10_pr_ip2", 
+					 				"i10_pr_ip3", "i10_pr_ip4", "i10_pr_ip5", 
+					 				"i10_pr_ip6", "i10_pr_ip7", "i10_pr_ip8", 
+					 				"i10_pr_ip9", "los_ip", 
+					 				"mdc", "mdc_nopoa", "prver", "totchg_ip")
+)
+
+saveRDS(temp, "Data/NEDS_2016_IP.RDS")
+rm(temp)
 
 
 
@@ -46,14 +78,15 @@ for(i in files){
 
 
 #core data files are *much* larger :|
-# don't read in all vars
+# don't read in all vars at once
 
 blank_to_na = function(x){ 
+	x = trimws(x)
 	x[x==""] = NA
 	x
 }
 
-ids = c("key_ed", "hosp_ed", "discwt", "year")
+
 
 
 #core 2010 -------------------------------------------------------------------------------------------------
@@ -61,7 +94,7 @@ ids = c("key_ed", "hosp_ed", "discwt", "year")
 
 temp = read_dta("Data/NEDS_2010_Core.dta", 
 								col_select = c(
-									ids,  
+									"key_ed", 
 									paste0("dx", 1:15)
 								)
 )
@@ -78,13 +111,20 @@ gc()
 
 temp = read_dta("Data/NEDS_2010_Core.dta", 
 								col_select = c(
-									ids,  
-									c("age",  "female")
+									"key_ed", 
+									"age",  "female", 
+									"pay1", "pay2", "totchg_ed", 
+									"zipinc_qrtl"
 								)
 )
 
 temp = temp %>% mutate_if(is.character, blank_to_na)
 temp$age = as.integer(temp$age)
+temp$female = as.integer(temp$female)
+temp$pay1 = as.integer(temp$pay1)
+temp$pay2 = as.integer(temp$pay2)
+temp$zipinc_qrtl = as.integer(temp$zipinc_qrtl)
+
 
 saveRDS(temp, "Data/NEDS_2010_Core_demos.RDS")
 rm(temp)
@@ -95,12 +135,16 @@ gc()
 
 temp = read_dta("Data/NEDS_2010_Core.dta", 
 								col_select = c(
-									ids,  
-									c("died_visit", "disp_ed", "edevent")
+									"key_ed", 
+									"died_visit", "disp_ed", "edevent"
 								)
 )
 
 temp = temp %>% mutate_if(is.character, blank_to_na)
+temp$died_visit = as.integer(temp$died_visit)
+temp$disp_ed = as.integer(temp$disp_ed)
+temp$edevent = as.integer(temp$edevent)
+
 
 saveRDS(temp, "Data/NEDS_2010_Core_outcomes.RDS")
 rm(temp)
@@ -112,15 +156,12 @@ gc()
 
 temp = read_dta("Data/NEDS_2010_Core.dta", 
 								col_select = c(
-									ids,  
+									"key_ed", 
 									starts_with("ecode")
 								)
 )
 
 temp = temp %>% mutate_if(is.character, blank_to_na)
-
-temp = temp %>% mutate_at(vars(starts_with("ecode")), 
-													function(x){ x[which(substr(x, 1, 1)!="E")]=NA; x }  )
 
 
 saveRDS(temp, "Data/NEDS_2010_Core_ecode.RDS")
@@ -141,7 +182,7 @@ beepr::beep()
 
 temp = read_dta("Data/NEDS_2011_Core.dta", 
 								col_select = c(
-									ids,  
+									"key_ed", 
 									paste0("dx", 1:15)
 								)
 )
@@ -158,13 +199,20 @@ gc()
 
 temp = read_dta("Data/NEDS_2011_Core.dta", 
 								col_select = c(
-									ids,  
-									c("age",  "female")
-								)
+									"key_ed", 
+									"age",  "female", 
+									"pay1", "pay2", "totchg_ed", 
+									"zipinc_qrtl"
+									)
 )
 
 temp = temp %>% mutate_if(is.character, blank_to_na)
 temp$age = as.integer(temp$age)
+temp$female = as.integer(temp$female)
+temp$pay1 = as.integer(temp$pay1)
+temp$pay2 = as.integer(temp$pay2)
+temp$zipinc_qrtl = as.integer(temp$zipinc_qrtl)
+
 
 saveRDS(temp, "Data/NEDS_2011_Core_demos.RDS")
 rm(temp)
@@ -175,12 +223,15 @@ gc()
 
 temp = read_dta("Data/NEDS_2011_Core.dta", 
 								col_select = c(
-									ids,  
-									c("died_visit", "disp_ed", "edevent")
+									"key_ed", 
+									"died_visit", "disp_ed", "edevent"
 								)
 )
 
 temp = temp %>% mutate_if(is.character, blank_to_na)
+temp$died_visit = as.integer(temp$died_visit)
+temp$disp_ed = as.integer(temp$disp_ed)
+temp$edevent = as.integer(temp$edevent)
 
 saveRDS(temp, "Data/NEDS_2011_Core_outcomes.RDS")
 rm(temp)
@@ -192,15 +243,12 @@ gc()
 
 temp = read_dta("Data/NEDS_2011_Core.dta", 
 								col_select = c(
-									ids,  
+									"key_ed", 
 									starts_with("ecode")
 								)
 )
 
 temp = temp %>% mutate_if(is.character, blank_to_na)
-
-temp = temp %>% mutate_at(vars(starts_with("ecode")), 
-													function(x){ x[which(substr(x, 1, 1)!="E")]=NA; x }  )
 
 
 saveRDS(temp, "Data/NEDS_2011_Core_ecode.RDS")
@@ -228,7 +276,7 @@ beepr::beep()
 
 temp = read_dta("Data/NEDS_2012_Core.dta", 
 								col_select = c(
-									ids,  
+									"key_ed", 
 									paste0("dx", 1:15)
 								)
 )
@@ -245,13 +293,20 @@ gc()
 
 temp = read_dta("Data/NEDS_2012_Core.dta", 
 								col_select = c(
-									ids,  
-									c("age",  "female")
+									"key_ed", 
+									"age",  "female", 
+									"pay1", "pay2", "totchg_ed", 
+									"zipinc_qrtl"
 								)
 )
 
 temp = temp %>% mutate_if(is.character, blank_to_na)
 temp$age = as.integer(temp$age)
+temp$female = as.integer(temp$female)
+temp$pay1 = as.integer(temp$pay1)
+temp$pay2 = as.integer(temp$pay2)
+temp$zipinc_qrtl = as.integer(temp$zipinc_qrtl)
+
 
 saveRDS(temp, "Data/NEDS_2012_Core_demos.RDS")
 rm(temp)
@@ -262,12 +317,15 @@ gc()
 
 temp = read_dta("Data/NEDS_2012_Core.dta", 
 								col_select = c(
-									ids,  
-									c("died_visit", "disp_ed", "edevent")
+									"key_ed", 
+									"died_visit", "disp_ed", "edevent"
 								)
 )
 
 temp = temp %>% mutate_if(is.character, blank_to_na)
+temp$died_visit = as.integer(temp$died_visit)
+temp$disp_ed = as.integer(temp$disp_ed)
+temp$edevent = as.integer(temp$edevent)
 
 saveRDS(temp, "Data/NEDS_2012_Core_outcomes.RDS")
 rm(temp)
@@ -279,15 +337,12 @@ gc()
 
 temp = read_dta("Data/NEDS_2012_Core.dta", 
 								col_select = c(
-									ids,  
+									"key_ed", 
 									starts_with("ecode")
 								)
 )
 
 temp = temp %>% mutate_if(is.character, blank_to_na)
-
-temp = temp %>% mutate_at(vars(starts_with("ecode")), 
-													function(x){ x[which(substr(x, 1, 1)!="E")]=NA; x }  )
 
 
 saveRDS(temp, "Data/NEDS_2012_Core_ecode.RDS")
@@ -311,7 +366,7 @@ beepr::beep()
 
 temp = read_dta("Data/NEDS_2013_Core.dta", 
 								col_select = c(
-									ids,  
+									"key_ed", 
 									paste0("dx", 1:15)
 								)
 )
@@ -328,13 +383,20 @@ gc()
 
 temp = read_dta("Data/NEDS_2013_Core.dta", 
 								col_select = c(
-									ids,  
-									c("age",  "female")
+									"key_ed", 
+									"age",  "female", 
+									"pay1", "pay2", "totchg_ed", 
+									"zipinc_qrtl"
 								)
 )
 
 temp = temp %>% mutate_if(is.character, blank_to_na)
 temp$age = as.integer(temp$age)
+temp$female = as.integer(temp$female)
+temp$pay1 = as.integer(temp$pay1)
+temp$pay2 = as.integer(temp$pay2)
+temp$zipinc_qrtl = as.integer(temp$zipinc_qrtl)
+
 
 saveRDS(temp, "Data/NEDS_2013_Core_demos.RDS")
 rm(temp)
@@ -345,12 +407,15 @@ gc()
 
 temp = read_dta("Data/NEDS_2013_Core.dta", 
 								col_select = c(
-									ids,  
-									c("died_visit", "disp_ed", "edevent")
+									"key_ed", 
+									"died_visit", "disp_ed", "edevent"
 								)
 )
 
 temp = temp %>% mutate_if(is.character, blank_to_na)
+temp$died_visit = as.integer(temp$died_visit)
+temp$disp_ed = as.integer(temp$disp_ed)
+temp$edevent = as.integer(temp$edevent)
 
 saveRDS(temp, "Data/NEDS_2013_Core_outcomes.RDS")
 rm(temp)
@@ -362,15 +427,12 @@ gc()
 
 temp = read_dta("Data/NEDS_2013_Core.dta", 
 								col_select = c(
-									ids,  
+									"key_ed", 
 									starts_with("ecode")
 								)
 )
 
 temp = temp %>% mutate_if(is.character, blank_to_na)
-
-temp = temp %>% mutate_at(vars(starts_with("ecode")), 
-													function(x){ x[which(substr(x, 1, 1)!="E")]=NA; x }  )
 
 
 saveRDS(temp, "Data/NEDS_2013_Core_ecode.RDS")
@@ -401,7 +463,7 @@ beepr::beep()
 
 temp = read_dta("Data/NEDS_2014_Core.dta", 
 								col_select = c(
-									ids,  
+									"key_ed", 
 									paste0("dx", 1:15)  
 								)
 )
@@ -418,13 +480,20 @@ gc()
 
 temp = read_dta("Data/NEDS_2014_Core.dta", 
 								col_select = c(
-									ids,  
-									c("age",  "female")
+									"key_ed", 
+									"age",  "female", 
+									"pay1", "pay2", "totchg_ed", 
+									"zipinc_qrtl"
 								)
 )
 
 temp = temp %>% mutate_if(is.character, blank_to_na)
 temp$age = as.integer(temp$age)
+temp$female = as.integer(temp$female)
+temp$pay1 = as.integer(temp$pay1)
+temp$pay2 = as.integer(temp$pay2)
+temp$zipinc_qrtl = as.integer(temp$zipinc_qrtl)
+
 
 saveRDS(temp, "Data/NEDS_2014_Core_demos.RDS")
 rm(temp)
@@ -435,12 +504,15 @@ gc()
 
 temp = read_dta("Data/NEDS_2014_Core.dta", 
 								col_select = c(
-									ids,  
-									c("died_visit", "disp_ed", "edevent")
+									"key_ed", 
+									"died_visit", "disp_ed", "edevent"
 								)
 )
 
 temp = temp %>% mutate_if(is.character, blank_to_na)
+temp$died_visit = as.integer(temp$died_visit)
+temp$disp_ed = as.integer(temp$disp_ed)
+temp$edevent = as.integer(temp$edevent)
 
 saveRDS(temp, "Data/NEDS_2014_Core_outcomes.RDS")
 rm(temp)
@@ -452,16 +524,12 @@ gc()
 
 temp = read_dta("Data/NEDS_2014_Core.dta", 
 								col_select = c(
-									ids,  
+									"key_ed", 
 									starts_with("ecode")
 								)
 )
 
 temp = temp %>% mutate_if(is.character, blank_to_na)
-
-temp = temp %>% mutate_at(vars(starts_with("ecode")), 
-													function(x){ x[which(substr(x, 1, 1)!="E")]=NA; x }  )
-
 
 saveRDS(temp, "Data/NEDS_2014_Core_ecode.RDS")
 rm(temp)
@@ -474,6 +542,7 @@ beepr::beep()
 
 
 
+#################################### STOPPED HERE ####################################
 
 
 #2015 -----------------------------------------------------------------------------------------------------
@@ -485,7 +554,7 @@ beepr::beep()
 
 # ~ 2015 Q1-Q3 dxs ----------------------------------------------------------------------------------------
 temp = read_dta("Data/NEDS_2015_Core.dta", 
-								col_select = ids
+								col_select = c("key_ed")
 								)
 
 gc()
@@ -494,7 +563,7 @@ temp$year = NULL
 
 temp2 = read_dta("Data/NEDS_2015Q1Q3_ED.dta",
 								 col_select = c(
-								 	c("key_ed", "hosp_ed"),
+								 	c("key_ed"),
 								 	paste0("dx", 1:5)
 								 )
 )
@@ -510,8 +579,8 @@ temp2$hosp_ed = as.character(temp2$hosp_ed)
 
 
 #make keyed columns
-temp = data.table(temp, key = c("key_ed", "hosp_ed"))
-temp2 = data.table(temp2, key = c("key_ed", "hosp_ed"))
+temp = data.table(temp, key = c("key_ed"))
+temp2 = data.table(temp2, key = c("key_ed"))
 
 
 #add dxs to temp from temp2, then remove from temp2
@@ -533,7 +602,7 @@ gc()
 
 temp2 = read_dta("Data/NEDS_2015Q1Q3_ED.dta",
 								 col_select = c(
-								 	c("key_ed", "hosp_ed"),
+								 	c("key_ed"),
 								 	paste0("dx", 6:10)
 								 )
 )
@@ -546,8 +615,8 @@ temp2$hosp_ed = as.character(temp2$hosp_ed)
 
 
 #make keyed columns
-temp = data.table(temp, key = c("key_ed", "hosp_ed"))
-temp2 = data.table(temp2, key = c("key_ed", "hosp_ed"))
+temp = data.table(temp, key = c("key_ed"))
+temp2 = data.table(temp2, key = c("key_ed"))
 
 
 #add dxs to temp from temp2, then remove from temp2
@@ -567,7 +636,7 @@ gc()
 
 temp2 = read_dta("Data/NEDS_2015Q1Q3_ED.dta",
 								 col_select = c(
-								 	c("key_ed", "hosp_ed"),
+								 	c("key_ed"),
 								 	paste0("dx", 11:15)
 								 )
 )
@@ -580,8 +649,8 @@ temp2$hosp_ed = as.character(temp2$hosp_ed)
 
 
 #make keyed columns
-temp = data.table(temp, key = c("key_ed", "hosp_ed"))
-temp2 = data.table(temp2, key = c("key_ed", "hosp_ed"))
+temp = data.table(temp, key = c("key_ed"))
+temp2 = data.table(temp2, key = c("key_ed"))
 
 
 #add dxs to temp from temp2, then remove from temp2
@@ -610,7 +679,7 @@ gc()
 
 # ~ 2015 Q4 dxs ---------------------------------------------------------------------------------------------
 temp = read_dta("Data/NEDS_2015Q4_ED.dta",
-								col_select = c(ids[1:2],
+								col_select = c("key_ed", 
 															 num_range("i10_dx", range = 1:15)
 															 )
 								)
@@ -648,7 +717,7 @@ gc()
 
 temp = read_dta("Data/NEDS_2015Q1Q3_ED.dta", 
 								col_select = c(
-									ids[1:2],  
+									"key_ed", 
 									starts_with("ecode")
 								)
 )
@@ -704,7 +773,7 @@ gc()
 
 temp = read_dta("Data/NEDS_2015Q4_ED.dta", 
 								col_select = c(
-									ids[1:2],  
+									"key_ed", 
 									starts_with("i10_ecause")
 								)
 )
@@ -766,13 +835,19 @@ gc()
 # ~ core 2015 ------------------------------------------------------------------
 temp = read_dta("Data/NEDS_2015_Core.dta", 
 								col_select = c(
-									ids,  
-									c("age",  "female")
+									"key_ed", 
+									"age",  "female", 
+									"pay1", "pay2", "totchg_ed", 
+									"zipinc_qrtl"
 								)
 )
 
 temp = temp %>% mutate_if(is.character, blank_to_na)
 temp$age = as.integer(temp$age)
+temp$female = as.integer(temp$female)
+temp$pay1 = as.integer(temp$pay1)
+temp$pay2 = as.integer(temp$pay2)
+temp$zipinc_qrtl = as.integer(temp$zipinc_qrtl)
 
 saveRDS(temp, "Data/NEDS_2015_Core_demos.RDS")
 rm(temp)
@@ -783,12 +858,15 @@ gc()
 
 temp = read_dta("Data/NEDS_2015_Core.dta", 
 								col_select = c(
-									ids,  
-									c("died_visit", "disp_ed", "edevent")
+									"key_ed", 
+									"died_visit", "disp_ed", "edevent"
 								)
 )
 
 temp = temp %>% mutate_if(is.character, blank_to_na)
+temp$died_visit = as.integer(temp$died_visit)
+temp$disp_ed = as.integer(temp$disp_ed)
+temp$edevent = as.integer(temp$edevent)
 
 saveRDS(temp, "Data/NEDS_2015_Core_outcomes.RDS")
 rm(temp)
@@ -897,7 +975,7 @@ temp = temp %>% mutate_at(vars(starts_with("i10_ecause")), icd10_to_icd9)
 
 colnames(temp) = gsub("i10_ecause", "ecode", colnames(temp))
 
-saveRDS(temp[, c(ids, "ecode1")], "Data/NEDS_2016_ecode.RDS")
+saveRDS(temp[, c("key_ed",  "ecode1")], "Data/NEDS_2016_ecode.RDS")
 
 temp = temp %>% select(-starts_with("ecode"))
 
@@ -926,18 +1004,18 @@ temp = temp %>% mutate_at(vars(starts_with("i10_dx")), icd10_to_icd9)
 colnames(temp) = gsub("i10_", "", colnames(temp))
 
 
-saveRDS(temp[, c(ids, paste0("dx", 1:15))], "Data/NEDS_2016_dx.RDS")
+saveRDS(temp[, c("key_ed",  paste0("dx", 1:15))], "Data/NEDS_2016_dx.RDS")
 
 temp = temp %>% select(-starts_with("dx"))
 
 
 # ~~ demos and outcomes ----
 
-temp %>% select(c(ids, "age", "female")) %>% 
+temp %>% select(c("key_ed",  "age", "female")) %>% 
 	saveRDS(., "Data/NEDS_2016_demos.RDS")
 
 
-temp %>% select(c(ids, "died_visit", "disp_ed", "edevent")) %>% 
+temp %>% select(c("key_ed",  "died_visit", "disp_ed", "edevent")) %>% 
 	saveRDS(., "Data/NEDS_2016_outcomes.RDS")
 
 
@@ -946,73 +1024,6 @@ rm(temp)
 gc()
 
 beepr::beep()
-
-
-# ~ IP 2016 ------------------------------------------------------------
-
-temp = fread("Data/NEDS_2016_IP.csv", 
-						 logical01 = F, keepLeadingZeros = T, stringsAsFactors = T,
-						 na.strings=c(getOption("datatable.na.strings","NA"), -1:-9, -99, -100000000, "")
-)
-
-colnames(temp) = c("HOSP_ED", "KEY_ED", "DISP_IP", "DRG", "DRGVER", "DRG_NoPOA",
-									 "I10_NPR_IP", "I10_PR_IP1", "I10_PR_IP2", "I10_PR_IP3", 
-									 "I10_PR_IP4", "I10_PR_IP5", "I10_PR_IP6", "I10_PR_IP7", 
-									 "I10_PR_IP8", "I10_PR_IP9", "LOS_IP", "MDC", "MDC_NoPOA",
-									 "PRVER", "TOTCHG_IP")
-
-colnames(temp) = tolower(colnames(temp))
-
-
-temp = temp %>% mutate_if(is.character, blank_to_na)
-
-temp = temp %>% mutate_if(is.character, factor)
-
-
-#set missings
-temp$los_ip[temp$los_ip<0] = NA
-temp$totchg_ip[temp$totchg_ip<0] = NA
-
-
-
-saveRDS(temp, "Data/NEDS_2016_IP.RDS")
-
-rm(temp)
-gc()
-
-
-
-
-
-
-# ~ hospital 2016 ------------------------------------------------------------
-
-temp = fread("Data/NEDS_2016_HOSPITAL.csv", 
-						 logical01 = F, keepLeadingZeros = T, stringsAsFactors = T,
-						 na.strings=c(getOption("datatable.na.strings","NA"), -1:-9, -99, -100000000)
-)
-
-colnames(temp) = c("DISCWT", "HOSPWT", "HOSP_CONTROL", 
-									 "HOSP_ED", "HOSP_REGION", "HOSP_TRAUMA",
-									 "HOSP_URCAT4", "HOSP_UR_TEACH", "NEDS_STRATUM", 
-									 "N_DISC_U", "N_HOSP_U", "S_DISC_U", "S_HOSP_U",
-									 "TOTAL_EDVisits", "YEAR")
-
-colnames(temp) = tolower(colnames(temp))
-
-
-
-temp = temp %>% mutate_if(is.character, blank_to_na)
-
-temp = temp %>% mutate_if(is.character, factor)
-
-
-
-saveRDS(temp, "Data/NEDS_2016_Hospital.RDS")
-rm(temp)
-gc()
-
-
 
 
 # ~ ED 2016 ------------------------------------------------------------
