@@ -67,7 +67,7 @@ temp = fread("Data/NEDS_2016/NEDS_2016_IP.csv",
 					 				"i10_pr_ip6", "i10_pr_ip7", "i10_pr_ip8", 
 					 				"i10_pr_ip9", "los_ip", 
 					 				"mdc", "mdc_nopoa", "prver", "totchg_ip")
-)
+	)
 
 saveRDS(temp, "Data/NEDS_2016_IP.RDS")
 rm(temp)
@@ -82,7 +82,7 @@ rm(temp)
 # don't read in all vars at once
 
 blank_to_na = function(x){ 
-
+	
 	if(is.numeric(x)){return(x)}
 	if(is.logical(x)){return(x)}
 	
@@ -99,11 +99,11 @@ blank_to_na = function(x){
 		x
 	}
 	
-
+	
 	x = trimws(x)
 	x[x==""] = NA
 	x
-
+	
 }
 
 
@@ -223,7 +223,7 @@ temp = read_dta("Data/NEDS_2011_Core.dta",
 									"age",  "female", 
 									"pay1", "pay2", "totchg_ed", 
 									"zipinc_qrtl"
-									)
+								)
 )
 
 temp = temp %>% mutate_if(is.character, blank_to_na)
@@ -577,7 +577,7 @@ temp2 = read_dta("Data/NEDS_2015Q1Q3_ED.dta",
 								 	c("key_ed"),
 								 	paste0("dx", 1:5)
 								 )
-
+								 
 )
 gc()
 
@@ -586,11 +586,11 @@ gc()
 
 
 temp = temp %>% mutate_at(vars(starts_with("dx")), 
-														function(x){ 
-															x[which(!grepl("^(V?)(\\d{2,})$", x))] = NA
-															x
-															}
-													)
+													function(x){ 
+														x[which(!grepl("^(V?)(\\d{2,})$", x))] = NA
+														x
+													}
+)
 
 
 
@@ -609,8 +609,8 @@ gc()
 temp = read_dta("Data/NEDS_2015Q4_ED.dta",
 								col_select = c("key_ed", 
 															 num_range("i10_dx", range = 1:15)
-															 )
 								)
+)
 
 
 temp = temp %>% mutate_at(vars(starts_with("i10")), blank_to_na)
@@ -664,10 +664,10 @@ temp$ecode1[14034783] = NA #invalid multibyte string: "\177\xe5\177\xe5\177\xe5\
 
 #take care of the rest here
 temp = temp %>% mutate_at(vars(starts_with("ecode")), 
-					function(x){ 
-						x[which(!grepl("^(E)(\\d{2,})$", x))] = NA
-						x
-					})
+													function(x){ 
+														x[which(!grepl("^(E)(\\d{2,})$", x))] = NA
+														x
+													})
 
 
 
@@ -901,7 +901,7 @@ temp = fread("Data/NEDS_2016/NEDS_2016_CORE.csv",
 						 	"key_ed", 
 						 	"i10_ecause1", "i10_ecause2", "i10_ecause3", "i10_ecause4"),
 						 na.strings = c(getOption("datatable.na.strings","NA"), "", " ")
-						 )
+)
 
 temp = temp %>% mutate_at(vars(starts_with("i10_ecause")), blank_to_na)
 
