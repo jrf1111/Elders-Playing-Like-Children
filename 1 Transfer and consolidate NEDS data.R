@@ -82,6 +82,7 @@ rm(temp)
 # don't read in all vars at once
 
 blank_to_na = function(x){ 
+
 	if(is.numeric(x)){return(x)}
 	if(is.logical(x)){return(x)}
 	
@@ -98,6 +99,11 @@ blank_to_na = function(x){
 		x
 	}
 	
+
+	x = trimws(x)
+	x[x==""] = NA
+	x
+
 }
 
 
@@ -565,22 +571,26 @@ beepr::beep()
 
 
 # ~ 2015 Q1-Q3 dxs ----------------------------------------------------------------------------------------
-temp = read_dta("Data/NEDS_2015Q1Q3_ED.dta",
-								col_select = c(
-									"key_ed",
-									paste0("dx", 1:15)
-								)
+
+temp2 = read_dta("Data/NEDS_2015Q1Q3_ED.dta",
+								 col_select = c(
+								 	c("key_ed"),
+								 	paste0("dx", 1:5)
+								 )
+
 )
 gc()
 
 
 #take care of bad/corrupt/multibyte strings
 
+
 temp = temp %>% mutate_at(vars(starts_with("dx")), 
 														function(x){ 
 															x[which(!grepl("^(V?)(\\d{2,})$", x))] = NA
 															x
-															})
+															}
+													)
 
 
 
@@ -915,7 +925,10 @@ temp = temp %>% mutate_at(vars(starts_with("i10_ecause")), icd10_to_icd9)
 
 colnames(temp) = gsub("i10_ecause", "ecode", colnames(temp))
 
+
 saveRDS(temp, "Data/NEDS_2016_ecode.RDS")
+
+temp = temp %>% select(-starts_with("ecode"))
 
 
 rm(icd_map, icd10_to_icd9, temp)
@@ -955,8 +968,8 @@ temp = temp %>% mutate_at(vars(starts_with("i10_dx")), icd10_to_icd9)
 colnames(temp) = gsub("i10_", "", colnames(temp))
 
 
-saveRDS(temp, "Data/NEDS_2016_dx.RDS")
 
+saveRDS(temp, "Data/NEDS_2016_dx.RDS")
 
 
 
