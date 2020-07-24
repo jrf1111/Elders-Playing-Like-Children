@@ -1,22 +1,45 @@
+# setup ------------------------------------------
+
 library(data.table)
 setDTthreads(3)
 library(tidyverse)
 library(haven)
 library(bit64)  #required for 64 bit integers used in key_ed
 
+blank_to_na = function(x){ 
+	
+	if(is.numeric(x)){return(x)}
+	if(is.logical(x)){return(x)}
+	
+	if(is.factor(x)){
+		x = as.character(x)
+		x = na_if(x, "")
+		return(as.factor(x))
+	}
+	
+	if(is.character(x)){
+		x = na_if(x, "")
+		return(x)
+	}
+	
+}
+
 
 
 #convert files to more memory efficient RDS files
+
+# Hospital files ----------------------------------------------------------
 files = list.files("Data/", pattern = "_Hospital.dta", full.names = T)
 for(i in files){
 	
-	print(i) #print file name
+	cat("\n", i) #print file name
 	gc() #garbage clean up
 	temp = read_dta(i) #read in file
+	cat("\t", "imported")
 	
 	name = gsub("dta", "RDS", i) #change file format for resaving
 	saveRDS(temp, file = name) #save in more memory effecient file
-	
+	cat("\t", "saved")
 	rm(temp) #remove data
 	
 }
@@ -40,17 +63,17 @@ rm(temp)
 
 
 
-
+# IP files ----------------------------------------------------------
 files = list.files("Data/", pattern = "_IP.dta", full.names = T)
 for(i in files){
 	
-	print(i) #print file name
+	cat("\n", i) #print file name
 	gc() #garbage clean up
 	temp = read_dta(i) #read in file
-	
+	cat("\t", "imported")
 	name = gsub("dta", "RDS", i) #change file format for resaving
 	saveRDS(temp, file = name) #save in more memory effecient file
-	
+	cat("\t", "saved")
 	rm(temp) #remove data
 	
 }
@@ -78,33 +101,64 @@ rm(temp)
 
 
 
-#core data files are *much* larger :|
-# don't read in all vars at once
 
-blank_to_na = function(x){ 
+
+
+# ED files --------------------------------------------------------------------
+
+files = list.files("Data/", pattern = "_ED.dta", full.names = T)
+for(i in files){
 	
-	if(is.numeric(x)){return(x)}
-	if(is.logical(x)){return(x)}
+	cat("\n", i) #print file name
+	gc() #garbage clean up
+	temp = read_dta(i, 
+									col_select = c("key_ed", "ncpt" )) #read in file
 	
-	if(is.factor(x)){
-		x = as.character(x)
-		x = trimws(x)
-		x[x==""] = NA
-		as.factor(x)
-	}
+	cat("\t", "imported")
 	
-	if(is.character(x)){
-		x = trimws(x)
-		x[x==""] = NA
-		x
-	}
-	
-	
-	x = trimws(x)
-	x[x==""] = NA
-	x
+	name = gsub("dta", "RDS", i) #change file format for resaving
+	saveRDS(temp, file = name) #save in more memory effecient file
+	cat("\t", "saved")
+	rm(temp) #remove data
 	
 }
+
+
+
+
+
+
+# ~ ED 2016 ------------------------------------------------------------
+
+temp = fread("Data/NEDS_2016/NEDS_2016_ED.csv", 
+						 select = c("key_ed", "ncpt"),
+						 na.strings=c(getOption("datatable.na.strings","NA"), "",
+						 						 "invl", "incn2",
+						 						 -1:-9, -99, -999, -100000000)
+)
+
+
+saveRDS(temp, "Data/NEDS_2016_ED.RDS")
+rm(temp)
+gc()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#core data files are *much* larger :|
+# don't read in all vars at once
 
 
 
@@ -572,7 +626,7 @@ beepr::beep()
 
 # ~ 2015 Q1-Q3 dxs ----------------------------------------------------------------------------------------
 
-temp2 = read_dta("Data/NEDS_2015Q1Q3_ED.dta",
+temp = read_dta("Data/NEDS_2015Q1Q3_ED.dta",
 								 col_select = c(
 								 	c("key_ed"),
 								 	paste0("dx", 1:5)
@@ -900,7 +954,7 @@ temp = fread("Data/NEDS_2016/NEDS_2016_CORE.csv",
 						 select = c(
 						 	"key_ed", 
 						 	"i10_ecause1", "i10_ecause2", "i10_ecause3", "i10_ecause4"),
-						 na.strings = c(getOption("datatable.na.strings","NA"), "", " ")
+						 na.strings = c(getOption("datatable.na.strings","NA"), "")
 )
 
 temp = temp %>% mutate_at(vars(starts_with("i10_ecause")), blank_to_na)
@@ -937,8 +991,6 @@ rm(icd_map, icd10_to_icd9, temp)
 
 
 
-############################### STOPPED HERE ################################
-
 # ~~ dxs ----
 
 temp = fread("Data/NEDS_2016/NEDS_2016_CORE.csv",
@@ -948,7 +1000,9 @@ temp = fread("Data/NEDS_2016/NEDS_2016_CORE.csv",
 						 na.strings = c(getOption("datatable.na.strings","NA"), "")
 )
 
-temp = temp %>% mutate_at(vars(starts_with("i10_dx")), blank_to_na)
+
+temp = temp %>% mutate_at(vars(starts_with("i10_dx")), list(~na_if(., "")))
+
 
 
 
@@ -962,57 +1016,67 @@ icd10_to_icd9 = function(x){
 	new
 }
 
+gc()
 temp = temp %>% mutate_at(vars(starts_with("i10_dx")), icd10_to_icd9)
-
+gc()
 
 colnames(temp) = gsub("i10_", "", colnames(temp))
 
 
 
 saveRDS(temp, "Data/NEDS_2016_dx.RDS")
+rm(temp, icd_map, icd10_to_icd9)
 
 
 
 
 # ~~ demos and outcomes ----
+temp = fread("Data/NEDS_2016/NEDS_2016_CORE.csv",
+						 select = c(
+						 	"key_ed", 
+						 	"age",  "female", 
+						 	"pay1", "pay2", "totchg_ed", 
+						 	"zipinc_qrtl"),
+						 na.strings = c(getOption("datatable.na.strings","NA"), "", 
+						 							 -100000000, -99, -66, -9, -8)
+)
 
-temp %>% select(c("key_ed",  "age", "female")) %>% 
-	saveRDS(., "Data/NEDS_2016_demos.RDS")
+temp$totchg_ed[which(temp$totchg_ed<0)] = NA
+temp$female[which(temp$female<0)] = NA
 
 
-temp %>% select(c("key_ed",  "died_visit", "disp_ed", "edevent")) %>% 
-	saveRDS(., "Data/NEDS_2016_outcomes.RDS")
-
-
-
+saveRDS(temp, "Data/NEDS_2016_demos.RDS")
 rm(temp)
+
+
+
+
+
+
+temp = fread("Data/NEDS_2016/NEDS_2016_CORE.csv",
+			select = c(
+				"key_ed", 
+				"died_visit", "disp_ed", "edevent"),
+			na.strings = c(getOption("datatable.na.strings","NA"), "")
+)
+
+
+temp$died_visit[which(temp$died_visit<0)] = NA
+
+
+saveRDS(temp, "Data/NEDS_2016_outcomes.RDS")
+rm(temp)
+
+
+
+
 gc()
 
 beepr::beep()
 
 
-# ~ ED 2016 ------------------------------------------------------------
-
-temp = fread("Data/NEDS_2016_ED.csv", 
-						 logical01 = F, keepLeadingZeros = T, stringsAsFactors = T,
-						 na.strings=c(getOption("datatable.na.strings","NA"), "",
-						 						 "invl", "incn2",
-						 						 -1:-9, -99, -999, -100000000)
-)
-
-colnames(temp) = c("HOSP_ED", "KEY_ED", "CPT1", "CPT2", 
-									 "CPT3", "CPT4", "CPT5", "CPT6", "CPT7", 
-									 "CPT8", "CPT9", "CPT10", "CPT11", "CPT12",
-									 "CPT13", "CPT14", "CPT15", "CPTCCS1", 
-									 "CPTCCS2", "CPTCCS3", "CPTCCS4", 
-									 "CPTCCS5", "CPTCCS6", "CPTCCS7", 
-									 "CPTCCS8", "CPTCCS9", "CPTCCS10",
-									 "CPTCCS11", "CPTCCS12", "CPTCCS13", 
-									 "CPTCCS14", "CPTCCS15", "NCPT")
-
-colnames(temp) = tolower(colnames(temp))
 
 
-saveRDS(temp, "Data/NEDS_2016_ED.RDS")
-rm(temp)
-gc()
+
+
+
