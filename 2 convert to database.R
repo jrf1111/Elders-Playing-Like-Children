@@ -136,7 +136,7 @@ for(i in 1:length(files)){
 	cat("\n", file)
 	temp = read_fst(file, columns = "key_ed")
 	cat("\t\t", colnames(temp))
-	
+
 
 	#standardize the length of the strings
 	temp = temp %>% mutate_at(vars(starts_with("dx")), dx_recode)

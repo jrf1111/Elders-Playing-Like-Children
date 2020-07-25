@@ -9,7 +9,6 @@ library(fst)           #for faster I/O
 library(comorbidity)   #for calculating Charlson and Elixhauser comorbidity scores
 
 
-
 blank_to_na = function(x){ 
 	
 	if(is.numeric(x)){return(x)}
@@ -50,6 +49,7 @@ for(i in files){
 
 
 #2016 file in CSV form
+
 temp = fread("Data/NEDS_2016/NEDS_2016_HOSPITAL.csv")
 write_fst(temp, "Data/NEDS_2016_Hospital.fst")
 rm(temp)
@@ -106,9 +106,11 @@ for(i in files){
 temp = fread("Data/NEDS_2016/NEDS_2016_IP.csv", 
 						 select = c("key_ed", 
 						 					 "disp_ip", "los_ip", "i10_npr_ip", "totchg_ip"))
+
 colnames(temp) = str_replace(colnames(temp), "i10_npr_ip", "npr_ip")
 
 temp$key_ed = bit64::as.integer64(temp$key_ed)
+
 write_fst(temp, "Data/NEDS_2016_IP.fst")
 rm(temp)
 
@@ -154,6 +156,7 @@ temp = fread("Data/NEDS_2016/NEDS_2016_ED.csv",
 						 						 -1:-9, -99, -999, -100000000)
 )
 
+
 temp$key_ed = bit64::as.integer64(temp$key_ed)
 write_fst(temp, "Data/NEDS_2016_ED.fst")
 rm(temp)
@@ -191,6 +194,7 @@ temp = read_dta("Data/NEDS_2010_Core.dta",
 )
 
 temp = temp %>% mutate_if(is.character, blank_to_na)
+
 temp$key_ed = bit64::as.integer64(temp$key_ed)
 write_fst(temp, "Data/NEDS_2010_Core_dx.fst")
 rm(temp)
@@ -217,6 +221,7 @@ temp$pay2 = as.integer(temp$pay2)
 temp$zipinc_qrtl = as.integer(temp$zipinc_qrtl)
 temp$key_ed = bit64::as.integer64(temp$key_ed)
 
+
 write_fst(temp, "Data/NEDS_2010_Core_demos.fst")
 rm(temp)
 gc()
@@ -237,6 +242,7 @@ temp$disp_ed = as.integer(temp$disp_ed)
 temp$edevent = as.integer(temp$edevent)
 temp$key_ed = bit64::as.integer64(temp$key_ed)
 
+
 write_fst(temp, "Data/NEDS_2010_Core_outcomes.fst")
 rm(temp)
 gc()
@@ -254,6 +260,7 @@ temp = read_dta("Data/NEDS_2010_Core.dta",
 
 temp = temp %>% mutate_if(is.character, blank_to_na)
 temp$key_ed = bit64::as.integer64(temp$key_ed)
+
 
 write_fst(temp, "Data/NEDS_2010_Core_ecode.fst")
 rm(temp)
@@ -279,7 +286,9 @@ temp = read_dta("Data/NEDS_2011_Core.dta",
 )
 
 temp = temp %>% mutate_if(is.character, blank_to_na)
+
 temp$key_ed = bit64::as.integer64(temp$key_ed)
+
 write_fst(temp, "Data/NEDS_2011_Core_dx.fst")
 rm(temp)
 gc()
@@ -304,6 +313,7 @@ temp$pay1 = as.integer(temp$pay1)
 temp$pay2 = as.integer(temp$pay2)
 temp$zipinc_qrtl = as.integer(temp$zipinc_qrtl)
 temp$key_ed = bit64::as.integer64(temp$key_ed)
+
 
 write_fst(temp, "Data/NEDS_2011_Core_demos.fst")
 rm(temp)
@@ -342,6 +352,7 @@ temp = read_dta("Data/NEDS_2011_Core.dta",
 
 temp = temp %>% mutate_if(is.character, blank_to_na)
 temp$key_ed = bit64::as.integer64(temp$key_ed)
+
 
 write_fst(temp, "Data/NEDS_2011_Core_ecode.fst")
 rm(temp)
@@ -401,6 +412,7 @@ temp$pay2 = as.integer(temp$pay2)
 temp$zipinc_qrtl = as.integer(temp$zipinc_qrtl)
 temp$key_ed = bit64::as.integer64(temp$key_ed)
 
+
 write_fst(temp, "Data/NEDS_2012_Core_demos.fst")
 rm(temp)
 gc()
@@ -438,6 +450,7 @@ temp = read_dta("Data/NEDS_2012_Core.dta",
 
 temp = temp %>% mutate_if(is.character, blank_to_na)
 temp$key_ed = bit64::as.integer64(temp$key_ed)
+
 
 write_fst(temp, "Data/NEDS_2012_Core_ecode.fst")
 rm(temp)
@@ -531,6 +544,7 @@ temp = read_dta("Data/NEDS_2013_Core.dta",
 
 temp = temp %>% mutate_if(is.character, blank_to_na)
 temp$key_ed = bit64::as.integer64(temp$key_ed)
+
 
 write_fst(temp, "Data/NEDS_2013_Core_ecode.fst")
 rm(temp)
@@ -678,6 +692,7 @@ temp = temp %>% mutate_at(vars(starts_with("dx")), blank_to_na)
 temp$key_ed = bit64::as.integer64(temp$key_ed)
 
 
+
 write_fst(temp, "Data/NEDS_2015Q1Q3_Core_dx.fst")
 rm(temp)
 gc()
@@ -715,6 +730,7 @@ temp = temp %>% mutate_at(vars(starts_with("i10_dx")), icd10_to_icd9)
 
 
 colnames(temp) = gsub("i10_", "", colnames(temp))
+
 
 temp$key_ed = bit64::as.integer64(temp$key_ed)
 
@@ -776,6 +792,7 @@ temp = temp[!grepl("\\D", temp$key_ed), ]
 temp$key_ed = bit64::as.integer64(temp$key_ed)
 
 
+
 write_fst(temp, "Data/NEDS_2015Q1Q3_Core_ecode.fst")
 rm(temp)
 gc()
@@ -824,6 +841,7 @@ colnames(temp) = gsub("i10_ecause", "ecode", colnames(temp))
 
 
 temp$key_ed = bit64::as.integer64(temp$key_ed)
+
 
 
 write_fst(temp, "Data/NEDS_2015Q4_Core_ecode.fst")
@@ -1014,6 +1032,7 @@ colnames(temp) = gsub("i10_ecause", "ecode", colnames(temp))
 
 temp$key_ed = bit64::as.integer64(temp$key_ed)
 
+
 write_fst(temp, "Data/NEDS_2016_Core_ecode.fst")
 
 temp = temp %>% select(-starts_with("ecode"))
@@ -1058,6 +1077,7 @@ colnames(temp) = gsub("i10_", "", colnames(temp))
 
 temp$key_ed = bit64::as.integer64(temp$key_ed)
 
+
 write_fst(temp, "Data/NEDS_2016_Core_dx.fst")
 rm(temp, icd_map, icd10_to_icd9)
 
@@ -1084,7 +1104,7 @@ files = list.files("Data/", pattern = "demos.fst", full.names = T)
 res = data.frame(file = rep("", length(files)), 
 								 cols = rep("", length(files)), 
 								 classes = rep("", length(files))
-								 )
+)
 
 
 for(i in 1:length(files)){
