@@ -5,7 +5,7 @@ library(dbplyr)
 library(RPostgreSQL)
 library(DBI)
 library(data.table)
-
+library(fst)
 
 
 
@@ -132,9 +132,9 @@ dbExecute(neds, "DROP TABLE IF EXISTS dx")
 
 for(i in 1:length(files)){
 	file = files[i]
-	temp = readRDS(file)
+	temp = read_fst(file)
 	temp$key_ed = as.numeric(temp$key_ed)
-	if(file == "Data//NEDS_2015Q1Q3_dx.RDS"){
+	if(file == "Data//NEDS_2015Q1Q3_dx.fst"){
 		temp$year = "2015Q1Q3"
 		#fix encoding errors based on error log file:
 		#   /Users/jr-f/Library/Application Support/Postgres/var-12/postgresql.log
@@ -159,11 +159,11 @@ for(i in 1:length(files)){
 		
 		
 	}
-	if(file == "Data//NEDS_2015Q4_dx.RDS"){
+	if(file == "Data//NEDS_2015Q4_dx.fst"){
 		temp$year = "2015Q4"
 		temp = data.table(temp, key = "key_ed")
 		
-		temp2 = readRDS("Data/NEDS_2015_Core_demos.RDS")
+		temp2 = read_fst("Data/NEDS_2015_Core_demos.fst")
 		temp2 = temp2[, c("key_ed", "discwt")]
 		temp2 = data.table(temp2, key = "key_ed")
 		
@@ -171,7 +171,7 @@ for(i in 1:length(files)){
 		rm(temp2)
 		
 		}
-	if(file == "Data//NEDS_2016_Core_dx.RDS"){temp$year = "2016"}
+	if(file == "Data//NEDS_2016_Core_dx.fst"){temp$year = "2016"}
 
 	
 	
@@ -236,7 +236,7 @@ check_for_all_years(files)
 dbExecute(neds, "DROP TABLE IF EXISTS demos")
 for(i in 1:length(files)){
 	file = files[i]
-	temp = readRDS(file)
+	temp = read_fst(file)
 	temp$key_ed = as.numeric(temp$key_ed)
 	temp = temp[, c("key_ed", "female", "age")]
 	temp$female = as.integer(temp$female)
@@ -265,7 +265,7 @@ check_for_all_years(files)
 dbExecute(neds, "DROP TABLE IF EXISTS ecodes")
 for(i in 1:length(files)){
 	file = files[i]
-	temp = readRDS(file)
+	temp = read_fst(file)
 	temp$key_ed = as.numeric(temp$key_ed)
 	temp = temp[, c("key_ed", "ecode1")]
 	dbWriteTable(neds, "ecodes", temp, append = TRUE, row.names=FALSE)
@@ -292,7 +292,7 @@ check_for_all_years(files)
 dbExecute(neds, "DROP TABLE IF EXISTS outcomes")
 for(i in 1:length(files)){
 	file = files[i]
-	temp = readRDS(file)
+	temp = read_fst(file)
 	temp$key_ed = as.numeric(temp$key_ed)
 	temp = temp[, c("key_ed", "edevent", "disp_ed", "died_visit")]
 	temp$edevent = as.integer(temp$edevent)
@@ -319,12 +319,12 @@ gc()
 
 
 # ~ IP ----
-files = list.files("Data/", pattern = "IP.RDS", full.names = T)
+files = list.files("Data/", pattern = "IP.fst", full.names = T)
 check_for_all_years(files)
 dbExecute(neds, "DROP TABLE IF EXISTS ip")
 for(i in 1:length(files)){
 	file = files[i]
-	temp = readRDS(file)
+	temp = read_fst(file)
 	temp$key_ed = as.numeric(temp$key_ed)
 	temp = temp[, c("key_ed", "disp_ip")]
 	temp$disp_ip = as.integer(temp$disp_ip)
@@ -346,12 +346,12 @@ gc()
 
 
 # ~ hospital ----
-files = list.files("Data/", pattern = "Hospital.RDS", full.names = T)
+files = list.files("Data/", pattern = "Hospital.fst", full.names = T)
 check_for_all_years(files)
 dbExecute(neds, "DROP TABLE IF EXISTS hosp")
 for(i in 1:length(files)){
 	file = files[i]
-	temp = readRDS(file)
+	temp = read_fst(file)
 	temp$year_hosp = as.character(temp$year)
 	temp$hosp_ed = as.character(temp$hosp_ed)
 	temp = temp[, c("hosp_ed", "neds_stratum", "year_hosp")]
@@ -1570,7 +1570,7 @@ gc()
 dx[, paste0("dx", 1:15) ] = NULL
 
 
-saveRDS(dx, "Data/final/tmpm.RDS")
+write_fst(dx, "Data/final/tmpm.fst", compress = 100)
 
 #don't need backup of all dxs anymore
 file.remove("Data/final/dx_final.csv")
@@ -1648,7 +1648,7 @@ ecodes = ecodes[!duplicated(ecodes$key_ed), ]
 ecodes = ecodes[!is.na(ecodes$key_ed), ]
 
 
-saveRDS(ecodes, "Data/final/ecodes_final.RDS")
+write_fst(ecodes, "Data/final/ecodes_final.fst")
 
 rm(ecodes, icd_map, dx_recode)
 

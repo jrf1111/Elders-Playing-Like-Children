@@ -5,6 +5,7 @@ setDTthreads(3)
 library(tidyverse)
 library(haven)
 library(bit64)  #required for 64 bit integers used in key_ed
+library(fst)
 
 blank_to_na = function(x){ 
 	
@@ -26,7 +27,7 @@ blank_to_na = function(x){
 
 
 
-#convert files to more memory efficient RDS files
+#convert files to more memory efficient FST files
 
 # Hospital files ----------------------------------------------------------
 files = list.files("Data/", pattern = "_Hospital.dta", full.names = T)
@@ -37,8 +38,8 @@ for(i in files){
 	temp = read_dta(i) #read in file
 	cat("\t", "imported")
 	
-	name = gsub("dta", "RDS", i) #change file format for resaving
-	saveRDS(temp, file = name) #save in more memory effecient file
+	name = gsub("dta", "fst", i) #change file format for resaving
+	write_fst(temp, path = name) #save in more memory effecient file
 	cat("\t", "saved")
 	rm(temp) #remove data
 	
@@ -55,7 +56,7 @@ temp = fread("Data/NEDS_2016/NEDS_2016_HOSPITAL.csv",
 					 				"n_hosp_u", "s_disc_u", "s_hosp_u", 
 					 				"total_edvisits", "year"))
 
-saveRDS(temp, "Data/NEDS_2016_Hospital.RDS")
+write_fst(temp, "Data/NEDS_2016_Hospital.fst")
 rm(temp)
 
 
@@ -71,8 +72,8 @@ for(i in files){
 	gc() #garbage clean up
 	temp = read_dta(i) #read in file
 	cat("\t", "imported")
-	name = gsub("dta", "RDS", i) #change file format for resaving
-	saveRDS(temp, file = name) #save in more memory effecient file
+	name = gsub("dta", "fst", i) #change file format for resaving
+	write_fst(temp, path = name) #save in more memory effecient file
 	cat("\t", "saved")
 	rm(temp) #remove data
 	
@@ -92,7 +93,7 @@ temp = fread("Data/NEDS_2016/NEDS_2016_IP.csv",
 					 				"mdc", "mdc_nopoa", "prver", "totchg_ip")
 	)
 
-saveRDS(temp, "Data/NEDS_2016_IP.RDS")
+write_fst(temp, "Data/NEDS_2016_IP.fst")
 rm(temp)
 
 
@@ -116,8 +117,8 @@ for(i in files){
 	
 	cat("\t", "imported")
 	
-	name = gsub("dta", "RDS", i) #change file format for resaving
-	saveRDS(temp, file = name) #save in more memory effecient file
+	name = gsub("dta", "fst", i) #change file format for resaving
+	write_fst(temp, path = name) #save in more memory effecient file
 	cat("\t", "saved")
 	rm(temp) #remove data
 	
@@ -138,7 +139,7 @@ temp = fread("Data/NEDS_2016/NEDS_2016_ED.csv",
 )
 
 
-saveRDS(temp, "Data/NEDS_2016_ED.RDS")
+write_fst(temp, "Data/NEDS_2016_ED.fst")
 rm(temp)
 gc()
 
@@ -175,7 +176,7 @@ temp = read_dta("Data/NEDS_2010_Core.dta",
 
 temp = temp %>% mutate_if(is.character, blank_to_na)
 
-saveRDS(temp, "Data/NEDS_2010_Core_dx.RDS")
+write_fst(temp, "Data/NEDS_2010_Core_dx.fst")
 rm(temp)
 gc()
 
@@ -200,7 +201,7 @@ temp$pay2 = as.integer(temp$pay2)
 temp$zipinc_qrtl = as.integer(temp$zipinc_qrtl)
 
 
-saveRDS(temp, "Data/NEDS_2010_Core_demos.RDS")
+write_fst(temp, "Data/NEDS_2010_Core_demos.fst")
 rm(temp)
 gc()
 
@@ -220,7 +221,7 @@ temp$disp_ed = as.integer(temp$disp_ed)
 temp$edevent = as.integer(temp$edevent)
 
 
-saveRDS(temp, "Data/NEDS_2010_Core_outcomes.RDS")
+write_fst(temp, "Data/NEDS_2010_Core_outcomes.fst")
 rm(temp)
 gc()
 
@@ -238,7 +239,7 @@ temp = read_dta("Data/NEDS_2010_Core.dta",
 temp = temp %>% mutate_if(is.character, blank_to_na)
 
 
-saveRDS(temp, "Data/NEDS_2010_Core_ecode.RDS")
+write_fst(temp, "Data/NEDS_2010_Core_ecode.fst")
 rm(temp)
 gc()
 
@@ -263,7 +264,7 @@ temp = read_dta("Data/NEDS_2011_Core.dta",
 
 temp = temp %>% mutate_if(is.character, blank_to_na)
 
-saveRDS(temp, "Data/NEDS_2011_Core_dx.RDS")
+write_fst(temp, "Data/NEDS_2011_Core_dx.fst")
 rm(temp)
 gc()
 
@@ -288,7 +289,7 @@ temp$pay2 = as.integer(temp$pay2)
 temp$zipinc_qrtl = as.integer(temp$zipinc_qrtl)
 
 
-saveRDS(temp, "Data/NEDS_2011_Core_demos.RDS")
+write_fst(temp, "Data/NEDS_2011_Core_demos.fst")
 rm(temp)
 gc()
 
@@ -307,7 +308,7 @@ temp$died_visit = as.integer(temp$died_visit)
 temp$disp_ed = as.integer(temp$disp_ed)
 temp$edevent = as.integer(temp$edevent)
 
-saveRDS(temp, "Data/NEDS_2011_Core_outcomes.RDS")
+write_fst(temp, "Data/NEDS_2011_Core_outcomes.fst")
 rm(temp)
 gc()
 
@@ -325,7 +326,7 @@ temp = read_dta("Data/NEDS_2011_Core.dta",
 temp = temp %>% mutate_if(is.character, blank_to_na)
 
 
-saveRDS(temp, "Data/NEDS_2011_Core_ecode.RDS")
+write_fst(temp, "Data/NEDS_2011_Core_ecode.fst")
 rm(temp)
 gc()
 
@@ -357,7 +358,7 @@ temp = read_dta("Data/NEDS_2012_Core.dta",
 
 temp = temp %>% mutate_if(is.character, blank_to_na)
 
-saveRDS(temp, "Data/NEDS_2012_Core_dx.RDS")
+write_fst(temp, "Data/NEDS_2012_Core_dx.fst")
 rm(temp)
 gc()
 
@@ -382,7 +383,7 @@ temp$pay2 = as.integer(temp$pay2)
 temp$zipinc_qrtl = as.integer(temp$zipinc_qrtl)
 
 
-saveRDS(temp, "Data/NEDS_2012_Core_demos.RDS")
+write_fst(temp, "Data/NEDS_2012_Core_demos.fst")
 rm(temp)
 gc()
 
@@ -401,7 +402,7 @@ temp$died_visit = as.integer(temp$died_visit)
 temp$disp_ed = as.integer(temp$disp_ed)
 temp$edevent = as.integer(temp$edevent)
 
-saveRDS(temp, "Data/NEDS_2012_Core_outcomes.RDS")
+write_fst(temp, "Data/NEDS_2012_Core_outcomes.fst")
 rm(temp)
 gc()
 
@@ -419,7 +420,7 @@ temp = read_dta("Data/NEDS_2012_Core.dta",
 temp = temp %>% mutate_if(is.character, blank_to_na)
 
 
-saveRDS(temp, "Data/NEDS_2012_Core_ecode.RDS")
+write_fst(temp, "Data/NEDS_2012_Core_ecode.fst")
 rm(temp)
 gc()
 
@@ -447,7 +448,7 @@ temp = read_dta("Data/NEDS_2013_Core.dta",
 
 temp = temp %>% mutate_if(is.character, blank_to_na)
 
-saveRDS(temp, "Data/NEDS_2013_Core_dx.RDS")
+write_fst(temp, "Data/NEDS_2013_Core_dx.fst")
 rm(temp)
 gc()
 
@@ -472,7 +473,7 @@ temp$pay2 = as.integer(temp$pay2)
 temp$zipinc_qrtl = as.integer(temp$zipinc_qrtl)
 
 
-saveRDS(temp, "Data/NEDS_2013_Core_demos.RDS")
+write_fst(temp, "Data/NEDS_2013_Core_demos.fst")
 rm(temp)
 gc()
 
@@ -491,7 +492,7 @@ temp$died_visit = as.integer(temp$died_visit)
 temp$disp_ed = as.integer(temp$disp_ed)
 temp$edevent = as.integer(temp$edevent)
 
-saveRDS(temp, "Data/NEDS_2013_Core_outcomes.RDS")
+write_fst(temp, "Data/NEDS_2013_Core_outcomes.fst")
 rm(temp)
 gc()
 
@@ -509,7 +510,7 @@ temp = read_dta("Data/NEDS_2013_Core.dta",
 temp = temp %>% mutate_if(is.character, blank_to_na)
 
 
-saveRDS(temp, "Data/NEDS_2013_Core_ecode.RDS")
+write_fst(temp, "Data/NEDS_2013_Core_ecode.fst")
 rm(temp)
 gc()
 
@@ -544,7 +545,7 @@ temp = read_dta("Data/NEDS_2014_Core.dta",
 
 temp = temp %>% mutate_if(is.character, blank_to_na)
 
-saveRDS(temp, "Data/NEDS_2014_Core_dx.RDS")
+write_fst(temp, "Data/NEDS_2014_Core_dx.fst")
 rm(temp)
 gc()
 
@@ -569,7 +570,7 @@ temp$pay2 = as.integer(temp$pay2)
 temp$zipinc_qrtl = as.integer(temp$zipinc_qrtl)
 
 
-saveRDS(temp, "Data/NEDS_2014_Core_demos.RDS")
+write_fst(temp, "Data/NEDS_2014_Core_demos.fst")
 rm(temp)
 gc()
 
@@ -588,7 +589,7 @@ temp$died_visit = as.integer(temp$died_visit)
 temp$disp_ed = as.integer(temp$disp_ed)
 temp$edevent = as.integer(temp$edevent)
 
-saveRDS(temp, "Data/NEDS_2014_Core_outcomes.RDS")
+write_fst(temp, "Data/NEDS_2014_Core_outcomes.fst")
 rm(temp)
 gc()
 
@@ -605,7 +606,7 @@ temp = read_dta("Data/NEDS_2014_Core.dta",
 
 temp = temp %>% mutate_if(is.character, blank_to_na)
 
-saveRDS(temp, "Data/NEDS_2014_Core_ecode.RDS")
+write_fst(temp, "Data/NEDS_2014_Core_ecode.fst")
 rm(temp)
 gc()
 
@@ -652,7 +653,7 @@ temp = temp %>% mutate_at(vars(starts_with("dx")), blank_to_na)
 
 
 
-saveRDS(temp, "Data/NEDS_2015Q1Q3_dx.RDS")
+write_fst(temp, "Data/NEDS_2015Q1Q3_dx.fst")
 rm(temp)
 gc()
 
@@ -690,7 +691,7 @@ temp = temp %>% mutate_at(vars(starts_with("i10_dx")), icd10_to_icd9)
 
 colnames(temp) = gsub("i10_", "", colnames(temp))
 
-saveRDS(temp, "Data/NEDS_2015Q4_dx.RDS")
+write_fst(temp, "Data/NEDS_2015Q4_dx.fst")
 rm(temp, icd_map)
 gc()
 
@@ -747,7 +748,7 @@ temp = temp[!grepl("\\D", temp$key_ed), ]
 
 
 
-saveRDS(temp, "Data/NEDS_2015Q1Q3_ecode.RDS")
+write_fst(temp, "Data/NEDS_2015Q1Q3_ecode.fst")
 rm(temp)
 gc()
 
@@ -796,7 +797,7 @@ colnames(temp) = gsub("i10_ecause", "ecode", colnames(temp))
 
 
 
-saveRDS(temp, "Data/NEDS_2015Q4_ecode.RDS")
+write_fst(temp, "Data/NEDS_2015Q4_ecode.fst")
 rm(temp, icd_map)
 gc()
 
@@ -840,7 +841,7 @@ temp$pay1 = as.integer(temp$pay1)
 temp$pay2 = as.integer(temp$pay2)
 temp$zipinc_qrtl = as.integer(temp$zipinc_qrtl)
 
-saveRDS(temp, "Data/NEDS_2015_Core_demos.RDS")
+write_fst(temp, "Data/NEDS_2015_Core_demos.fst")
 rm(temp)
 gc()
 
@@ -859,7 +860,7 @@ temp$died_visit = as.integer(temp$died_visit)
 temp$disp_ed = as.integer(temp$disp_ed)
 temp$edevent = as.integer(temp$edevent)
 
-saveRDS(temp, "Data/NEDS_2015_Core_outcomes.RDS")
+write_fst(temp, "Data/NEDS_2015_Core_outcomes.fst")
 rm(temp)
 gc()
 
@@ -913,7 +914,7 @@ temp$pay1 = as.integer(temp$pay1)
 temp$pay2 = as.integer(temp$pay2)
 temp$zipinc_qrtl = as.integer(temp$zipinc_qrtl)
 
-saveRDS(temp, "Data/NEDS_2016_Core_demos.RDS")
+write_fst(temp, "Data/NEDS_2016_Core_demos.fst")
 rm(temp)
 gc()
 
@@ -937,7 +938,7 @@ temp$died_visit = as.integer(temp$died_visit)
 temp$disp_ed = as.integer(temp$disp_ed)
 temp$edevent = as.integer(temp$edevent)
 
-saveRDS(temp, "Data/NEDS_2016_Core_outcomes.RDS")
+write_fst(temp, "Data/NEDS_2016_Core_outcomes.fst")
 rm(temp)
 gc()
 
@@ -980,7 +981,7 @@ temp = temp %>% mutate_at(vars(starts_with("i10_ecause")), icd10_to_icd9)
 colnames(temp) = gsub("i10_ecause", "ecode", colnames(temp))
 
 
-saveRDS(temp, "Data/NEDS_2016_ecode.RDS")
+write_fst(temp, "Data/NEDS_2016_ecode.fst")
 
 temp = temp %>% select(-starts_with("ecode"))
 
@@ -1024,7 +1025,7 @@ colnames(temp) = gsub("i10_", "", colnames(temp))
 
 
 
-saveRDS(temp, "Data/NEDS_2016_dx.RDS")
+write_fst(temp, "Data/NEDS_2016_dx.fst")
 rm(temp, icd_map, icd10_to_icd9)
 
 
@@ -1045,7 +1046,7 @@ temp$totchg_ed[which(temp$totchg_ed<0)] = NA
 temp$female[which(temp$female<0)] = NA
 
 
-saveRDS(temp, "Data/NEDS_2016_demos.RDS")
+write_fst(temp, "Data/NEDS_2016_demos.fst")
 rm(temp)
 
 
@@ -1064,7 +1065,7 @@ temp = fread("Data/NEDS_2016/NEDS_2016_CORE.csv",
 temp$died_visit[which(temp$died_visit<0)] = NA
 
 
-saveRDS(temp, "Data/NEDS_2016_outcomes.RDS")
+write_fst(temp, "Data/NEDS_2016_outcomes.fst")
 rm(temp)
 
 
