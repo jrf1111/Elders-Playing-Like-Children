@@ -5,7 +5,8 @@ library(dbplyr)
 library(RPostgreSQL)
 library(DBI)
 library(data.table)
-
+library(bit64)  #required for 64 bit integers used in key_ed
+library(fst)
 
 
 
@@ -15,8 +16,8 @@ library(data.table)
 #configure server
 conf_file = "/usr/local/var/postgres/postgresql.conf"
 
-cat("\nshared_buffers = 300MB", file = conf_file, append = T)
-cat("\ntemp_buffers = 200MB", file = conf_file, append = T)
+cat("\nshared_buffers = 400MB", file = conf_file, append = T)
+cat("\ntemp_buffers = 300MB", file = conf_file, append = T)
 cat("\nwork_mem = 6GB", file = conf_file, append = T)
 cat("\nmaintenance_work_mem = 1GB", file = conf_file, append = T)
 cat("\nautovacuum_work_mem = -1", file = conf_file, append = T)
@@ -132,56 +133,15 @@ dbExecute(neds, "DROP TABLE IF EXISTS dx")
 
 for(i in 1:length(files)){
 	file = files[i]
-	temp = readRDS(file)
-	temp$key_ed = as.numeric(temp$key_ed)
-	if(file == "Data//NEDS_2015Q1Q3_dx.RDS"){
-		temp$year = "2015Q1Q3"
-		#fix encoding errors based on error log file:
-		#   /Users/jr-f/Library/Application Support/Postgres/var-12/postgresql.log
-		
-		#use this to replace any dxs with non-numeric characters with NA...
-		temp = temp %>% mutate_at(vars(starts_with("dx")), as.character)
-		
-		temp = temp %>% mutate_at(vars(starts_with("dx")), 
-															function(x){
-																x[which(str_detect(x, "\\D"))] = NA
-																x
-																})
-		
-		#...instead of doing each observation individually
-		# temp[11864529, "dx3"] = NA  #invalid byte sequence: 0xf0 
-		# temp[11864529, "dx5"] = NA  #invalid byte sequence: 0xe5 0x7f 0xe5
-		# temp[11864529, "dx6"] = NA  #invalid byte sequence: 0xe5 0x7f 0xe5
-		# temp[20844363, paste0("dx", 3:6)] = NA  #invalid byte sequence: 0xe5 0x7f 0xe5
-		# temp[20841524, paste0("dx", 7:14)] = NA  #invalid byte sequence: 0xe5 0x7f 0xe5
-		# temp[21197997, paste0("dx", 1:7)] = NA  #values were: F0, D0B +, 0 �, 6http:/, /www.mi, crosoft, com/	
-		
-		
-		
-	}
-	if(file == "Data//NEDS_2015Q4_dx.RDS"){
-		temp$year = "2015Q4"
-		temp = data.table(temp, key = "key_ed")
-		
-		temp2 = readRDS("Data/NEDS_2015_Core_demos.RDS")
-		temp2 = temp2[, c("key_ed", "discwt")]
-		temp2 = data.table(temp2, key = "key_ed")
-		
-		temp = data.table::merge.data.table(temp, temp2)
-		rm(temp2)
-		
-		}
-	if(file == "Data//NEDS_2016_Core_dx.RDS"){temp$year = "2016"}
+	cat("\n", file)
+	temp = read_fst(file, columns = "key_ed")
+	cat("\t\t", colnames(temp))
+	
 
-	
-	
-	temp = temp[, c("key_ed", "year", "discwt", "hosp_ed", paste0("dx", 1:15))]
-	
 	#standardize the length of the strings
 	temp = temp %>% mutate_at(vars(starts_with("dx")), dx_recode)
 
 
-	temp$year = as.character(temp$year)
 	dbWriteTable(neds, "dx", temp, append = TRUE, row.names=FALSE)
 	if(i==1){dbExecute(neds, "ALTER TABLE dx SET UNLOGGED")  }
 	rm(temp)
@@ -236,7 +196,7 @@ check_for_all_years(files)
 dbExecute(neds, "DROP TABLE IF EXISTS demos")
 for(i in 1:length(files)){
 	file = files[i]
-	temp = readRDS(file)
+	temp = read_fst(file)
 	temp$key_ed = as.numeric(temp$key_ed)
 	temp = temp[, c("key_ed", "female", "age")]
 	temp$female = as.integer(temp$female)
@@ -265,7 +225,7 @@ check_for_all_years(files)
 dbExecute(neds, "DROP TABLE IF EXISTS ecodes")
 for(i in 1:length(files)){
 	file = files[i]
-	temp = readRDS(file)
+	temp = read_fst(file)
 	temp$key_ed = as.numeric(temp$key_ed)
 	temp = temp[, c("key_ed", "ecode1")]
 	dbWriteTable(neds, "ecodes", temp, append = TRUE, row.names=FALSE)
@@ -292,7 +252,7 @@ check_for_all_years(files)
 dbExecute(neds, "DROP TABLE IF EXISTS outcomes")
 for(i in 1:length(files)){
 	file = files[i]
-	temp = readRDS(file)
+	temp = read_fst(file)
 	temp$key_ed = as.numeric(temp$key_ed)
 	temp = temp[, c("key_ed", "edevent", "disp_ed", "died_visit")]
 	temp$edevent = as.integer(temp$edevent)
@@ -319,12 +279,12 @@ gc()
 
 
 # ~ IP ----
-files = list.files("Data/", pattern = "IP.RDS", full.names = T)
+files = list.files("Data/", pattern = "IP.fst", full.names = T)
 check_for_all_years(files)
 dbExecute(neds, "DROP TABLE IF EXISTS ip")
 for(i in 1:length(files)){
 	file = files[i]
-	temp = readRDS(file)
+	temp = read_fst(file)
 	temp$key_ed = as.numeric(temp$key_ed)
 	temp = temp[, c("key_ed", "disp_ip")]
 	temp$disp_ip = as.integer(temp$disp_ip)
@@ -346,12 +306,12 @@ gc()
 
 
 # ~ hospital ----
-files = list.files("Data/", pattern = "Hospital.RDS", full.names = T)
+files = list.files("Data/", pattern = "Hospital.fst", full.names = T)
 check_for_all_years(files)
 dbExecute(neds, "DROP TABLE IF EXISTS hosp")
 for(i in 1:length(files)){
 	file = files[i]
-	temp = readRDS(file)
+	temp = read_fst(file)
 	temp$year_hosp = as.character(temp$year)
 	temp$hosp_ed = as.character(temp$hosp_ed)
 	temp = temp[, c("hosp_ed", "neds_stratum", "year_hosp")]
@@ -1570,7 +1530,7 @@ gc()
 dx[, paste0("dx", 1:15) ] = NULL
 
 
-saveRDS(dx, "Data/final/tmpm.RDS")
+write_fst(dx, "Data/final/tmpm.fst", compress = 100)
 
 #don't need backup of all dxs anymore
 file.remove("Data/final/dx_final.csv")
@@ -1648,7 +1608,7 @@ ecodes = ecodes[!duplicated(ecodes$key_ed), ]
 ecodes = ecodes[!is.na(ecodes$key_ed), ]
 
 
-saveRDS(ecodes, "Data/final/ecodes_final.RDS")
+write_fst(ecodes, "Data/final/ecodes_final.fst")
 
 rm(ecodes, icd_map, dx_recode)
 

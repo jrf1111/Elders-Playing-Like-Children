@@ -5,9 +5,9 @@ library(dbplyr)
 library(RPostgreSQL)
 library(DBI)
 library(data.table)
+library(fst)
 
-
-#need ecodes_final.RDS, tmpm.RDS, NEDS_DB::join_res (without dxs or ecodes)
+#need ecodes_final, tmpm, NEDS_DB::join_res (without dxs or ecodes)
 
 
 
@@ -39,7 +39,7 @@ mdata = dbReadTable(neds, "join_res_small")
 
 
 #save a backup ----
-saveRDS(mdata, "Data/final/join_res_small.RDS")
+write_fst(mdata, "Data/final/join_res_small.fst")
 
 
 
@@ -51,9 +51,9 @@ system("pg_ctl -D /usr/local/var/postgres stop")
 
 
 #read in data ----
-tmpm = readRDS("Data/final/tmpm.RDS")
-ecodes = readRDS("Data/final/ecodes_final.RDS")
-mdata = readRDS("Data/final/join_res_small.RDS")
+tmpm = read_fst("Data/final/tmpm.fst")
+ecodes = read_fst("Data/final/ecodes_final.fst")
+mdata = read_fst("Data/final/join_res_small.fst")
 
 
 tmpm$key_ed = as.character(tmpm$key_ed)
@@ -207,7 +207,7 @@ final$age_group = case_when(
 final = final %>% mutate_if(is.character, as.factor)
 
 
-saveRDS(final, "Data/final/final combined dataset.RDS")
+write_fst(final, "Data/final/final combined dataset.fst")
 fwrite(final, "Data/final/final combined dataset.csv")
 
 

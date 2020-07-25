@@ -4,7 +4,11 @@ library(data.table)
 setDTthreads(3)
 library(tidyverse)
 library(haven)
-library(bit64)  #required for 64 bit integers used in key_ed
+library(bit64)         #required for 64 bit integers used in key_ed
+library(fst)           #for faster I/O
+library(comorbidity)   #for calculating Charlson and Elixhauser comorbidity scores
+
+
 
 blank_to_na = function(x){ 
 	
@@ -26,7 +30,7 @@ blank_to_na = function(x){
 
 
 
-#convert files to more memory efficient RDS files
+#convert files to more memory efficient FST files
 
 # Hospital files ----------------------------------------------------------
 files = list.files("Data/", pattern = "_Hospital.dta", full.names = T)
@@ -37,8 +41,8 @@ for(i in files){
 	temp = read_dta(i) #read in file
 	cat("\t", "imported")
 	
-	name = gsub("dta", "RDS", i) #change file format for resaving
-	saveRDS(temp, file = name) #save in more memory effecient file
+	name = gsub("dta", "fst", i) #change file format for resaving
+	write_fst(temp, path = name) #save in more memory effecient file
 	cat("\t", "saved")
 	rm(temp) #remove data
 	
@@ -46,17 +50,11 @@ for(i in files){
 
 
 #2016 file in CSV form
-temp = fread("Data/NEDS_2016/NEDS_2016_HOSPITAL.csv", 
-						 header = FALSE) %>%
-	setnames(old = colnames(.), 
-					 new = c("discwt", "hospwt", "hosp_control", "hosp_ed",
-					 				"hosp_region", "hosp_trauma", "hosp_urcat4",
-					 				"hosp_ur_teach", "neds_stratum", "n_disc_u",
-					 				"n_hosp_u", "s_disc_u", "s_hosp_u", 
-					 				"total_edvisits", "year"))
-
-saveRDS(temp, "Data/NEDS_2016_Hospital.RDS")
+temp = fread("Data/NEDS_2016/NEDS_2016_HOSPITAL.csv")
+write_fst(temp, "Data/NEDS_2016_Hospital.fst")
 rm(temp)
+
+
 
 
 
@@ -69,10 +67,35 @@ for(i in files){
 	
 	cat("\n", i) #print file name
 	gc() #garbage clean up
-	temp = read_dta(i) #read in file
+	
+	
+	if(i != "Data//NEDS_2015Q4_IP.dta"){
+		temp = read_dta(i,  #read in file
+										col_select = c("key_ed", 
+																	 "disp_ip", "los_ip", "npr_ip", "totchg_ip")
+		) 
+		
+		temp = select(temp, 
+									key_ed, disp_ip, los_ip, npr_ip, totchg_ip)
+		
+		
+	} else{
+		temp = read_dta(i,  #read in file
+										col_select = c("key_ed", 
+																	 "disp_ip", "los_ip", "i10_npr_ip", "totchg_ip")
+		) 
+		
+		colnames(temp) = str_replace(colnames(temp), "i10_npr_ip", "npr_ip")
+		temp = select(temp, 
+									key_ed, disp_ip, los_ip, npr_ip, totchg_ip)
+		
+		
+	}
+	
 	cat("\t", "imported")
-	name = gsub("dta", "RDS", i) #change file format for resaving
-	saveRDS(temp, file = name) #save in more memory effecient file
+	name = gsub("dta", "fst", i) #change file format for resaving
+	temp$key_ed = bit64::as.integer64(temp$key_ed)
+	write_fst(temp, path = name) #save in more memory efficient file
 	cat("\t", "saved")
 	rm(temp) #remove data
 	
@@ -81,18 +104,12 @@ for(i in files){
 
 #2016 file in CSV form
 temp = fread("Data/NEDS_2016/NEDS_2016_IP.csv", 
-						 header = FALSE) %>%
-	setnames(old = colnames(.), 
-					 new = c("hosp_ed", "key_ed", "disp_ip", 
-					 				"drg", "drgver", "drg_nopoa", 
-					 				"i10_npr_ip", "i10_pr_ip1", "i10_pr_ip2", 
-					 				"i10_pr_ip3", "i10_pr_ip4", "i10_pr_ip5", 
-					 				"i10_pr_ip6", "i10_pr_ip7", "i10_pr_ip8", 
-					 				"i10_pr_ip9", "los_ip", 
-					 				"mdc", "mdc_nopoa", "prver", "totchg_ip")
-	)
+						 select = c("key_ed", 
+						 					 "disp_ip", "los_ip", "i10_npr_ip", "totchg_ip"))
+colnames(temp) = str_replace(colnames(temp), "i10_npr_ip", "npr_ip")
 
-saveRDS(temp, "Data/NEDS_2016_IP.RDS")
+temp$key_ed = bit64::as.integer64(temp$key_ed)
+write_fst(temp, "Data/NEDS_2016_IP.fst")
 rm(temp)
 
 
@@ -115,9 +132,9 @@ for(i in files){
 									col_select = c("key_ed", "ncpt" )) #read in file
 	
 	cat("\t", "imported")
-	
-	name = gsub("dta", "RDS", i) #change file format for resaving
-	saveRDS(temp, file = name) #save in more memory effecient file
+	temp$key_ed = bit64::as.integer64(temp$key_ed)
+	name = gsub("dta", "fst", i) #change file format for resaving
+	write_fst(temp, path = name) #save in more memory effecient file
 	cat("\t", "saved")
 	rm(temp) #remove data
 	
@@ -137,8 +154,8 @@ temp = fread("Data/NEDS_2016/NEDS_2016_ED.csv",
 						 						 -1:-9, -99, -999, -100000000)
 )
 
-
-saveRDS(temp, "Data/NEDS_2016_ED.RDS")
+temp$key_ed = bit64::as.integer64(temp$key_ed)
+write_fst(temp, "Data/NEDS_2016_ED.fst")
 rm(temp)
 gc()
 
@@ -174,8 +191,8 @@ temp = read_dta("Data/NEDS_2010_Core.dta",
 )
 
 temp = temp %>% mutate_if(is.character, blank_to_na)
-
-saveRDS(temp, "Data/NEDS_2010_Core_dx.RDS")
+temp$key_ed = bit64::as.integer64(temp$key_ed)
+write_fst(temp, "Data/NEDS_2010_Core_dx.fst")
 rm(temp)
 gc()
 
@@ -186,7 +203,7 @@ gc()
 temp = read_dta("Data/NEDS_2010_Core.dta", 
 								col_select = c(
 									"key_ed", 
-									"age",  "female", 
+									"discwt", "hosp_ed", "age",  "female", 
 									"pay1", "pay2", "totchg_ed", 
 									"zipinc_qrtl"
 								)
@@ -198,9 +215,9 @@ temp$female = as.integer(temp$female)
 temp$pay1 = as.integer(temp$pay1)
 temp$pay2 = as.integer(temp$pay2)
 temp$zipinc_qrtl = as.integer(temp$zipinc_qrtl)
+temp$key_ed = bit64::as.integer64(temp$key_ed)
 
-
-saveRDS(temp, "Data/NEDS_2010_Core_demos.RDS")
+write_fst(temp, "Data/NEDS_2010_Core_demos.fst")
 rm(temp)
 gc()
 
@@ -218,9 +235,9 @@ temp = temp %>% mutate_if(is.character, blank_to_na)
 temp$died_visit = as.integer(temp$died_visit)
 temp$disp_ed = as.integer(temp$disp_ed)
 temp$edevent = as.integer(temp$edevent)
+temp$key_ed = bit64::as.integer64(temp$key_ed)
 
-
-saveRDS(temp, "Data/NEDS_2010_Core_outcomes.RDS")
+write_fst(temp, "Data/NEDS_2010_Core_outcomes.fst")
 rm(temp)
 gc()
 
@@ -236,9 +253,9 @@ temp = read_dta("Data/NEDS_2010_Core.dta",
 )
 
 temp = temp %>% mutate_if(is.character, blank_to_na)
+temp$key_ed = bit64::as.integer64(temp$key_ed)
 
-
-saveRDS(temp, "Data/NEDS_2010_Core_ecode.RDS")
+write_fst(temp, "Data/NEDS_2010_Core_ecode.fst")
 rm(temp)
 gc()
 
@@ -262,8 +279,8 @@ temp = read_dta("Data/NEDS_2011_Core.dta",
 )
 
 temp = temp %>% mutate_if(is.character, blank_to_na)
-
-saveRDS(temp, "Data/NEDS_2011_Core_dx.RDS")
+temp$key_ed = bit64::as.integer64(temp$key_ed)
+write_fst(temp, "Data/NEDS_2011_Core_dx.fst")
 rm(temp)
 gc()
 
@@ -274,7 +291,7 @@ gc()
 temp = read_dta("Data/NEDS_2011_Core.dta", 
 								col_select = c(
 									"key_ed", 
-									"age",  "female", 
+									"discwt", "hosp_ed", "age",  "female", 
 									"pay1", "pay2", "totchg_ed", 
 									"zipinc_qrtl"
 								)
@@ -286,9 +303,9 @@ temp$female = as.integer(temp$female)
 temp$pay1 = as.integer(temp$pay1)
 temp$pay2 = as.integer(temp$pay2)
 temp$zipinc_qrtl = as.integer(temp$zipinc_qrtl)
+temp$key_ed = bit64::as.integer64(temp$key_ed)
 
-
-saveRDS(temp, "Data/NEDS_2011_Core_demos.RDS")
+write_fst(temp, "Data/NEDS_2011_Core_demos.fst")
 rm(temp)
 gc()
 
@@ -306,8 +323,9 @@ temp = temp %>% mutate_if(is.character, blank_to_na)
 temp$died_visit = as.integer(temp$died_visit)
 temp$disp_ed = as.integer(temp$disp_ed)
 temp$edevent = as.integer(temp$edevent)
+temp$key_ed = bit64::as.integer64(temp$key_ed)
 
-saveRDS(temp, "Data/NEDS_2011_Core_outcomes.RDS")
+write_fst(temp, "Data/NEDS_2011_Core_outcomes.fst")
 rm(temp)
 gc()
 
@@ -323,9 +341,9 @@ temp = read_dta("Data/NEDS_2011_Core.dta",
 )
 
 temp = temp %>% mutate_if(is.character, blank_to_na)
+temp$key_ed = bit64::as.integer64(temp$key_ed)
 
-
-saveRDS(temp, "Data/NEDS_2011_Core_ecode.RDS")
+write_fst(temp, "Data/NEDS_2011_Core_ecode.fst")
 rm(temp)
 gc()
 
@@ -356,8 +374,9 @@ temp = read_dta("Data/NEDS_2012_Core.dta",
 )
 
 temp = temp %>% mutate_if(is.character, blank_to_na)
+temp$key_ed = bit64::as.integer64(temp$key_ed)
 
-saveRDS(temp, "Data/NEDS_2012_Core_dx.RDS")
+write_fst(temp, "Data/NEDS_2012_Core_dx.fst")
 rm(temp)
 gc()
 
@@ -368,7 +387,7 @@ gc()
 temp = read_dta("Data/NEDS_2012_Core.dta", 
 								col_select = c(
 									"key_ed", 
-									"age",  "female", 
+									"discwt", "hosp_ed", "age",  "female", 
 									"pay1", "pay2", "totchg_ed", 
 									"zipinc_qrtl"
 								)
@@ -380,9 +399,9 @@ temp$female = as.integer(temp$female)
 temp$pay1 = as.integer(temp$pay1)
 temp$pay2 = as.integer(temp$pay2)
 temp$zipinc_qrtl = as.integer(temp$zipinc_qrtl)
+temp$key_ed = bit64::as.integer64(temp$key_ed)
 
-
-saveRDS(temp, "Data/NEDS_2012_Core_demos.RDS")
+write_fst(temp, "Data/NEDS_2012_Core_demos.fst")
 rm(temp)
 gc()
 
@@ -400,8 +419,9 @@ temp = temp %>% mutate_if(is.character, blank_to_na)
 temp$died_visit = as.integer(temp$died_visit)
 temp$disp_ed = as.integer(temp$disp_ed)
 temp$edevent = as.integer(temp$edevent)
+temp$key_ed = bit64::as.integer64(temp$key_ed)
 
-saveRDS(temp, "Data/NEDS_2012_Core_outcomes.RDS")
+write_fst(temp, "Data/NEDS_2012_Core_outcomes.fst")
 rm(temp)
 gc()
 
@@ -417,9 +437,9 @@ temp = read_dta("Data/NEDS_2012_Core.dta",
 )
 
 temp = temp %>% mutate_if(is.character, blank_to_na)
+temp$key_ed = bit64::as.integer64(temp$key_ed)
 
-
-saveRDS(temp, "Data/NEDS_2012_Core_ecode.RDS")
+write_fst(temp, "Data/NEDS_2012_Core_ecode.fst")
 rm(temp)
 gc()
 
@@ -446,8 +466,9 @@ temp = read_dta("Data/NEDS_2013_Core.dta",
 )
 
 temp = temp %>% mutate_if(is.character, blank_to_na)
+temp$key_ed = bit64::as.integer64(temp$key_ed)
 
-saveRDS(temp, "Data/NEDS_2013_Core_dx.RDS")
+write_fst(temp, "Data/NEDS_2013_Core_dx.fst")
 rm(temp)
 gc()
 
@@ -458,7 +479,7 @@ gc()
 temp = read_dta("Data/NEDS_2013_Core.dta", 
 								col_select = c(
 									"key_ed", 
-									"age",  "female", 
+									"discwt", "hosp_ed", "age",  "female", 
 									"pay1", "pay2", "totchg_ed", 
 									"zipinc_qrtl"
 								)
@@ -470,9 +491,10 @@ temp$female = as.integer(temp$female)
 temp$pay1 = as.integer(temp$pay1)
 temp$pay2 = as.integer(temp$pay2)
 temp$zipinc_qrtl = as.integer(temp$zipinc_qrtl)
+temp$key_ed = bit64::as.integer64(temp$key_ed)
 
 
-saveRDS(temp, "Data/NEDS_2013_Core_demos.RDS")
+write_fst(temp, "Data/NEDS_2013_Core_demos.fst")
 rm(temp)
 gc()
 
@@ -490,8 +512,9 @@ temp = temp %>% mutate_if(is.character, blank_to_na)
 temp$died_visit = as.integer(temp$died_visit)
 temp$disp_ed = as.integer(temp$disp_ed)
 temp$edevent = as.integer(temp$edevent)
+temp$key_ed = bit64::as.integer64(temp$key_ed)
 
-saveRDS(temp, "Data/NEDS_2013_Core_outcomes.RDS")
+write_fst(temp, "Data/NEDS_2013_Core_outcomes.fst")
 rm(temp)
 gc()
 
@@ -507,9 +530,9 @@ temp = read_dta("Data/NEDS_2013_Core.dta",
 )
 
 temp = temp %>% mutate_if(is.character, blank_to_na)
+temp$key_ed = bit64::as.integer64(temp$key_ed)
 
-
-saveRDS(temp, "Data/NEDS_2013_Core_ecode.RDS")
+write_fst(temp, "Data/NEDS_2013_Core_ecode.fst")
 rm(temp)
 gc()
 
@@ -543,8 +566,9 @@ temp = read_dta("Data/NEDS_2014_Core.dta",
 )
 
 temp = temp %>% mutate_if(is.character, blank_to_na)
+temp$key_ed = bit64::as.integer64(temp$key_ed)
 
-saveRDS(temp, "Data/NEDS_2014_Core_dx.RDS")
+write_fst(temp, "Data/NEDS_2014_Core_dx.fst")
 rm(temp)
 gc()
 
@@ -555,7 +579,7 @@ gc()
 temp = read_dta("Data/NEDS_2014_Core.dta", 
 								col_select = c(
 									"key_ed", 
-									"age",  "female", 
+									"discwt", "hosp_ed", "age",  "female", 
 									"pay1", "pay2", "totchg_ed", 
 									"zipinc_qrtl"
 								)
@@ -567,9 +591,10 @@ temp$female = as.integer(temp$female)
 temp$pay1 = as.integer(temp$pay1)
 temp$pay2 = as.integer(temp$pay2)
 temp$zipinc_qrtl = as.integer(temp$zipinc_qrtl)
+temp$key_ed = bit64::as.integer64(temp$key_ed)
 
 
-saveRDS(temp, "Data/NEDS_2014_Core_demos.RDS")
+write_fst(temp, "Data/NEDS_2014_Core_demos.fst")
 rm(temp)
 gc()
 
@@ -587,8 +612,9 @@ temp = temp %>% mutate_if(is.character, blank_to_na)
 temp$died_visit = as.integer(temp$died_visit)
 temp$disp_ed = as.integer(temp$disp_ed)
 temp$edevent = as.integer(temp$edevent)
+temp$key_ed = bit64::as.integer64(temp$key_ed)
 
-saveRDS(temp, "Data/NEDS_2014_Core_outcomes.RDS")
+write_fst(temp, "Data/NEDS_2014_Core_outcomes.fst")
 rm(temp)
 gc()
 
@@ -604,8 +630,9 @@ temp = read_dta("Data/NEDS_2014_Core.dta",
 )
 
 temp = temp %>% mutate_if(is.character, blank_to_na)
+temp$key_ed = bit64::as.integer64(temp$key_ed)
 
-saveRDS(temp, "Data/NEDS_2014_Core_ecode.RDS")
+write_fst(temp, "Data/NEDS_2014_Core_ecode.fst")
 rm(temp)
 gc()
 
@@ -628,8 +655,8 @@ beepr::beep()
 
 temp = read_dta("Data/NEDS_2015Q1Q3_ED.dta",
 								 col_select = c(
-								 	c("key_ed"),
-								 	paste0("dx", 1:5)
+								 	"key_ed",
+								 	paste0("dx", 1:15)
 								 )
 								 
 )
@@ -637,8 +664,6 @@ gc()
 
 
 #take care of bad/corrupt/multibyte strings
-
-
 temp = temp %>% mutate_at(vars(starts_with("dx")), 
 													function(x){ 
 														x[which(!grepl("^(V?)(\\d{2,})$", x))] = NA
@@ -650,9 +675,10 @@ temp = temp %>% mutate_at(vars(starts_with("dx")),
 
 temp = temp %>% mutate_at(vars(starts_with("dx")), blank_to_na)
 
+temp$key_ed = bit64::as.integer64(temp$key_ed)
 
 
-saveRDS(temp, "Data/NEDS_2015Q1Q3_dx.RDS")
+write_fst(temp, "Data/NEDS_2015Q1Q3_Core_dx.fst")
 rm(temp)
 gc()
 
@@ -690,7 +716,9 @@ temp = temp %>% mutate_at(vars(starts_with("i10_dx")), icd10_to_icd9)
 
 colnames(temp) = gsub("i10_", "", colnames(temp))
 
-saveRDS(temp, "Data/NEDS_2015Q4_dx.RDS")
+temp$key_ed = bit64::as.integer64(temp$key_ed)
+
+write_fst(temp, "Data/NEDS_2015Q4_Core_dx.fst")
 rm(temp, icd_map)
 gc()
 
@@ -745,9 +773,10 @@ View(temp[temp$key_ed  %in% temp$key_ed[str_detect(temp$key_ed, "\\D")], ])
 temp = temp[!grepl("\\D", temp$key_ed), ]
 
 
+temp$key_ed = bit64::as.integer64(temp$key_ed)
 
 
-saveRDS(temp, "Data/NEDS_2015Q1Q3_ecode.RDS")
+write_fst(temp, "Data/NEDS_2015Q1Q3_Core_ecode.fst")
 rm(temp)
 gc()
 
@@ -794,9 +823,10 @@ temp = temp %>% mutate_at(vars(starts_with("i10_ecause")), icd10_to_icd9)
 colnames(temp) = gsub("i10_ecause", "ecode", colnames(temp))
 
 
+temp$key_ed = bit64::as.integer64(temp$key_ed)
 
 
-saveRDS(temp, "Data/NEDS_2015Q4_ecode.RDS")
+write_fst(temp, "Data/NEDS_2015Q4_Core_ecode.fst")
 rm(temp, icd_map)
 gc()
 
@@ -827,7 +857,7 @@ gc()
 temp = read_dta("Data/NEDS_2015_Core.dta", 
 								col_select = c(
 									"key_ed", 
-									"age",  "female", 
+									"discwt", "hosp_ed", "age",  "female", 
 									"pay1", "pay2", "totchg_ed", 
 									"zipinc_qrtl"
 								)
@@ -839,8 +869,9 @@ temp$female = as.integer(temp$female)
 temp$pay1 = as.integer(temp$pay1)
 temp$pay2 = as.integer(temp$pay2)
 temp$zipinc_qrtl = as.integer(temp$zipinc_qrtl)
+temp$key_ed = bit64::as.integer64(temp$key_ed)
 
-saveRDS(temp, "Data/NEDS_2015_Core_demos.RDS")
+write_fst(temp, "Data/NEDS_2015_Core_demos.fst")
 rm(temp)
 gc()
 
@@ -858,8 +889,9 @@ temp = temp %>% mutate_if(is.character, blank_to_na)
 temp$died_visit = as.integer(temp$died_visit)
 temp$disp_ed = as.integer(temp$disp_ed)
 temp$edevent = as.integer(temp$edevent)
+temp$key_ed = bit64::as.integer64(temp$key_ed)
 
-saveRDS(temp, "Data/NEDS_2015_Core_outcomes.RDS")
+write_fst(temp, "Data/NEDS_2015_Core_outcomes.fst")
 rm(temp)
 gc()
 
@@ -896,13 +928,12 @@ beepr::beep()
 temp = fread("Data/NEDS_2016/NEDS_2016_CORE.csv",
 						 select = c(
 						 	"key_ed", 
-						 	"age",  "female", 
+						 	"discwt", "hosp_ed", "age",  "female", 
 						 	"pay1", "pay2", "totchg_ed", 
 						 	"zipinc_qrtl"
 						 ),
 						 na.strings = c(getOption("datatable.na.strings","NA"), "-9", "-8")
 )
-
 
 
 
@@ -912,8 +943,9 @@ temp$female = as.integer(temp$female)
 temp$pay1 = as.integer(temp$pay1)
 temp$pay2 = as.integer(temp$pay2)
 temp$zipinc_qrtl = as.integer(temp$zipinc_qrtl)
+temp$key_ed = bit64::as.integer64(temp$key_ed)
 
-saveRDS(temp, "Data/NEDS_2016_Core_demos.RDS")
+write_fst(temp, "Data/NEDS_2016_Core_demos.fst")
 rm(temp)
 gc()
 
@@ -936,8 +968,9 @@ temp = temp %>% mutate_if(is.character, blank_to_na)
 temp$died_visit = as.integer(temp$died_visit)
 temp$disp_ed = as.integer(temp$disp_ed)
 temp$edevent = as.integer(temp$edevent)
+temp$key_ed = bit64::as.integer64(temp$key_ed)
 
-saveRDS(temp, "Data/NEDS_2016_Core_outcomes.RDS")
+write_fst(temp, "Data/NEDS_2016_Core_outcomes.fst")
 rm(temp)
 gc()
 
@@ -979,8 +1012,9 @@ temp = temp %>% mutate_at(vars(starts_with("i10_ecause")), icd10_to_icd9)
 
 colnames(temp) = gsub("i10_ecause", "ecode", colnames(temp))
 
+temp$key_ed = bit64::as.integer64(temp$key_ed)
 
-saveRDS(temp, "Data/NEDS_2016_ecode.RDS")
+write_fst(temp, "Data/NEDS_2016_Core_ecode.fst")
 
 temp = temp %>% select(-starts_with("ecode"))
 
@@ -1022,61 +1056,423 @@ gc()
 
 colnames(temp) = gsub("i10_", "", colnames(temp))
 
+temp$key_ed = bit64::as.integer64(temp$key_ed)
 
-
-saveRDS(temp, "Data/NEDS_2016_dx.RDS")
+write_fst(temp, "Data/NEDS_2016_Core_dx.fst")
 rm(temp, icd_map, icd10_to_icd9)
 
 
 
 
-# ~~ demos and outcomes ----
-temp = fread("Data/NEDS_2016/NEDS_2016_CORE.csv",
-						 select = c(
-						 	"key_ed", 
-						 	"age",  "female", 
-						 	"pay1", "pay2", "totchg_ed", 
-						 	"zipinc_qrtl"),
-						 na.strings = c(getOption("datatable.na.strings","NA"), "", 
-						 							 -100000000, -99, -66, -9, -8)
-)
-
-temp$totchg_ed[which(temp$totchg_ed<0)] = NA
-temp$female[which(temp$female<0)] = NA
 
 
-saveRDS(temp, "Data/NEDS_2016_demos.RDS")
+
+
+
+
+
+
+
+
+
+# check file structures --------------------------------------------
+
+
+# ~ demos -----------------
+files = list.files("Data/", pattern = "demos.fst", full.names = T)
+
+res = data.frame(file = rep("", length(files)), 
+								 cols = rep("", length(files)), 
+								 classes = rep("", length(files))
+								 )
+
+
+for(i in 1:length(files)){
+	temp = read_fst(files[i], from = 1, to = 100)
+	res$file[i] = files[i]
+	res$cols[i] = paste(colnames(temp), collapse = ", ")
+	res$classes[i] = paste(sapply(temp, class), collapse = ", ")
+}
 rm(temp)
 
 
 
+res$file[!duplicated(res[, -1])]
+
+
+all(res$cols[-1] == res$cols[1])
+all(res$classes[-1] == res$classes[1])
 
 
 
-temp = fread("Data/NEDS_2016/NEDS_2016_CORE.csv",
-			select = c(
-				"key_ed", 
-				"died_visit", "disp_ed", "edevent"),
-			na.strings = c(getOption("datatable.na.strings","NA"), "")
+
+
+temp = read_fst("Data/NEDS_2016_Core_demos.fst")
+temp = select(temp, 
+							age, discwt, female, hosp_ed, key_ed, pay1, pay2, totchg_ed, zipinc_qrtl
+)
+temp$hosp_ed = as.numeric(temp$hosp_ed)
+write_fst(temp, "Data/NEDS_2016_Core_demos.fst")
+
+
+
+
+
+
+
+files = list.files("Data/", pattern = "demos.fst", full.names = T)
+
+res = data.frame(file = rep("", length(files)), 
+								 cols = rep("", length(files)), 
+								 classes = rep("", length(files))
 )
 
 
-temp$died_visit[which(temp$died_visit<0)] = NA
-
-
-saveRDS(temp, "Data/NEDS_2016_outcomes.RDS")
+for(i in 1:length(files)){
+	temp = read_fst(files[i], from = 1, to = 100)
+	res$file[i] = files[i]
+	res$cols[i] = paste(colnames(temp), collapse = ", ")
+	res$classes[i] = paste(sapply(temp, class), collapse = ", ")
+}
 rm(temp)
 
-
-
-
-gc()
-
-beepr::beep()
-
+res$file[!duplicated(res[, -1])]
+all(res$cols[-1] == res$cols[1])
+all(res$classes[-1] == res$classes[1])
 
 
 
 
 
 
+
+
+
+# ~ dx -----------------
+files = list.files("Data/", pattern = "dx.fst", full.names = T)
+
+
+res = data.frame(file = rep("", length(files)), 
+								 cols = rep("", length(files)), 
+								 classes = rep("", length(files))
+)
+
+
+for(i in 1:length(files)){
+	temp = read_fst(files[i], from = 1, to = 100)
+	res$file[i] = files[i]
+	res$cols[i] = paste(colnames(temp), collapse = ", ")
+	res$classes[i] = paste(sapply(temp, class), collapse = ", ")
+}
+rm(temp)
+
+res$file[!duplicated(res[, -1])]
+
+
+
+all(res$cols[-1] == res$cols[1])
+all(res$classes[-1] == res$classes[1])
+
+
+
+
+
+temp = read_fst("Data/NEDS_2016_Core_dx.fst")
+temp = select(temp, 
+							dx1, dx2, dx3, dx4, dx5, 
+							dx6, dx7, dx8, dx9, dx10, 
+							dx11, dx12, dx13, dx14, dx15, key_ed)
+write_fst(temp, "Data/NEDS_2016_Core_dx.fst")
+
+
+
+
+
+
+
+for(i in 1:length(files)){
+	temp = read_fst(files[i], from = 1, to = 100)
+	res$file[i] = files[i]
+	res$cols[i] = paste(colnames(temp), collapse = ", ")
+	res$classes[i] = paste(sapply(temp, class), collapse = ", ")
+}
+rm(temp)
+
+res$file[!duplicated(res[, -1])]
+
+
+
+all(res$cols[-1] == res$cols[1])
+all(res$classes[-1] == res$classes[1])
+
+
+
+
+
+
+
+# ~ ecode -----------------
+files = list.files("Data/", pattern = "ecode.fst", full.names = T)
+
+res = data.frame(file = rep("", length(files)), 
+								 cols = rep("", length(files)), 
+								 classes = rep("", length(files))
+)
+
+for(i in 1:length(files)){
+	temp = read_fst(files[i], from = 1, to = 100)
+	res$file[i] = files[i]
+	res$cols[i] = paste(colnames(temp), collapse = ", ")
+	res$classes[i] = paste(sapply(temp, class), collapse = ", ")
+}
+rm(temp)
+
+res$file[!duplicated(res[, -1])]
+all(res$cols[-1] == res$cols[1])
+all(res$classes[-1] == res$classes[1])
+
+
+
+
+
+temp = read_fst("Data/NEDS_2016_Core_ecode.fst")
+temp = select(temp, 
+							ecode1, ecode2, ecode3, ecode4, key_ed)
+write_fst(temp, "Data/NEDS_2016_Core_ecode.fst")
+
+
+
+
+
+res = data.frame(file = rep("", length(files)), 
+								 cols = rep("", length(files)), 
+								 classes = rep("", length(files))
+)
+
+for(i in 1:length(files)){
+	temp = read_fst(files[i], from = 1, to = 100)
+	res$file[i] = files[i]
+	res$cols[i] = paste(colnames(temp), collapse = ", ")
+	res$classes[i] = paste(sapply(temp, class), collapse = ", ")
+}
+rm(temp)
+
+res$file[!duplicated(res[, -1])]
+all(res$cols[-1] == res$cols[1])
+all(res$classes[-1] == res$classes[1])
+
+
+
+
+
+
+
+# ~ outcomes -----------------
+files = list.files("Data/", pattern = "outcomes.fst", full.names = T)
+
+
+res = data.frame(file = rep("", length(files)), 
+								 cols = rep("", length(files)), 
+								 classes = rep("", length(files))
+)
+
+for(i in 1:length(files)){
+	temp = read_fst(files[i], from = 1, to = 100)
+	res$file[i] = files[i]
+	res$cols[i] = paste(colnames(temp), collapse = ", ")
+	res$classes[i] = paste(sapply(temp, class), collapse = ", ")
+}
+rm(temp)
+
+res$file[!duplicated(res[, -1])]
+all(res$cols[-1] == res$cols[1])
+all(res$classes[-1] == res$classes[1])
+
+
+
+
+temp = read_fst("Data/NEDS_2016_Core_outcomes.fst")
+temp = select(temp, 
+							died_visit, disp_ed, edevent, key_ed)
+write_fst(temp, "Data/NEDS_2016_Core_outcomes.fst")
+
+
+
+
+res = data.frame(file = rep("", length(files)), 
+								 cols = rep("", length(files)), 
+								 classes = rep("", length(files))
+)
+
+for(i in 1:length(files)){
+	temp = read_fst(files[i], from = 1, to = 100)
+	res$file[i] = files[i]
+	res$cols[i] = paste(colnames(temp), collapse = ", ")
+	res$classes[i] = paste(sapply(temp, class), collapse = ", ")
+}
+rm(temp)
+
+res$file[!duplicated(res[, -1])]
+all(res$cols[-1] == res$cols[1])
+all(res$classes[-1] == res$classes[1])
+
+
+
+
+
+
+
+
+
+# ~ ED -----------------
+files = list.files("Data/", pattern = "ED.fst", full.names = T)
+
+
+res = data.frame(file = rep("", length(files)), 
+								 cols = rep("", length(files)), 
+								 classes = rep("", length(files))
+)
+
+for(i in 1:length(files)){
+	temp = read_fst(files[i], from = 1, to = 100)
+	res$file[i] = files[i]
+	res$cols[i] = paste(colnames(temp), collapse = ", ")
+	res$classes[i] = paste(sapply(temp, class), collapse = ", ")
+}
+rm(temp)
+
+res$file[!duplicated(res[, -1])]
+all(res$cols[-1] == res$cols[1])
+all(res$classes[-1] == res$classes[1])
+
+
+for(i in 1:length(files)){
+	temp = read_fst(files[i])
+	temp$ncpt = as.integer(temp$ncpt)
+	write_fst(temp, files[i])
+}
+
+
+
+for(i in 1:length(files)){
+	temp = read_fst(files[i], from = 1, to = 100)
+	res$file[i] = files[i]
+	res$cols[i] = paste(colnames(temp), collapse = ", ")
+	res$classes[i] = paste(sapply(temp, class), collapse = ", ")
+}
+rm(temp)
+
+res$file[!duplicated(res[, -1])]
+all(res$cols[-1] == res$cols[1])
+all(res$classes[-1] == res$classes[1])
+
+
+
+
+
+
+
+
+
+# ~ IP -----------------
+files = list.files("Data/", pattern = "IP.fst", full.names = T)
+
+
+res = data.frame(file = rep("", length(files)), 
+								 cols = rep("", length(files)), 
+								 classes = rep("", length(files))
+)
+
+for(i in 1:length(files)){
+	temp = read_fst(files[i], from = 1, to = 100)
+	res$file[i] = files[i]
+	res$cols[i] = paste(colnames(temp), collapse = ", ")
+	res$classes[i] = paste(sapply(temp, class), collapse = ", ")
+}
+rm(temp)
+
+res$file[!duplicated(res[, -1])]
+all(res$cols[-1] == res$cols[1])
+all(res$classes[-1] == res$classes[1])
+
+
+
+
+for(i in 1:length(files)){
+	temp = read_fst(files[i])
+	temp$disp_ip = as.integer(temp$disp_ip)
+	temp$los_ip = as.integer(temp$los_ip)
+	temp$npr_ip = as.integer(temp$npr_ip)
+	temp$totchg_ip = as.integer(temp$totchg_ip)
+	write_fst(temp, files[i])
+}
+
+
+
+
+
+
+res = data.frame(file = rep("", length(files)), 
+								 cols = rep("", length(files)), 
+								 classes = rep("", length(files))
+)
+
+for(i in 1:length(files)){
+	temp = read_fst(files[i], from = 1, to = 100)
+	res$file[i] = files[i]
+	res$cols[i] = paste(colnames(temp), collapse = ", ")
+	res$classes[i] = paste(sapply(temp, class), collapse = ", ")
+}
+rm(temp)
+
+res$file[!duplicated(res[, -1])]
+all(res$cols[-1] == res$cols[1])
+all(res$classes[-1] == res$classes[1])
+
+
+
+
+
+# ~ hosp -----------------
+files = list.files("Data/", pattern = "Hospital.fst", full.names = T)
+
+
+res = data.frame(file = rep("", length(files)), 
+								 cols = rep("", length(files)), 
+								 classes = rep("", length(files))
+)
+
+for(i in 1:length(files)){
+	temp = read_fst(files[i], from = 1, to = 100)
+	res$file[i] = files[i]
+	res$cols[i] = paste(colnames(temp), collapse = ", ")
+	res$classes[i] = paste(sapply(temp, class), collapse = ", ")
+}
+rm(temp)
+
+res$file[!duplicated(res[, -1])]
+all(res$cols[-1] == res$cols[1])
+all(res$classes[-1] == res$classes[1])
+
+
+
+
+temp = read_fst("Data/NEDS_2016_Hospital.fst")
+temp = temp %>% mutate_if(is.integer, as.numeric)
+write_fst(temp, "Data/NEDS_2016_Hospital.fst")
+
+
+
+
+
+for(i in 1:length(files)){
+	temp = read_fst(files[i], from = 1, to = 100)
+	res$file[i] = files[i]
+	res$cols[i] = paste(colnames(temp), collapse = ", ")
+	res$classes[i] = paste(sapply(temp, class), collapse = ", ")
+}
+rm(temp)
+
+res$file[!duplicated(res[, -1])]
+all(res$cols[-1] == res$cols[1])
+all(res$classes[-1] == res$classes[1])
