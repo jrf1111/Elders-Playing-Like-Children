@@ -134,8 +134,16 @@ dbExecute(neds, "DROP TABLE IF EXISTS dx")
 for(i in 1:length(files)){
 	file = files[i]
 	cat("\n", file)
-	temp = read_fst(file, columns = "key_ed")
-	cat("\t\t", colnames(temp))
+	temp = read_fst(file)
+	
+	if(str_detect(file, "2010")){temp$year = "2010"}
+	if(str_detect(file, "2011")){temp$year = "2011"}
+	if(str_detect(file, "2012")){temp$year = "2012"}
+	if(str_detect(file, "2013")){temp$year = "2013"}
+	if(str_detect(file, "2014")){temp$year = "2014"}
+	if(str_detect(file, "2015Q1Q3")){temp$year = "2015Q1Q3"}
+	if(str_detect(file, "2015Q4")){temp$year = "2015Q4"}
+	if(str_detect(file, "2016")){temp$year = "2016"}
 
 
 	#standardize the length of the strings
@@ -143,9 +151,12 @@ for(i in 1:length(files)){
 
 
 	dbWriteTable(neds, "dx", temp, append = TRUE, row.names=FALSE)
-	if(i==1){dbExecute(neds, "ALTER TABLE dx SET UNLOGGED")  }
+	if(i==1){
+		dbExecute(neds, "ALTER TABLE dx SET UNLOGGED") 
+		dbExecute(neds, "ALTER TABLE dx DISABLE TRIGGER ALL") 
+		}
 	rm(temp)
-	print(file)
+	cat("\t\tcomplete")
 }
 
 beepr::beep()
@@ -166,7 +177,7 @@ dbGetQuery(neds, "SELECT year, COUNT(*) FROM dx GROUP BY year")
 # 3     2012 31091020
 # 4     2013 29581718
 # 5     2014 31026417
-# 6 2015Q1Q3 30542691
+# 6 2015Q1Q3 19787395
 # 7   2015Q4  6534198
 # 8     2016 32680232
 
@@ -178,10 +189,6 @@ n = dbGetQuery(neds, "SELECT COUNT(key_ed) FROM dx")
 n = as.integer(n)
 cat("Initial N_obs = ", format(n, big.mark=","), "\n", file = "nobs log.txt")
 
-
-n = dbGetQuery(neds, "SELECT SUM(discwt) FROM dx")
-n = as.integer(n)
-cat("Initial sum_discwt = ", format(n, big.mark=","), "\n", file = "nobs log.txt", append=T)
 
 
 
@@ -196,15 +203,17 @@ check_for_all_years(files)
 dbExecute(neds, "DROP TABLE IF EXISTS demos")
 for(i in 1:length(files)){
 	file = files[i]
+	cat("\n", file)
 	temp = read_fst(file)
-	temp$key_ed = as.numeric(temp$key_ed)
-	temp = temp[, c("key_ed", "female", "age")]
-	temp$female = as.integer(temp$female)
-	temp$age = as.integer(temp$age)
+	
 	dbWriteTable(neds, "demos", temp, append = TRUE, row.names=FALSE)
-	if(i==1){dbExecute(neds, "ALTER TABLE demos SET UNLOGGED")  }
+	
+	if(i==1){
+		dbExecute(neds, "ALTER TABLE demos SET UNLOGGED") 
+		dbExecute(neds, "ALTER TABLE demos DISABLE TRIGGER ALL") 
+	}
 	rm(temp)
-	print(file)
+	cat("\t\tcomplete")
 }
 
 
@@ -225,13 +234,15 @@ check_for_all_years(files)
 dbExecute(neds, "DROP TABLE IF EXISTS ecodes")
 for(i in 1:length(files)){
 	file = files[i]
+	cat("\n", file)
 	temp = read_fst(file)
-	temp$key_ed = as.numeric(temp$key_ed)
-	temp = temp[, c("key_ed", "ecode1")]
 	dbWriteTable(neds, "ecodes", temp, append = TRUE, row.names=FALSE)
-	if(i==1){dbExecute(neds, "ALTER TABLE ecodes SET UNLOGGED")  }
+	if(i==1){
+		dbExecute(neds, "ALTER TABLE ecodes SET UNLOGGED") 
+		dbExecute(neds, "ALTER TABLE ecodes DISABLE TRIGGER ALL") 
+	}
 	rm(temp)
-	print(file)
+	cat("\t\tcomplete")
 }
 
 
@@ -252,16 +263,15 @@ check_for_all_years(files)
 dbExecute(neds, "DROP TABLE IF EXISTS outcomes")
 for(i in 1:length(files)){
 	file = files[i]
+	cat("\n", file)
 	temp = read_fst(file)
-	temp$key_ed = as.numeric(temp$key_ed)
-	temp = temp[, c("key_ed", "edevent", "disp_ed", "died_visit")]
-	temp$edevent = as.integer(temp$edevent)
-	temp$disp_ed = as.integer(temp$disp_ed)
-	temp$died_visit = as.integer(temp$died_visit)
 	dbWriteTable(neds, "outcomes", temp, append = TRUE, row.names=FALSE)
-	if(i==1){dbExecute(neds, "ALTER TABLE outcomes SET UNLOGGED")  }
+	if(i==1){
+		dbExecute(neds, "ALTER TABLE outcomes SET UNLOGGED") 
+		dbExecute(neds, "ALTER TABLE outcomes DISABLE TRIGGER ALL") 
+	}
 	rm(temp)
-	print(file)
+	cat("\t\tcomplete")
 }
 
 
@@ -284,14 +294,15 @@ check_for_all_years(files)
 dbExecute(neds, "DROP TABLE IF EXISTS ip")
 for(i in 1:length(files)){
 	file = files[i]
+	cat("\n", file)
 	temp = read_fst(file)
-	temp$key_ed = as.numeric(temp$key_ed)
-	temp = temp[, c("key_ed", "disp_ip")]
-	temp$disp_ip = as.integer(temp$disp_ip)
 	dbWriteTable(neds, "ip", temp, append = TRUE, row.names=FALSE)
-	if(i==1){dbExecute(neds, "ALTER TABLE ip SET UNLOGGED")  }
+	if(i==1){
+		dbExecute(neds, "ALTER TABLE ip SET UNLOGGED") 
+		dbExecute(neds, "ALTER TABLE ip DISABLE TRIGGER ALL") 
+	}
 	rm(temp)
-	print(file)
+	cat("\t\tcomplete")
 }
 
 
@@ -311,14 +322,17 @@ check_for_all_years(files)
 dbExecute(neds, "DROP TABLE IF EXISTS hosp")
 for(i in 1:length(files)){
 	file = files[i]
+	cat("\n", file)
 	temp = read_fst(file)
 	temp$year_hosp = as.character(temp$year)
-	temp$hosp_ed = as.character(temp$hosp_ed)
 	temp = temp[, c("hosp_ed", "neds_stratum", "year_hosp")]
 	dbWriteTable(neds, "hosp", temp, append = TRUE, row.names=FALSE)
-	if(i==1){dbExecute(neds, "ALTER TABLE hosp SET UNLOGGED")  }
+	if(i==1){
+		dbExecute(neds, "ALTER TABLE hosp SET UNLOGGED") 
+		dbExecute(neds, "ALTER TABLE hosp DISABLE TRIGGER ALL") 
+	}
 	rm(temp)
-	print(file)
+	cat("\t\tcomplete")
 }
 
 
@@ -349,9 +363,19 @@ gc()
 
 # create indexes ----------------------------------------------------------
 
+dbGetQuery(neds, "SELECT pg_size_pretty( pg_database_size('neds') )")
 
 
-dbExecute(neds, "SET work_mem = '6GB'")
+dbExecute(neds, "ALTER TABLE demos ALTER COLUMN key_ed TYPE bigint USING key_ed::bigint")
+dbExecute(neds, "ALTER TABLE dx ALTER COLUMN key_ed TYPE bigint USING key_ed::bigint")
+dbExecute(neds, "ALTER TABLE ecodes ALTER COLUMN key_ed TYPE bigint USING key_ed::bigint")
+dbExecute(neds, "ALTER TABLE ip ALTER COLUMN key_ed TYPE bigint USING key_ed::bigint")
+dbExecute(neds, "ALTER TABLE outcomes ALTER COLUMN key_ed TYPE bigint USING key_ed::bigint")
+
+dbGetQuery(neds, "SELECT pg_size_pretty( pg_database_size('neds') )")
+
+
+
 
 dbExecute(neds, "CREATE INDEX index_key_ed_demos ON demos (key_ed)")
 dbExecute(neds, "CREATE INDEX index_key_ed_dx ON dx (key_ed)")
@@ -359,7 +383,8 @@ dbExecute(neds, "CREATE INDEX index_key_ed_ecodes ON ecodes (key_ed)")
 dbExecute(neds, "CREATE INDEX index_key_ed_ip ON ip (key_ed)")
 dbExecute(neds, "CREATE INDEX index_key_ed_outcomes ON outcomes (key_ed)")
 
-dbExecute(neds, "SET work_mem = '3GB'")
+
+dbGetQuery(neds, "SELECT pg_size_pretty( pg_database_size('neds') )")
 
 
 
@@ -417,8 +442,6 @@ dbExecute(neds, "REINDEX INDEX index_key_ed_outcomes")
 
 
 
-
-
 dbGetQuery(neds, "SELECT year, COUNT(*) FROM dx GROUP BY year")
 # 			year   count
 # 1     2010 6045184
@@ -428,7 +451,7 @@ dbGetQuery(neds, "SELECT year, COUNT(*) FROM dx GROUP BY year")
 # 5     2014 5963440
 # 6 2015Q1Q3 4165400
 # 7   2015Q4 1278639
-# 8     2016 6274849
+# 8     2016 6248782
 
 
 
@@ -441,10 +464,6 @@ n = as.integer(n)
 cat("N_obs after filtering on injury dx = ", format(n, big.mark=","), "\n", file="nobs log.txt", append=T)
 
 
-
-n = dbGetQuery(neds, "SELECT SUM(discwt) FROM dx")
-n = as.integer(n)
-cat("Sum_discwt after filtering on injury dx = ", format(n, big.mark=","), "\n", file = "nobs log.txt", append=T)
 
 
 
@@ -507,7 +526,7 @@ dbGetQuery(neds, "SELECT year, COUNT(*) FROM dx GROUP BY year")
 # 5     2014 1889341
 # 6 2015Q1Q3 1213637
 # 7   2015Q4  388882
-# 8     2016 2198758
+# 8     2016 2186191
 
 
 
@@ -519,10 +538,6 @@ cat("N_obs after filtering on age = ", format(n, big.mark=","), "\n", file="nobs
 
 
 
-
-n = dbGetQuery(neds, "SELECT SUM(discwt) FROM dx")
-n = as.integer(n)
-cat("Sum_discwt after filtering on age = ", format(n, big.mark=","), "\n", file = "nobs log.txt", append=T)
 
 
 
@@ -696,17 +711,15 @@ dbExecute(neds, "REINDEX INDEX index_key_ed_outcomes")
 
 
 dbGetQuery(neds, "SELECT year, COUNT(*) FROM dx GROUP BY year")
-# 			year   count
-# 1     2010 1303082
-# 2     2011 1320346
-# 3     2012 1447247
-# 4     2013 1421954
-# 5     2014 1506330
+#       year   count
+# 1     2010 1303163
+# 2     2011 1320362
+# 3     2012 1447254
+# 4     2013 1424419
+# 5     2014 1506363
 # 6 2015Q1Q3  972570
 # 7   2015Q4  328945
-# 8     2016 2053118
-
-
+# 8     2016 2041286
 
 
 
@@ -714,18 +727,6 @@ dbGetQuery(neds, "SELECT year, COUNT(*) FROM dx GROUP BY year")
 n = dbGetQuery(neds, "SELECT COUNT(key_ed) FROM dx")
 n = as.integer(n)
 cat("N_obs after filtering on ecodes = ", format(n, big.mark=","), "\n", file="nobs log.txt", append=T)
-
-
-
-n = dbGetQuery(neds, "SELECT SUM(discwt) FROM dx")
-n = as.integer(n)
-cat("Sum_discwt after filtering on ecodes = ", format(n, big.mark=","), "\n", file = "nobs log.txt", append=T)
-
-
-
-
-
-
 
 
 
@@ -738,6 +739,8 @@ cat("Sum_discwt after filtering on ecodes = ", format(n, big.mark=","), "\n", fi
 
 # join statement -------------------------------------------------------
 
+
+dbExecute(neds, "SET work_mem = '2GB'")
 
 
 #get all var types
@@ -757,9 +760,17 @@ rm(tables, q, i, r)
 #create table for join results to go into
 dbSendQuery(neds, 
 						"CREATE UNLOGGED TABLE join_res (
-						key_ed FLOAT8, 
-						female INTEGER,
-						age INTEGER,
+						age INTEGER, 
+            discwt FLOAT8, 
+            female INTEGER, 
+          --  hosp_ed FLOAT8, 
+            key_ed BIGINT, 
+            pay1 INTEGER, 
+            pay2 INTEGER, 
+            totchg_ed FLOAT8, 
+            zipinc_qrtl INTEGER, 
+ 
+						
 						
 						died_visit INTEGER,
 						disp_ed INTEGER,
@@ -780,18 +791,24 @@ dbSendQuery(neds,
 						dx13 TEXT,
 						dx14 TEXT,
 						dx15 TEXT,
-						
-						
-						hosp_ed TEXT,
 						year TEXT,
-						discwt FLOAT8,
+						
 						
 						ecode1 TEXT,
+						ecode2 TEXT,
+						ecode3 TEXT,
+						ecode4 TEXT,
 						
-						disp_ip INTEGER,
 						
-						neds_stratum FLOAT8,
-						year_hosp TEXT
+						disp_ip INTEGER, 
+            los_ip INTEGER, 
+            npr_ip INTEGER, 
+            totchg_ip INTEGER, 
+ 
+						
+						hosp_ed FLOAT8, 
+            neds_stratum FLOAT8, 
+            year_hosp TEXT
 						)")
 
 
@@ -816,15 +833,24 @@ rm(tables, q, i, r)
 #vars in INSERT command have to be in same order as in the creation of join_res
 dbSendQuery(neds,
 						"INSERT INTO join_res
-						 SELECT demos.key_ed, demos.female, demos.age,
-						 outcomes.died_visit, outcomes.disp_ed, outcomes.edevent,
-						 dx.dx1, dx.dx2, dx.dx3, dx.dx4, dx.dx5, dx.dx6,
-						 dx.dx7, dx.dx8, dx.dx9, dx.dx10,
-						 dx.dx11, dx.dx12, dx.dx13, dx.dx14, dx.dx15,
-						 dx.hosp_ed, dx.year, dx.discwt,
-						 ecodes.ecode1,
-						 ip.disp_ip,
-						 hosp.neds_stratum, hosp.year_hosp
+						 SELECT demos.age,  demos.discwt,  demos.female,  
+						 -- demos.hosp_ed,  
+						 demos.key_ed,  demos.pay1,  demos.pay2,  
+						 demos.totchg_ed,  demos.zipinc_qrtl,
+						 
+						 outcomes.died_visit,  outcomes.disp_ed,  outcomes.edevent,
+						 
+						 dx.dx1,  dx.dx2,  dx.dx3,  dx.dx4,  dx.dx5, 
+						 dx.dx6,  dx.dx7,  dx.dx8,  dx.dx9,  dx.dx10, 
+						 dx.dx11,  dx.dx12,  dx.dx13,  dx.dx14,  dx.dx15, 
+						 dx.year,
+						 
+						 ecodes.ecode1,  ecodes.ecode2,  ecodes.ecode3,  ecodes.ecode4,
+						 
+						 
+						 ip.disp_ip,  ip.los_ip,  ip.npr_ip,  ip.totchg_ip,
+						 
+						 hosp.hosp_ed,  hosp.neds_stratum,  hosp.year_hosp
 
 
 						 FROM demos
@@ -841,7 +867,7 @@ dbSendQuery(neds,
 						 ON demos.key_ed = ip.key_ed
 
 						 LEFT JOIN hosp
-						 ON dx.hosp_ed = hosp.hosp_ed")
+						 ON demos.hosp_ed = hosp.hosp_ed")
 
 
 
@@ -850,16 +876,14 @@ dbSendQuery(neds,
 
 dbGetQuery(neds, "SELECT year, COUNT(*) FROM join_res GROUP BY year")
 # 			year   count
-# 1     2010 4124391
-# 2     2011 4347686
-# 3     2012 4775163
-# 4     2013 4625845
-# 5     2014 4794602
+# 1     2010 4124638
+# 2     2011 4347725
+# 3     2012 4775188
+# 4     2013 4634410
+# 5     2014 4794694
 # 6 2015Q1Q3 2866723
 # 7   2015Q4  977469
-# 8     2016 5925426
-
-
+# 8     2016 5890822
 
 
 dbExecute(neds, "DROP INDEX IF EXISTS index_key_ed_demos")
@@ -904,6 +928,8 @@ dbGetQuery(neds,
 
 
 
+dbExecute(neds, "SET work_mem = '5GB'")
+
 
 
 dbExecute(neds, "ALTER TABLE join_res ADD COLUMN row BIGSERIAL")
@@ -919,14 +945,14 @@ dbSendQuery(neds,
 
 dbGetQuery(neds, "SELECT year, COUNT(*) FROM join_res GROUP BY year")
 # 			year   count
-# 1     2010 1303082
-# 2     2011 1320346
-# 3     2012 1447247
-# 4     2013 1421954
-# 5     2014 1506330
+# 1     2010 1303163
+# 2     2011 1320362
+# 3     2012 1447254
+# 4     2013 1424419
+# 5     2014 1506363
 # 6 2015Q1Q3  972570
 # 7   2015Q4  328945
-# 8     2016 2053118
+# 8     2016 2041286
 
 
 dbGetQuery(neds,
@@ -1006,13 +1032,6 @@ cat("N_obs after all filters = ", format(n, big.mark=","), "\n", file="nobs log.
 
 
 
-n = dbGetQuery(neds, "SELECT SUM(discwt) FROM join_res")
-n = as.integer(n)
-cat("Sum_discwt after all filters = ", format(n, big.mark=","), "\n", file = "nobs log.txt", append=T)
-
-
-
-
 
 
 
@@ -1064,9 +1083,9 @@ gc()
 
 
 #save dx file just in case
-fwrite(dx, "Data/final/dx_final.csv")
+write_fst(dx, "Data/final/dx_final.fst")
 
-dx = fread("Data/final/dx_final.csv")
+dx = read_fst("Data/final/dx_final.fst")
 
 
 #get ICD9 dx codes in proper format for tmpm: numeric, ###.##
@@ -1347,6 +1366,53 @@ tmpm5 = function(Pdat){
 	
 }
 
+tmpm5_old = tmpm5 = function(Pdat){
+	
+	
+	get_marcs = function(x){
+		marclist <- ICs[match(x[-1], ICs$index), ]
+		marclist <- marclist[order(marclist$marc, decreasing = T), ]
+		marclist <- marclist[1:5, ]
+		marclist$marc[is.na(marclist$marc)] = 0
+		
+		marclist$index = NULL
+		
+		if (marclist$marc[1] != 0 & marclist$marc[2] != 0 & marclist$bodyregion[1] == marclist$bodyregion[2]) {
+			same_region = 1
+		} else same_region = 0
+		
+		Imarc = marclist$marc[1]*marclist$marc[2]
+		
+		marclist = c(marclist$marc, same_region, Imarc)
+		names(marclist) = c(paste0("marc", 1:5), "same_region", "Imarc")
+		
+		marclist
+	}
+	
+	
+	marcs = apply(Pdat, 1, get_marcs) 
+	
+	betas = c(1.406958,      #marc1
+						1.409992,      #marc2
+						0.5205343,     #marc3
+						0.4150946,     #marc4
+						0.8883929,     #marc5
+						-0.0890527,    #same_region
+						-0.7782696     #Imarc
+	)
+	
+	
+	
+	Model_Calc = {betas %*% marcs} - 2.217565
+	
+	
+	Model_Calc = pnorm(Model_Calc)
+	
+	c(Model_Calc)
+	
+	
+}
+
 #parallel version of tmpm5, not really any faster
 tmpm5p = function(Pdat, cores = 6, max_combine = max(c(ceiling(nrow(Pdat)*0.1), 100))){
 	
@@ -1403,37 +1469,22 @@ tmpm5p = function(Pdat, cores = 6, max_combine = max(c(ceiling(nrow(Pdat)*0.1), 
 
 
 
-# mb = microbenchmark::microbenchmark(
-# 	{tmpm(dx[1:100, ], ILex = 9)},
-# 	{tmpm2(dx[1:100, ])},
-# 	{tmpm3(dx[1:100, ])},
-# 	{tmpm4(dx[1:100, ])},
-# 	{tmpm4p(dx[1:100, ])},
-# 	{tmpm4p(dx[1:100, ], max_combine = 100)},
-# 	{tmpm4p(dx[1:100, ], max_combine = 50)},
-# 	{tmpm5(dx[1:100, ])},
-# 	{tmpm5p(dx[1:100, ])},
-# 	{tmpm5p(dx[1:100, ], max_combine = 100)},
-# 	{tmpm5p(dx[1:100, ], max_combine = 50)},
-# 	times = 200, 
-# 	control = list(warmup = 5))
-# 
-# gc()
-# mb2 = microbenchmark::microbenchmark(
-# 	{tmpm(dx[1:1000, ], ILex = 9)},
-# 	{tmpm2(dx[1:1000, ])},
-# 	{tmpm3(dx[1:1000, ])},
-# 	{tmpm4(dx[1:1000, ])},
-# 	{tmpm4p(dx[1:1000, ])},
-# 	{tmpm4p(dx[1:1000, ], max_combine = 1000)},
-# 	{tmpm4p(dx[1:1000, ], max_combine = 500)},
-# 	{tmpm5(dx[1:1000, ])},
-# 	{tmpm5p(dx[1:1000, ])},
-# 	{tmpm5p(dx[1:1000, ], max_combine = 1000)},
-# 	{tmpm5p(dx[1:1000, ], max_combine = 500)},
-# 	times = 200, 
-# 	control = list(warmup = 5))
-# gc()
+mb =  microbenchmark::microbenchmark(
+	#{tmpm(dx[1:1000, ], ILex = 9)},
+	{tmpm2(dx[1:1000, ])},
+	{tmpm3(dx[1:1000, ])},
+	{tmpm4(dx[1:1000, ])},
+	{tmpm4p(dx[1:1000, ])},
+	{tmpm4p(dx[1:1000, ], max_combine = 1000)},
+	{tmpm4p(dx[1:1000, ], max_combine = 500)},
+	{tmpm5(dx[1:1000, ])},
+	{tmpm5p(dx[1:1000, ])},
+	{tmpm5p(dx[1:1000, ], max_combine = 1000)},
+	{tmpm5p(dx[1:1000, ], max_combine = 500)},
+	{tmpm5_old(dx[1:1000, ])},
+	times = 100,
+	control = list(warmup = 5))
+gc()
 # 
 # 
 # mb
@@ -1457,6 +1508,7 @@ all.equal(temp, tmpm4(dx[1:1000, ]) )  #same results
 all.equal(temp, tmpm4p(dx[1:1000, ]) )  #same results
 all.equal(temp, tmpm5(dx[1:1000, ]) )  #same results
 all.equal(temp, tmpm5p(dx[1:1000, ]) )  #same results
+all.equal(temp, tmpm5_old(dx[1:1000, ]) )  #same results
 
 
 
@@ -1476,7 +1528,7 @@ dx = dx%>% mutate_all(., factor)
 
 
 #do in chunks to reduce memory pressure
-#takes about 20 mins with 7 cores and chunk.size = 1000
+#takes about 25 mins with 7 cores and chunk.size = 1000
 dx$pDeath = NA_real_
 
 chunk.size = 1000
@@ -1506,7 +1558,7 @@ if(res>1){
 	dx$pDeath = foreach::foreach(i = 1:nchunks, .combine=c, .multicombine = T, .maxcombine = 1000) %dopar% {
 		try(cat(paste(Sys.time(), ":\t\t chunk", i, "of", nchunks, "\t\t", round( (i/nchunks)*100,2), "%\n"),
 						file="Data/tmpm_log.txt", append=TRUE))
-		tmpm4(dx[ starts[i]:ends[i], ])
+		tmpm5_old(dx[ starts[i]:ends[i], ])
 	}
 	print(Sys.time())
 	doParallel::stopImplicitCluster()
@@ -1530,13 +1582,13 @@ gc()
 dx[, paste0("dx", 1:15) ] = NULL
 
 
-write_fst(dx, "Data/final/tmpm.fst", compress = 100)
+write_fst(dx, "Data/final/tmpm.fst")
 
-#don't need backup of all dxs anymore
-file.remove("Data/final/dx_final.csv")
 rm(dx, ICs)
 
 gc()
+
+
 
 
 
