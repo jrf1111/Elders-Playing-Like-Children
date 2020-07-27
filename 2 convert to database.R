@@ -7,7 +7,7 @@ library(DBI)
 library(data.table)
 library(bit64)  #required for 64 bit integers used in key_ed
 library(fst)
-
+library(comorbidity)
 
 
 #create database ----
@@ -1469,22 +1469,22 @@ tmpm5p = function(Pdat, cores = 6, max_combine = max(c(ceiling(nrow(Pdat)*0.1), 
 
 
 
-mb =  microbenchmark::microbenchmark(
-	#{tmpm(dx[1:1000, ], ILex = 9)},
-	{tmpm2(dx[1:1000, ])},
-	{tmpm3(dx[1:1000, ])},
-	{tmpm4(dx[1:1000, ])},
-	{tmpm4p(dx[1:1000, ])},
-	{tmpm4p(dx[1:1000, ], max_combine = 1000)},
-	{tmpm4p(dx[1:1000, ], max_combine = 500)},
-	{tmpm5(dx[1:1000, ])},
-	{tmpm5p(dx[1:1000, ])},
-	{tmpm5p(dx[1:1000, ], max_combine = 1000)},
-	{tmpm5p(dx[1:1000, ], max_combine = 500)},
-	{tmpm5_old(dx[1:1000, ])},
-	times = 100,
-	control = list(warmup = 5))
-gc()
+# mb =  microbenchmark::microbenchmark(
+# 	#{tmpm(dx[1:1000, ], ILex = 9)},
+# 	{tmpm2(dx[1:1000, ])},
+# 	{tmpm3(dx[1:1000, ])},
+# 	{tmpm4(dx[1:1000, ])},
+# 	{tmpm4p(dx[1:1000, ])},
+# 	{tmpm4p(dx[1:1000, ], max_combine = 1000)},
+# 	{tmpm4p(dx[1:1000, ], max_combine = 500)},
+# 	{tmpm5(dx[1:1000, ])},
+# 	{tmpm5p(dx[1:1000, ])},
+# 	{tmpm5p(dx[1:1000, ], max_combine = 1000)},
+# 	{tmpm5p(dx[1:1000, ], max_combine = 500)},
+# 	{tmpm5_old(dx[1:1000, ])},
+# 	times = 100,
+# 	control = list(warmup = 5))
+# gc()
 # 
 # 
 # mb
@@ -1593,6 +1593,91 @@ gc()
 
 
 
+
+# calculate comorbidity scores ----------------------------------------------
+
+
+library(comorbidity)
+
+
+dx = read_fst("Data/final/dx_final.fst", columns = "key_ed")
+
+
+#do in chunks to reduce memory pressure
+chunk.size = 100000
+nchunks = ceiling( nrow(dx)/chunk.size)
+
+starts = seq(1, nrow(dx), chunk.size)
+ends = c(seq(chunk.size, nrow(dx), chunk.size), nrow(dx))
+
+rm(dx)
+
+
+if(file.exists("Data/final/comorbids.csv")){file.remove("Data/final/comorbids.csv")}
+
+for(i in 1:nchunks){
+	
+	cat("\nchunk", i, "of", nchunks, sep = "\t")
+	
+	#import a subset
+	dx = read_fst("Data/final/dx_final.fst", from = starts[i], to = ends[i])
+	
+	#reformat from wide to long
+	dx = dx %>% pivot_longer(cols = -key_ed)
+	
+	
+	#calculate scores
+	charl = comorbidity(dx, id = "key_ed", code = "value",
+											score = "charlson", icd = "icd9", 
+											assign0 = TRUE) %>%
+		select(key_ed, score)
+	
+	colnames(charl) = c("key_ed", "charlson")
+	
+	
+	
+	elix = comorbidity(dx, id = "key_ed", code = "value",
+											score = "elixhauser", icd = "icd9", 
+											assign0 = TRUE) %>%
+		select(key_ed, score)
+	
+	colnames(elix) = c("key_ed", "elixhauser")
+	
+	
+	
+	
+	rm(dx)
+	
+	
+	#join the two scores
+	res = left_join(charl, elix, by = "key_ed")
+	
+	
+	#save the results by appended existing ones
+	fwrite(res, "Data/final/comorbids.csv", append = TRUE)
+	
+	rm(res, charl, elix)
+	
+	cat("\tcomplete")
+	
+	
+}
+
+
+
+#read CSV file back in, convert to FST, and delete the CSV file
+res = fread("Data/final/comorbids.csv")
+write_fst(res, "Data/final/comorbids.fst")
+file.remove("Data/final/comorbids.csv")
+rm(res)
+
+
+
+
+
+
+
+
 # export ecodes, recode, and consolidate  --------------------------------------
 
 
@@ -1653,11 +1738,64 @@ ecodes = plyr::join(ecodes, icd_map,
 										match = "first")
 
 
+#remove duplicates
+ecodes = ecodes[!duplicated(ecodes$key_ed), ]
+
+ecodes = ecodes[!is.na(ecodes$key_ed), ]
+
+
+
+
+
+#join mapping file to ecode2
+colnames(icd_map) = c("ecode2", "mech2", "intent2")
+ecodes = plyr::join(ecodes, icd_map,
+										by = "ecode2",
+										type = "left", 
+										match = "first")
 
 #remove duplicates
 ecodes = ecodes[!duplicated(ecodes$key_ed), ]
 
 ecodes = ecodes[!is.na(ecodes$key_ed), ]
+
+
+
+
+
+
+#join mapping file to ecode3
+colnames(icd_map) = c("ecode3", "mech3", "intent3")
+ecodes = plyr::join(ecodes, icd_map,
+										by = "ecode3",
+										type = "left", 
+										match = "first")
+
+#remove duplicates
+ecodes = ecodes[!duplicated(ecodes$key_ed), ]
+
+ecodes = ecodes[!is.na(ecodes$key_ed), ]
+
+
+
+
+
+
+
+#join mapping file to ecode4
+colnames(icd_map) = c("ecode4", "mech4", "intent4")
+ecodes = plyr::join(ecodes, icd_map,
+										by = "ecode4",
+										type = "left", 
+										match = "first")
+
+#remove duplicates
+ecodes = ecodes[!duplicated(ecodes$key_ed), ]
+
+ecodes = ecodes[!is.na(ecodes$key_ed), ]
+
+
+
 
 
 write_fst(ecodes, "Data/final/ecodes_final.fst")
