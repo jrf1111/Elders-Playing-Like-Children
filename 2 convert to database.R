@@ -1581,7 +1581,8 @@ gc()
 
 dx[, paste0("dx", 1:15) ] = NULL
 
-
+dx$key_ed = as.character(dx$key_ed)
+dx$key_ed = as.integer64(dx$key_ed)
 write_fst(dx, "Data/final/tmpm.fst")
 
 rm(dx, ICs)
