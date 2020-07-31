@@ -7,7 +7,7 @@ library(DBI)
 library(data.table)
 library(fst)
 
-#need ecodes_final, tmpm, NEDS_DB::join_res (without dxs or ecodes)
+#need ecodes_final, tmpm, comorbids, NEDS_DB::join_res (without dxs or ecodes)
 
 
 
