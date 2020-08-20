@@ -28,6 +28,7 @@ vignettes/*.pdf
 .Renviron
 .DS_Store
 **/**/.DS_Store
+**/.DS_Store
 # Data files since there is a max file size of 100MB and 1GB limit for the total repo
 Data/
 #Protocols
@@ -38,3 +39,6 @@ EPLC_IRB_App.docx
 #ecode decoder files from Cook
 ecode_decoder_code.txt
 ecode_decoder_ring.xls
+
+#HTML markdown results files
+**/*.html
