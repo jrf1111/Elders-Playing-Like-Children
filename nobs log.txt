@@ -1,5 +1,6 @@
 Initial N_obs =  208,073,629 
 N_obs after filtering on injury dx =  41,738,232 
 N_obs after filtering on age =  12,677,131 
-N_obs after filtering on ecodes =  10,344,362 
-N_obs after all filters =  10,344,362 
+N_obs after filtering on ecodes =  9,888,322 
+N_obs after all filters =  9,888,322 
+N_obs removing missing mortality, total charges =  8,472,611 
