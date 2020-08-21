@@ -1,7 +1,20 @@
 ---
 title: "EPLC analysis"
+author: "Jacob W. Roden-Foreman"
 date: "`r Sys.time()`"
-output: word_document
+runtime: shiny
+output:
+  html_document:
+    pandoc_args: "--dpi=150"
+    fig_height: 3
+    fig_width: 5
+    code_folding: show
+    df_print: kable
+    toc: true
+    toc_depth: 3
+    toc_float: true
+editor_options: 
+  chunk_output_type: console
 ---
 
 ```{r setup and import}
@@ -11,13 +24,12 @@ knitr::opts_chunk$set(echo = TRUE,
 
 library(tidyverse)
 library(data.table)
-
-mdata = fread("Data/final/final combined dataset.csv",
-							na.strings=c(getOption("datatable.na.strings","NA"), ""),
-							stringsAsFactors = TRUE
-							)
+library(fst)
+library(bit64)
+library(DiagrammeR)
 
 
+mdata = read_fst("Data/final/final combined dataset.fst")
 
 
 
@@ -28,15 +40,15 @@ med_iqi = function(x, w=mdata$discwt, na.rm=T, digits=2){
 	fmt = paste0("%.", digits, "f [%.", digits, "f, %.", digits, "f]")
 	
 	if(is.null(w)){
-			sprintf(fmt,
-					quantile(x=x, probs = 0.5, na.rm = na.rm), 
-					quantile(x=x, probs = 0.25, na.rm = na.rm), 
-					quantile(x=x, probs = 0.75, na.rm = na.rm))
+		sprintf(fmt,
+						quantile(x=x, probs = 0.5, na.rm = na.rm), 
+						quantile(x=x, probs = 0.25, na.rm = na.rm), 
+						quantile(x=x, probs = 0.75, na.rm = na.rm))
 	} else{
-			sprintf(fmt,
-					spatstat::weighted.quantile(x=x, w=w, probs = 0.5, na.rm = na.rm), 
-					spatstat::weighted.quantile(x=x, w=w, probs = 0.25, na.rm = na.rm), 
-					spatstat::weighted.quantile(x=x, w=w, probs = 0.75, na.rm = na.rm))
+		sprintf(fmt,
+						spatstat::weighted.quantile(x=x, w=w, probs = 0.5, na.rm = na.rm), 
+						spatstat::weighted.quantile(x=x, w=w, probs = 0.25, na.rm = na.rm), 
+						spatstat::weighted.quantile(x=x, w=w, probs = 0.75, na.rm = na.rm))
 	}
 	
 }
@@ -78,6 +90,151 @@ cat_perc = function(df, x, w = "discwt"){
 	
 }
 
+cat_perc_by = function(df, groups, wt_var = "discwt"){
+	
+	plyr::count(df, groups, wt_var = wt_var) %>% 
+	group_by_(groups[1]) %>% 
+	mutate(perc = round((freq/sum(freq))*100, 2) ) %>% 
+	ungroup() %>% 
+	mutate(val = paste0(format(round(freq), big.mark = ","), " (", perc, "%)")) %>% 
+	select(-freq, -perc) %>% 
+	pivot_wider(names_from = groups[1], 
+							values_from = val)
+	
+}
+
+
+
+
+
+```
+
+
+
+
+
+```{r add a few new vars}
+
+
+#add definition for high risk vs. not -----
+high_risk_codes = readxl::read_excel("high-risk_ecodes.xlsx",
+																		 sheet = "ICD-9"
+																		 )
+
+#remove periods
+high_risk_codes$ecode = str_remove_all(high_risk_codes$ecode, 
+																			 fixed("."))
+
+
+mdata$high_risk = mdata$ecode1 %in% high_risk_codes$ecode
+
+mdata$high_risk[mdata$high_risk == TRUE] = "High-risk"
+mdata$high_risk[mdata$high_risk == "FALSE"] = "Non-high-risk"
+
+rm(high_risk_codes)
+
+
+
+
+#pull out trauma center level -----
+#NEDS Stratum: 2nd digit – Trauma: 
+#(0) Not a trauma center,
+#(1) Trauma center level I, 
+#(2) Trauma center level II,
+#(3) Trauma center level III.
+#Collapsed categories used for strata with small sample sizes: 
+#(4) Nontrauma center or trauma center level III, 
+#(8) Trauma center level I or II. 
+
+
+mdata$hosp_trauma_level = case_when(
+	substring(mdata$neds_stratum, 2, 2) == 1 ~ "Trauma center level I",
+	substring(mdata$neds_stratum, 2, 2) == 2 ~ "Trauma center level II",
+	substring(mdata$neds_stratum, 2, 2) == 3 ~ "Trauma center level III",
+	TRUE ~ "All Other Hospitals") %>% 
+	factor(., 
+				 levels = c("Trauma center level I", 
+				 					 "Trauma center level II",
+				 					 "Trauma center level III",
+				 					 "All Other Hospitals"),
+				 ordered = TRUE)
+
+
+
+
+
+
+
+#add injury dx flags ----
+
+dx = read_fst("Data/final/dx_final.fst",
+							columns = c("key_ed", "dx1"))
+source("icd9_to_Barell.R")
+
+bar = icd9_to_barrel(dx$dx1)
+
+all.equal(as.integer64(mdata$key_ed), as.integer64(dx$key_ed))
+
+
+# Brain Injury: 850-854
+mdata$injury_brain = dx$dx1 %in% as.character(85000:85499)
+
+# Skull Fracture: 800-804
+mdata$injury_skull_fx = dx$dx1 %in% as.character(80000:80499)
+
+# Cervical Spine Fracture
+mdata$injury_cspine = bar$region_3 %in% c("CERVICAL VCI", "CERVICAL SCI")
+
+# Rib or Sternum Fracture: 809
+mdata$injury_rib_fx = dx$dx1 %in% as.character(80900:80999)
+
+# Cardiac or Pulmonary Injury: 860-861
+mdata$injury_cardio_pulm = dx$dx1 %in% as.character(86000:86199)
+
+# Thoracic Spine Fracture
+mdata$injury_tspine = bar$region_3 %in% c("THORACIC/DORSAL VCI", "THORACIC/DORSAL SCI")
+
+# Lumbar Spine Fracture
+mdata$injury_lspine = bar$region_3 %in% c("THORACIC/DORSAL VCI", "THORACIC/DORSAL SCI")
+
+
+# Solid Abdominal Organ Injury
+mdata$injury_solid_abd = dx$dx1 %in% as.character(c( 86400:86699, #liver, spleen, kidneys
+																										 86381:86384, #pancreas
+																										 86391:86394  #pancreas
+																										 ))
+
+# Hollow Viscera Injury
+mdata$injury_hollow_abd = dx$dx1 %in% as.character(c( 86300:86380, #stomach, intestines
+																											86389, 86390, 86399, #other GI
+																											86700:86799 #bladder, ureter, urethra
+																										 ))
+
+
+
+
+# Upper Extremity Fracture
+mdata$injury_ue_fx = bar$dx_type %in% "FRACTURES" & bar$region_2 %in% "UPPER EXTREMITY"
+
+# Pelvis Fracture: 808
+mdata$injury_pelvic_fx = dx$dx1 %in% as.character(80800:80899)
+
+# Lower Extremity Fracture
+mdata$injury_le_fx = bar$dx_type %in% "FRACTURES" & bar$region_2 %in% "LOWER EXTREMITY"
+
+rm(bar, dx)
+
+
+
+
+# a little recoding
+mdata$year_whole = mdata$year %>% substr(., 1, 4) %>% as.integer()
+
+mdata$pay1_recode = case_when(
+	mdata$pay1 == "Medicare" | mdata$pay1 == "Medicaid" ~ "Medicare/Medicaid",
+	TRUE ~ as.character(mdata$pay1)
+) %>% as.factor()
+
 
 
 
@@ -86,35 +243,90 @@ cat_perc = function(df, x, w = "discwt"){
 
 
 
-
 \
 \
 \
 \
 
+# CONSORT Flow Chart
+```{r}
 
-# Overall Demographics
-```{r overall demos}
-
-mdata %>%
-	summarise(n_obs = n(),
-						n_weighted = round(sum(discwt, na.rm = T)), 
-						age = med_iqi(age),
-						female = round(my.weighted.mean(female)*100, 2),
-						mortality = round(my.weighted.mean(mortality)*100, 2),
-						pDeath = med_iqi(pDeath*100)
-						) %>% kableExtra::kable()
+mdata = filter(mdata, !is.na(mortality))
+mdata = filter(mdata, !is.na(totchg))
+n = nrow(mdata)
+cat("N_obs removing missing mortality, total charges = ", 
+		format(n, big.mark=","), "\n", file="nobs log.txt", append=T)
 
 
-cat_perc(mdata, "died_visit") %>% kableExtra::kable()
+pt_counts = read_lines("nobs log.txt") %>%
+	str_split_fixed(., " = ",  n=2) %>% 
+	as.data.frame()
 
-cat_perc(mdata, "disp_ed") %>% kableExtra::kable()
+pt_counts$V2 = trimws(pt_counts$V2)
 
-cat_perc(mdata, "edevent") %>% kableExtra::kable()
+pt_counts = pt_counts[pt_counts$V1 != "N_obs after all filters", ]
 
-cat_perc(mdata, "disp_ip") %>% kableExtra::kable()
 
-cat_perc(mdata, "mech1") %>% kableExtra::kable()
+pt_counts$n = str_remove_all(pt_counts$V2, ",") %>% as.numeric()
+pt_counts$n_change = lag(pt_counts$n, 1) - pt_counts$n
+pt_counts$n_change = prettyNum(pt_counts$n_change, big.mark = ",")
+
+
+
+pt_counts = rbind(pt_counts, 
+									c("N_obs after all filters", format(nrow(mdata), big.mark = ","),  nrow(mdata), NA ))
+
+
+pt_counts$label = c("Number of encounters in NEDS dataset, 2010-2016",
+										"Principal diagnosis of trauma",
+										"Age \u2265 50 years",
+										"Principal external cause of injury not one of burns,\nbites/stings, overexertion, poisoning, or\nmisadventures of medical/surgical care",
+										"Not missing data for mortality or total charges",
+										"Included for analysis"
+)
+
+
+
+
+
+DiagrammeR::grViz("
+digraph graph2 {
+
+graph [layout = dot, rankdir = TB]
+
+# node definitions with substituted label text
+node [shape = rectangle, width = 4, fillcolor = Biege]
+a [label = '@@1']
+b [label = '@@2']
+c [label = '@@3']
+d [label = '@@4']
+e [label = '@@5']
+f [label = '@@6']
+
+b_out [label = '@@7']
+c_out [label = '@@8']
+d_out [label = '@@9']
+e_out [label = '@@10']
+
+
+a -> b -> c -> d -> e -> f
+a -> b_out -> c_out -> d_out -> e_out
+
+}
+
+[1]: paste0(pt_counts$label[1], ': n = ', pt_counts$V2[1])
+[2]: paste0(pt_counts$label[2], ': n = ', pt_counts$V2[2])
+[3]: paste0(pt_counts$label[3], ': n = ', pt_counts$V2[3])
+[4]: paste0(pt_counts$label[4], ': n = ', pt_counts$V2[4])
+[5]: paste0(pt_counts$label[5], ': n = ', pt_counts$V2[5])
+[6]: paste0(pt_counts$label[6], ': n = ', pt_counts$V2[6])
+[7]: paste0('Excluded: n = ', pt_counts$n_change[2])
+[8]: paste0('Excluded: n = ', pt_counts$n_change[3])
+[9]: paste0('Excluded: n = ', pt_counts$n_change[4])
+[10]: paste0('Excluded: n = ', pt_counts$n_change[5])
+"
+)
+
 
 
 
@@ -122,97 +334,73 @@ cat_perc(mdata, "mech1") %>% kableExtra::kable()
 ```
 
 
-\
+
 \
 \
 \
 
 
-# Demographics by Age Group
-```{r demos by age group}
+
+# Table 1. Characteristics of `r format(nrow(mdata), big.mark=",")` encounters with traumatic injury
 
 
+```{r}
 
 mdata %>%
-	group_by(age_group) %>%
+	group_by(high_risk) %>% 
 	summarise(n_obs = n(),
 						n_weighted = round(sum(discwt, na.rm = T)), 
 						age = med_iqi(age, w = discwt),
-						female = round(my.weighted.mean(female, w = discwt)*100, 2),
-						mortality = round(my.weighted.mean(mortality, w = discwt)*100, 2),
-						pDeath = med_iqi(pDeath*100, w = discwt)) %>% 
-	ungroup() %>%
-	kableExtra::kable()
+						male = round(my.weighted.mean(female==0, w = discwt)*100, 2),
+						elixhauser = med_iqi(elixhauser, w = discwt),
+						pDeath = med_iqi(pDeath*100, w = discwt),
+						los_ip = med_iqi(los_ip, w = discwt),
+						totchg_ed = med_iqi(totchg_ed, w = discwt),
+						totchg_ip = med_iqi(totchg_ip, w = discwt),
+						totchg = med_iqi(nrp_ip, w = discwt)
+	)
 
 
 
+cat_perc_by(mdata, c("high_risk", "female"))
 
+cat_perc_by(mdata, c("high_risk", "injury_brain"))
 
+cat_perc_by(mdata, c("high_risk", "injury_skull_fx"))
 
+cat_perc_by(mdata, c("high_risk", "injury_cspine"))
 
+cat_perc_by(mdata, c("high_risk", "injury_rib_fx"))
 
+cat_perc_by(mdata, c("high_risk", "injury_cardio_pulm"))
 
+cat_perc_by(mdata, c("high_risk", "injury_tspine"))
 
+cat_perc_by(mdata, c("high_risk", "injury_lspine"))
 
+cat_perc_by(mdata, c("high_risk", "injury_solid_abd"))
 
-plyr::count(mdata,  c("age_group", "died_visit"), wt_var = "discwt") %>% 
-	group_by(age_group) %>% 
-    mutate(perc = round((freq/sum(freq))*100, 2) ) %>% 
-	ungroup() %>% 
-	mutate(freq = round(freq)) %>% 
-    pivot_wider(names_from = "age_group", 
-    						values_from = c("freq", "perc")) %>%
-	kableExtra::kable()
+cat_perc_by(mdata, c("high_risk", "injury_hollow_abd"))
 
+cat_perc_by(mdata, c("high_risk", "injury_ue_fx"))
 
+cat_perc_by(mdata, c("high_risk", "injury_pelvic_fx"))
 
+cat_perc_by(mdata, c("high_risk", "injury_le_fx"))
 
+cat_perc_by(mdata, c("high_risk", "pay1_recode"))
 
+cat_perc_by(mdata, c("high_risk", "zipinc_qrtl"))
 
+cat_perc_by(mdata, c("high_risk", "died_visit"))
 
+cat_perc_by(mdata, c("high_risk", "disp_ed"))
 
-plyr::count(mdata,  c("age_group", "disp_ed"), wt_var = "discwt") %>% 
-	group_by(age_group) %>% 
-    mutate(perc = round((freq/sum(freq))*100, 2) ) %>% 
-	ungroup() %>% 
-	mutate(freq = round(freq)) %>% 
-    pivot_wider(names_from = "age_group", 
-    						values_from = c("freq", "perc")) %>%
-	kableExtra::kable()
+cat_perc_by(mdata, c("high_risk", "edevent"))
 
+cat_perc_by(mdata, c("high_risk", "disp_ip"))
 
-
-plyr::count(mdata,  c("age_group", "edevent"), wt_var = "discwt") %>% 
-	group_by(age_group) %>% 
-    mutate(perc = round((freq/sum(freq))*100, 2) ) %>% 
-	ungroup() %>% 
-	mutate(freq = round(freq)) %>% 
-    pivot_wider(names_from = "age_group", 
-    						values_from = c("freq", "perc")) %>%
-	kableExtra::kable()
-
-
-
-plyr::count(mdata,  c("age_group", "disp_ip"), wt_var = "discwt") %>% 
-	group_by(age_group) %>% 
-    mutate(perc = round((freq/sum(freq))*100, 2) ) %>% 
-	ungroup() %>% 
-	mutate(freq = round(freq)) %>% 
-    pivot_wider(names_from = "age_group", 
-    						values_from = c("freq", "perc")) %>%
-	kableExtra::kable()
-
-
-plyr::count(mdata,  c("age_group", "mech1"), wt_var = "discwt") %>% 
-	group_by(age_group) %>% 
-    mutate(perc = round((freq/sum(freq))*100, 2) ) %>% 
-	ungroup() %>% 
-	mutate(freq = round(freq)) %>% 
-    pivot_wider(names_from = "age_group", 
-    						values_from = c("freq", "perc")) %>%
-	kableExtra::kable()
-
-
+cat_perc_by(mdata, c("high_risk", "hosp_trauma_level"))
 
 
 
@@ -221,10 +409,93 @@ plyr::count(mdata,  c("age_group", "mech1"), wt_var = "discwt") %>%
 ```
 
 
+\
+\
+\
+\
+
+
+# Table 2. High-risk mechanisms of injury by TMPM probability of death, actual mortality, and median total charge  
+
+
+```{r}
+
+mdata %>%
+	group_by(mortality) %>% 
+	summarise(n_obs = n(),
+						n_weighted = round(sum(discwt, na.rm = T)), 
+						age = med_iqi(age, w = discwt),
+						male = round(my.weighted.mean(female==0, w = discwt)*100, 2),
+						elixhauser = med_iqi(elixhauser, w = discwt),
+						pDeath = med_iqi(pDeath*100, w = discwt),
+						los_ip = med_iqi(los_ip, w = discwt),
+						totchg_ed = med_iqi(totchg_ed, w = discwt),
+						totchg_ip = med_iqi(totchg_ip, w = discwt),
+						totchg = med_iqi(nrp_ip, w = discwt)
+	)
+
+
+
+cat_perc_by(mdata, c("mortality", "female"))
+
+cat_perc_by(mdata, c("mortality", "injury_brain"))
+
+cat_perc_by(mdata, c("mortality", "injury_skull_fx"))
+
+cat_perc_by(mdata, c("mortality", "injury_cspine"))
+
+cat_perc_by(mdata, c("mortality", "injury_rib_fx"))
+
+cat_perc_by(mdata, c("mortality", "injury_cardio_pulm"))
+
+cat_perc_by(mdata, c("mortality", "injury_tspine"))
+
+cat_perc_by(mdata, c("mortality", "injury_lspine"))
+
+cat_perc_by(mdata, c("mortality", "injury_solid_abd"))
+
+cat_perc_by(mdata, c("mortality", "injury_hollow_abd"))
+
+cat_perc_by(mdata, c("mortality", "injury_ue_fx"))
+
+cat_perc_by(mdata, c("mortality", "injury_pelvic_fx"))
+
+cat_perc_by(mdata, c("mortality", "injury_le_fx"))
+
+cat_perc_by(mdata, c("mortality", "pay1_recode"))
+
+cat_perc_by(mdata, c("mortality", "zipinc_qrtl"))
+
+cat_perc_by(mdata, c("mortality", "died_visit"))
+
+cat_perc_by(mdata, c("mortality", "disp_ed"))
+
+cat_perc_by(mdata, c("mortality", "edevent"))
+
+cat_perc_by(mdata, c("mortality", "disp_ip"))
+
+cat_perc_by(mdata, c("mortality", "hosp_trauma_level"))
+
+cat_perc_by(mdata, c("mortality", "year_whole"))
+
+
+
+
+```
+
+
+
 
 \
 \
 \
+
+
+# Table 3. Characteristics of `r format(nrow(mdata), big.mark=",")` encounters with traumatic injuries from high-risk activities by survival status  
+
+```{r}
+
+```
 
 
 
@@ -249,22 +520,22 @@ mdata %>%
 
 plyr::count(mdata,  c("mech1", "died_visit"), wt_var = "discwt") %>% 
 	group_by(mech1) %>% 
-    mutate(perc = round((freq/sum(freq))*100, 2) ) %>% 
+	mutate(perc = round((freq/sum(freq))*100, 2) ) %>% 
 	ungroup() %>% 
 	mutate(freq = round(freq)) %>% 
-    pivot_wider(names_from = "died_visit", 
-    						values_from = c("freq", "perc")) %>%
+	pivot_wider(names_from = "died_visit", 
+							values_from = c("freq", "perc")) %>%
 	kableExtra::kable()
 
 
 
 plyr::count(mdata,  c("mech1", "disp_ed"), wt_var = "discwt") %>% 
 	group_by(mech1) %>% 
-    mutate(perc = round((freq/sum(freq))*100, 2) ) %>% 
+	mutate(perc = round((freq/sum(freq))*100, 2) ) %>% 
 	ungroup() %>% 
 	mutate(freq = round(freq)) %>% 
-    pivot_wider(names_from = "disp_ed", 
-    						values_from = c("freq", "perc")) %>%
+	pivot_wider(names_from = "disp_ed", 
+							values_from = c("freq", "perc")) %>%
 	kableExtra::kable()
 
 
@@ -273,11 +544,11 @@ plyr::count(mdata,  c("mech1", "disp_ed"), wt_var = "discwt") %>%
 
 plyr::count(mdata,  c("mech1", "edevent"), wt_var = "discwt") %>% 
 	group_by(mech1) %>% 
-    mutate(perc = round((freq/sum(freq))*100, 2) ) %>% 
+	mutate(perc = round((freq/sum(freq))*100, 2) ) %>% 
 	ungroup() %>% 
 	mutate(freq = round(freq)) %>% 
-    pivot_wider(names_from = "edevent", 
-    						values_from = c("freq", "perc")) %>%
+	pivot_wider(names_from = "edevent", 
+							values_from = c("freq", "perc")) %>%
 	kableExtra::kable()
 
 
@@ -285,11 +556,11 @@ plyr::count(mdata,  c("mech1", "edevent"), wt_var = "discwt") %>%
 
 plyr::count(mdata,  c("mech1", "disp_ip"), wt_var = "discwt") %>% 
 	group_by(mech1) %>% 
-    mutate(perc = round((freq/sum(freq))*100, 2) ) %>% 
+	mutate(perc = round((freq/sum(freq))*100, 2) ) %>% 
 	ungroup() %>% 
 	mutate(freq = round(freq)) %>% 
-    pivot_wider(names_from = "disp_ip", 
-    						values_from = c("freq", "perc")) %>%
+	pivot_wider(names_from = "disp_ip", 
+							values_from = c("freq", "perc")) %>%
 	kableExtra::kable()
 
 
@@ -297,11 +568,11 @@ plyr::count(mdata,  c("mech1", "disp_ip"), wt_var = "discwt") %>%
 
 plyr::count(mdata,  c("mech1", "age_group"), wt_var = "discwt") %>% 
 	group_by(mech1) %>% 
-    mutate(perc = round((freq/sum(freq))*100, 2) ) %>% 
+	mutate(perc = round((freq/sum(freq))*100, 2) ) %>% 
 	ungroup() %>% 
 	mutate(freq = round(freq)) %>% 
-    pivot_wider(names_from = "age_group", 
-    						values_from = c("freq", "perc")) %>%
+	pivot_wider(names_from = "age_group", 
+							values_from = c("freq", "perc")) %>%
 	kableExtra::kable()
 
 
