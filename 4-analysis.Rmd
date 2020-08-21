@@ -2,7 +2,6 @@
 title: "EPLC analysis"
 author: "Jacob W. Roden-Foreman"
 date: "`r Sys.time()`"
-runtime: shiny
 output:
   html_document:
     pandoc_args: "--dpi=150"
@@ -18,19 +17,23 @@ editor_options:
 ---
 
 ```{r setup and import}
-options(kableExtra.auto_format = FALSE) #for proper table formating in Word
 knitr::opts_chunk$set(echo = TRUE,
 											results = "asis")
 
 library(tidyverse)
+library(tidylog)
 library(data.table)
 library(fst)
 library(bit64)
 library(DiagrammeR)
+library(weights)
 
 
-mdata = read_fst("Data/final/final combined dataset.fst")
 
+if(!file.exists("Data/final/final combined dataset with added vars and filters.fst")){
+	mdata = read_fst("Data/final/final combined dataset.fst")
+	mdata$hosp_ed = as.factor(mdata$hosp_ed)
+}
 
 
 med_iqi = function(x, w=mdata$discwt, na.rm=T, digits=2){
@@ -106,6 +109,25 @@ cat_perc_by = function(df, groups, wt_var = "discwt"){
 
 
 
+wilcox_weighted_p = function(y, x, w = mdata$discwt){
+	y = data.table::frank(y)
+	res = broom::tidy(lm(y ~ x, weights = w))
+	res = res[2, "p.value"]
+	res = as.numeric(res)
+	
+	if(res < 0.0001){
+		res = "< 0.0001"
+	} else{
+		res = round(res, 4)
+	}
+	
+	res
+	
+}
+
+
+
+
 
 ```
 
@@ -115,6 +137,8 @@ cat_perc_by = function(df, groups, wt_var = "discwt"){
 
 ```{r add a few new vars}
 
+if(!file.exists("Data/final/final combined dataset with added vars and filters.fst")){
+	
 
 #add definition for high risk vs. not -----
 high_risk_codes = readxl::read_excel("high-risk_ecodes.xlsx",
@@ -237,6 +261,13 @@ mdata$pay1_recode = case_when(
 
 
 
+write_fst(mdata, "Data/final/final combined dataset with added vars and filters.fst")
+
+
+} else{
+	mdata = read_fst("Data/final/final combined dataset with added vars and filters.fst")
+	mdata$hosp_ed = as.factor(mdata$hosp_ed)
+}
 
 
 ```
@@ -254,8 +285,19 @@ mdata$pay1_recode = case_when(
 mdata = filter(mdata, !is.na(mortality))
 mdata = filter(mdata, !is.na(totchg))
 n = nrow(mdata)
-cat("N_obs removing missing mortality, total charges = ", 
-		format(n, big.mark=","), "\n", file="nobs log.txt", append=T)
+
+
+
+pt_counts = read_lines("nobs log.txt") %>%
+	str_split_fixed(., " = ",  n=2) %>% 
+	as.data.frame()
+
+#update case count log if not already updated
+if(!any(str_detect(pt_counts$V1, "N_obs removing missing mortality, total charges"))){
+	cat("N_obs removing missing mortality, total charges = ", 
+			format(n, big.mark=","), "\n", file="nobs log.txt", append=T)
+}
+
 
 
 pt_counts = read_lines("nobs log.txt") %>%
@@ -346,61 +388,128 @@ a -> b_out -> c_out -> d_out -> e_out
 
 ```{r}
 
+
+
+count(mdata, high_risk) %>% 
+    mutate(pct = round((n/sum(n))*100,2),
+    			 n = format(n, big.mark = ",")
+    			 )
+
+
+count(mdata, high_risk, wt = discwt) %>% 
+    mutate(pct = round((n/sum(n))*100,2),
+    			 n = format(n, big.mark = ",")
+    			 )
+
+
+
+
 mdata %>%
 	group_by(high_risk) %>% 
-	summarise(n_obs = n(),
-						n_weighted = round(sum(discwt, na.rm = T)), 
+	summarise(
 						age = med_iqi(age, w = discwt),
-						male = round(my.weighted.mean(female==0, w = discwt)*100, 2),
 						elixhauser = med_iqi(elixhauser, w = discwt),
-						pDeath = med_iqi(pDeath*100, w = discwt),
-						los_ip = med_iqi(los_ip, w = discwt),
-						totchg_ed = med_iqi(totchg_ed, w = discwt),
-						totchg_ip = med_iqi(totchg_ip, w = discwt),
-						totchg = med_iqi(nrp_ip, w = discwt)
-	)
+						pDeath = med_iqi(pDeath*100, w = discwt)#,
+						# los_ip = med_iqi(los_ip, w = discwt),
+						# totchg_ed = med_iqi(totchg_ed, w = discwt),
+						# totchg_ip = med_iqi(totchg_ip, w = discwt),
+						# totchg = med_iqi(totchg, w = discwt)
+	) %>% t() %>% as.data.frame() %>% 
+	knitr::kable()
+
+
+wilcox_weighted_p(mdata$age, mdata$high_risk)
+wilcox_weighted_p(mdata$elixhauser, mdata$high_risk)
+wilcox_weighted_p(mdata$pDeath, mdata$high_risk)
+wilcox_weighted_p(mdata$los_ip, mdata$high_risk)
+wilcox_weighted_p(mdata$totchg_ed, mdata$high_risk)
+wilcox_weighted_p(mdata$totchg_ip, mdata$high_risk)
+wilcox_weighted_p(mdata$totchg, mdata$high_risk)
 
 
 
 cat_perc_by(mdata, c("high_risk", "female"))
+weights::wtd.chi.sq(mdata$high_risk, mdata$female, 
+										weight = mdata$discwt, mean1 = F) %>% knitr::kable()
+
 
 cat_perc_by(mdata, c("high_risk", "injury_brain"))
+weights::wtd.chi.sq(mdata$high_risk, mdata$injury_brain, 
+										weight = mdata$discwt, mean1 = F) %>% knitr::kable()
+
+
 
 cat_perc_by(mdata, c("high_risk", "injury_skull_fx"))
+weights::wtd.chi.sq(mdata$high_risk, mdata$injury_skull_fx, 
+										weight = mdata$discwt, mean1 = F) %>% knitr::kable()
 
 cat_perc_by(mdata, c("high_risk", "injury_cspine"))
+weights::wtd.chi.sq(mdata$high_risk, mdata$injury_cspine, 
+										weight = mdata$discwt, mean1 = F) %>% knitr::kable()
 
 cat_perc_by(mdata, c("high_risk", "injury_rib_fx"))
+weights::wtd.chi.sq(mdata$high_risk, mdata$injury_rib_fx, 
+										weight = mdata$discwt, mean1 = F) %>% knitr::kable()
 
 cat_perc_by(mdata, c("high_risk", "injury_cardio_pulm"))
+weights::wtd.chi.sq(mdata$high_risk, mdata$injury_cardio_pulm, 
+										weight = mdata$discwt, mean1 = F) %>% knitr::kable()
 
 cat_perc_by(mdata, c("high_risk", "injury_tspine"))
+weights::wtd.chi.sq(mdata$high_risk, mdata$injury_tspine, 
+										weight = mdata$discwt, mean1 = F) %>% knitr::kable()
 
 cat_perc_by(mdata, c("high_risk", "injury_lspine"))
+weights::wtd.chi.sq(mdata$high_risk, mdata$injury_lspine, 
+										weight = mdata$discwt, mean1 = F) %>% knitr::kable()
 
 cat_perc_by(mdata, c("high_risk", "injury_solid_abd"))
+weights::wtd.chi.sq(mdata$high_risk, mdata$injury_solid_abd, 
+										weight = mdata$discwt, mean1 = F) %>% knitr::kable()
 
 cat_perc_by(mdata, c("high_risk", "injury_hollow_abd"))
+weights::wtd.chi.sq(mdata$high_risk, mdata$injury_hollow_abd, 
+										weight = mdata$discwt, mean1 = F) %>% knitr::kable()
 
 cat_perc_by(mdata, c("high_risk", "injury_ue_fx"))
+weights::wtd.chi.sq(mdata$high_risk, mdata$injury_ue_fx, 
+										weight = mdata$discwt, mean1 = F) %>% knitr::kable()
 
 cat_perc_by(mdata, c("high_risk", "injury_pelvic_fx"))
+weights::wtd.chi.sq(mdata$high_risk, mdata$injury_pelvic_fx, 
+										weight = mdata$discwt, mean1 = F) %>% knitr::kable()
 
 cat_perc_by(mdata, c("high_risk", "injury_le_fx"))
+weights::wtd.chi.sq(mdata$high_risk, mdata$injury_le_fx, 
+										weight = mdata$discwt, mean1 = F) %>% knitr::kable()
 
 cat_perc_by(mdata, c("high_risk", "pay1_recode"))
+weights::wtd.chi.sq(mdata$high_risk, mdata$pay1_recode, 
+										weight = mdata$discwt, mean1 = F) %>% knitr::kable()
 
 cat_perc_by(mdata, c("high_risk", "zipinc_qrtl"))
+weights::wtd.chi.sq(mdata$high_risk, mdata$zipinc_qrtl, 
+										weight = mdata$discwt, mean1 = F) %>% knitr::kable()
 
 cat_perc_by(mdata, c("high_risk", "died_visit"))
+weights::wtd.chi.sq(mdata$high_risk, mdata$died_visit, 
+										weight = mdata$discwt, mean1 = F) %>% knitr::kable()
 
 cat_perc_by(mdata, c("high_risk", "disp_ed"))
+weights::wtd.chi.sq(mdata$high_risk, mdata$disp_ed, 
+										weight = mdata$discwt, mean1 = F) %>% knitr::kable()
 
 cat_perc_by(mdata, c("high_risk", "edevent"))
+weights::wtd.chi.sq(mdata$high_risk, mdata$edevent, 
+										weight = mdata$discwt, mean1 = F) %>% knitr::kable()
 
 cat_perc_by(mdata, c("high_risk", "disp_ip"))
+weights::wtd.chi.sq(mdata$high_risk, mdata$disp_ip, 
+										weight = mdata$discwt, mean1 = F) %>% knitr::kable()
 
 cat_perc_by(mdata, c("high_risk", "hosp_trauma_level"))
+weights::wtd.chi.sq(mdata$high_risk, mdata$hosp_trauma_level, 
+										weight = mdata$discwt, mean1 = F) %>% knitr::kable()
 
 
 
@@ -413,83 +522,20 @@ cat_perc_by(mdata, c("high_risk", "hosp_trauma_level"))
 \
 \
 \
+
 
 
 # Table 2. High-risk mechanisms of injury by TMPM probability of death, actual mortality, and median total charge  
 
-
 ```{r}
-
-mdata %>%
-	group_by(mortality) %>% 
-	summarise(n_obs = n(),
-						n_weighted = round(sum(discwt, na.rm = T)), 
-						age = med_iqi(age, w = discwt),
-						male = round(my.weighted.mean(female==0, w = discwt)*100, 2),
-						elixhauser = med_iqi(elixhauser, w = discwt),
-						pDeath = med_iqi(pDeath*100, w = discwt),
-						los_ip = med_iqi(los_ip, w = discwt),
-						totchg_ed = med_iqi(totchg_ed, w = discwt),
-						totchg_ip = med_iqi(totchg_ip, w = discwt),
-						totchg = med_iqi(nrp_ip, w = discwt)
-	)
-
-
-
-cat_perc_by(mdata, c("mortality", "female"))
-
-cat_perc_by(mdata, c("mortality", "injury_brain"))
-
-cat_perc_by(mdata, c("mortality", "injury_skull_fx"))
-
-cat_perc_by(mdata, c("mortality", "injury_cspine"))
-
-cat_perc_by(mdata, c("mortality", "injury_rib_fx"))
-
-cat_perc_by(mdata, c("mortality", "injury_cardio_pulm"))
-
-cat_perc_by(mdata, c("mortality", "injury_tspine"))
-
-cat_perc_by(mdata, c("mortality", "injury_lspine"))
-
-cat_perc_by(mdata, c("mortality", "injury_solid_abd"))
-
-cat_perc_by(mdata, c("mortality", "injury_hollow_abd"))
-
-cat_perc_by(mdata, c("mortality", "injury_ue_fx"))
-
-cat_perc_by(mdata, c("mortality", "injury_pelvic_fx"))
-
-cat_perc_by(mdata, c("mortality", "injury_le_fx"))
-
-cat_perc_by(mdata, c("mortality", "pay1_recode"))
-
-cat_perc_by(mdata, c("mortality", "zipinc_qrtl"))
-
-cat_perc_by(mdata, c("mortality", "died_visit"))
-
-cat_perc_by(mdata, c("mortality", "disp_ed"))
-
-cat_perc_by(mdata, c("mortality", "edevent"))
-
-cat_perc_by(mdata, c("mortality", "disp_ip"))
-
-cat_perc_by(mdata, c("mortality", "hosp_trauma_level"))
-
-cat_perc_by(mdata, c("mortality", "year_whole"))
-
-
-
 
 ```
 
 
-
-
 \
 \
 \
-
+\
 
 # Table 3. Characteristics of `r format(nrow(mdata), big.mark=",")` encounters with traumatic injuries from high-risk activities by survival status  
 
@@ -499,154 +545,6 @@ cat_perc_by(mdata, c("mortality", "year_whole"))
 
 
 
-# Demographics by Injury Mechanism
-```{r demos by mech}
-
-
-
-mdata %>%
-	group_by(mech1) %>%
-	summarise(n_obs = n(),
-						n_weighted = round(sum(discwt, na.rm = T)), 
-						age = med_iqi(age, w=discwt),
-						female = round(my.weighted.mean(female, w=discwt)*100, 2),
-						mortality = round(my.weighted.mean(mortality, w=discwt)*100, 2),
-						pDeath = med_iqi(pDeath*100, w=discwt)) %>% 
-	ungroup() %>%
-	kableExtra::kable()
-
-
-
-
-plyr::count(mdata,  c("mech1", "died_visit"), wt_var = "discwt") %>% 
-	group_by(mech1) %>% 
-	mutate(perc = round((freq/sum(freq))*100, 2) ) %>% 
-	ungroup() %>% 
-	mutate(freq = round(freq)) %>% 
-	pivot_wider(names_from = "died_visit", 
-							values_from = c("freq", "perc")) %>%
-	kableExtra::kable()
-
-
-
-plyr::count(mdata,  c("mech1", "disp_ed"), wt_var = "discwt") %>% 
-	group_by(mech1) %>% 
-	mutate(perc = round((freq/sum(freq))*100, 2) ) %>% 
-	ungroup() %>% 
-	mutate(freq = round(freq)) %>% 
-	pivot_wider(names_from = "disp_ed", 
-							values_from = c("freq", "perc")) %>%
-	kableExtra::kable()
-
-
-
-
-
-plyr::count(mdata,  c("mech1", "edevent"), wt_var = "discwt") %>% 
-	group_by(mech1) %>% 
-	mutate(perc = round((freq/sum(freq))*100, 2) ) %>% 
-	ungroup() %>% 
-	mutate(freq = round(freq)) %>% 
-	pivot_wider(names_from = "edevent", 
-							values_from = c("freq", "perc")) %>%
-	kableExtra::kable()
-
-
-
-
-plyr::count(mdata,  c("mech1", "disp_ip"), wt_var = "discwt") %>% 
-	group_by(mech1) %>% 
-	mutate(perc = round((freq/sum(freq))*100, 2) ) %>% 
-	ungroup() %>% 
-	mutate(freq = round(freq)) %>% 
-	pivot_wider(names_from = "disp_ip", 
-							values_from = c("freq", "perc")) %>%
-	kableExtra::kable()
-
-
-
-
-plyr::count(mdata,  c("mech1", "age_group"), wt_var = "discwt") %>% 
-	group_by(mech1) %>% 
-	mutate(perc = round((freq/sum(freq))*100, 2) ) %>% 
-	ungroup() %>% 
-	mutate(freq = round(freq)) %>% 
-	pivot_wider(names_from = "age_group", 
-							values_from = c("freq", "perc")) %>%
-	kableExtra::kable()
-
-
-
-
-
-
-
-
-
-
-```
-
-
-
-\
-\
-\
-
-
-
-After applying the inclusion/exclusion criteria, we will first empirically estimate the median TMPM injury severity for each group of injury mechanisms as defined by the External Causes of Injury for the International Classification of Diseases Ninth and Tenth Revisions, Clinical Modifications (ICD-9-CM and ICD-10-CM, respectively). 
-
-Then, we will rank-order the ten most severe mechanisms of injury by median injury severity value, the probability of death due exclusively to anatomic injuries, as computed using the Trauma Mortality Prediction Model (TMPM) for the ICD-9-CM and ICD-10-CM lexicons, as appropriate.  
-
-
-```{r rank mechanisms of injury by median pDeath}
-
-
-
-
-res = mdata %>%
-	group_by(mech1) %>%
-	summarise(n_obs = n(),
-						n_weighted = round(sum(discwt, na.rm = T)), 
-						pDeath = med_iqi(pDeath*100, w = discwt, digits = 4)) %>%
-	ungroup() %>% 
-	arrange(desc(pDeath))
-
-
-res$rank = 1:nrow(res)
-res = res[, c("rank", "mech1", "n_obs", "n_weighted", "pDeath")]
-
-kableExtra::kable(res)
-
-rm(res)
-
-```
-
-
-
-
-
-
-
-Finally, we will compare the injury profiles and case mortality rates, stratified by age group (50-65, 66-80, and >80) and  mechanism of injury group.
-
-```{r injury profiles and mortality by age group and mechanism}
-
-
-
-mdata %>%
-	group_by(age_group, mech1) %>%
-	summarise(n_obs = n(),
-						n_weighted = round(sum(discwt, na.rm = T)), 
-						age = med_iqi(age, w = discwt),
-						female = round(my.weighted.mean(female, w = discwt)*100, 2),
-						mortality = round(my.weighted.mean(mortality, w = discwt)*100, 2),
-						pDeath = med_iqi(pDeath*100, w = discwt)) %>% 
-	ungroup() %>%
-	kableExtra::kable()
-
-
-```
 
 
 \
@@ -654,27 +552,29 @@ mdata %>%
 \
 \
 
+
+
+ 
 https://m-clark.github.io/posts/2019-10-20-big-mixed-models/#additive-models-as-mixed-models
+
+ 
 ```{r mixed model}
 library(mgcv)
 library(gammit)
 
-
 ```
 
 
 
+\
+\
+\
+\
 
 
 
 
 
-
-
-
-
-
-```{r}
+```{r} 
 pander::pander(sessionInfo())
 ```
-
