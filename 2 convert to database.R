@@ -98,11 +98,7 @@ injury_codes = gsub(".", "", injury_codes, fixed = T)
 
 #standardize the length of the strings
 dx_recode = function(dx){
-	case_when( 
-		nchar(dx) == 3 ~ paste0(dx, "00"),
-		nchar(dx) == 4 ~ paste0(dx, "0"),
-		TRUE ~ dx
-	)
+	stringr::str_pad(dx, width=5, side = "right", pad = "0")
 }
 
 injury_codes = dx_recode(injury_codes)
@@ -129,6 +125,29 @@ check_for_all_years(files)
 
 dbExecute(neds, "DROP TABLE IF EXISTS dx")
 
+dbExecute(neds,
+					"CREATE UNLOGGED TABLE dx (
+						dx1 TEXT,
+						dx2 TEXT,
+						dx3 TEXT,
+						dx4 TEXT,
+						dx5 TEXT,
+						dx6 TEXT,
+						dx7 TEXT,
+						dx8 TEXT,
+						dx9 TEXT,
+						dx10 TEXT,
+						dx11 TEXT,
+						dx12 TEXT,
+						dx13 TEXT,
+						dx14 TEXT,
+						dx15 TEXT,
+						key_ed BIGINT,
+						year TEXT
+						)")
+dbExecute(neds, "ALTER TABLE dx SET UNLOGGED") 
+dbExecute(neds, "ALTER TABLE dx DISABLE TRIGGER ALL")
+
 
 
 for(i in 1:length(files)){
@@ -149,12 +168,7 @@ for(i in 1:length(files)){
 	#standardize the length of the strings
 	temp = temp %>% mutate_at(vars(starts_with("dx")), dx_recode)
 
-
 	dbWriteTable(neds, "dx", temp, append = TRUE, row.names=FALSE)
-	if(i==1){
-		dbExecute(neds, "ALTER TABLE dx SET UNLOGGED") 
-		dbExecute(neds, "ALTER TABLE dx DISABLE TRIGGER ALL") 
-		}
 	rm(temp)
 	cat("\t\tcomplete")
 }
@@ -201,17 +215,28 @@ gc()
 files = list.files("Data/", pattern = "demos", full.names = T)
 check_for_all_years(files)
 dbExecute(neds, "DROP TABLE IF EXISTS demos")
+
+dbExecute(neds,
+					"CREATE UNLOGGED TABLE demos (
+					age INTEGER, 
+          discwt FLOAT8, 
+          female INTEGER, 
+          hosp_ed FLOAT8, 
+          key_ed BIGINT, 
+          pay1 INTEGER, 
+          pay2 INTEGER, 
+          totchg_ed FLOAT8,
+          zipinc_qrtl INTEGER
+						)")
+dbExecute(neds, "ALTER TABLE demos SET UNLOGGED") 
+dbExecute(neds, "ALTER TABLE demos DISABLE TRIGGER ALL") 
+
+
 for(i in 1:length(files)){
 	file = files[i]
 	cat("\n", file)
 	temp = read_fst(file)
-	
 	dbWriteTable(neds, "demos", temp, append = TRUE, row.names=FALSE)
-	
-	if(i==1){
-		dbExecute(neds, "ALTER TABLE demos SET UNLOGGED") 
-		dbExecute(neds, "ALTER TABLE demos DISABLE TRIGGER ALL") 
-	}
 	rm(temp)
 	cat("\t\tcomplete")
 }
@@ -232,15 +257,24 @@ gc()
 files = list.files("Data/", pattern = "ecode", full.names = T)
 check_for_all_years(files)
 dbExecute(neds, "DROP TABLE IF EXISTS ecodes")
+
+
+dbExecute(neds,
+					"CREATE UNLOGGED TABLE ecodes (
+						ecode1 TEXT,
+						ecode2 TEXT,
+						ecode3 TEXT,
+						ecode4 TEXT,
+						key_ed BIGINT
+						)")
+dbExecute(neds, "ALTER TABLE ecodes SET UNLOGGED") 
+dbExecute(neds, "ALTER TABLE ecodes DISABLE TRIGGER ALL") 
+
 for(i in 1:length(files)){
 	file = files[i]
 	cat("\n", file)
 	temp = read_fst(file)
 	dbWriteTable(neds, "ecodes", temp, append = TRUE, row.names=FALSE)
-	if(i==1){
-		dbExecute(neds, "ALTER TABLE ecodes SET UNLOGGED") 
-		dbExecute(neds, "ALTER TABLE ecodes DISABLE TRIGGER ALL") 
-	}
 	rm(temp)
 	cat("\t\tcomplete")
 }
@@ -261,15 +295,22 @@ gc()
 files = list.files("Data/", pattern = "outcome", full.names = T)
 check_for_all_years(files)
 dbExecute(neds, "DROP TABLE IF EXISTS outcomes")
+
+dbExecute(neds,
+					"CREATE UNLOGGED TABLE outcomes (
+						died_visit INTEGER,
+						disp_ed INTEGER,
+						edevent INTEGER,
+						key_ed BIGINT
+						)")
+dbExecute(neds, "ALTER TABLE outcomes SET UNLOGGED") 
+dbExecute(neds, "ALTER TABLE outcomes DISABLE TRIGGER ALL") 
+
 for(i in 1:length(files)){
 	file = files[i]
 	cat("\n", file)
 	temp = read_fst(file)
 	dbWriteTable(neds, "outcomes", temp, append = TRUE, row.names=FALSE)
-	if(i==1){
-		dbExecute(neds, "ALTER TABLE outcomes SET UNLOGGED") 
-		dbExecute(neds, "ALTER TABLE outcomes DISABLE TRIGGER ALL") 
-	}
 	rm(temp)
 	cat("\t\tcomplete")
 }
@@ -292,15 +333,23 @@ gc()
 files = list.files("Data/", pattern = "IP.fst", full.names = T)
 check_for_all_years(files)
 dbExecute(neds, "DROP TABLE IF EXISTS ip")
+
+dbExecute(neds,
+					"CREATE UNLOGGED TABLE ip (
+						key_ed BIGINT,
+						disp_ip INTEGER,
+						los_IP INTEGER,
+						npr_ip INTEGER,
+						totchg_ip INTEGER
+						)")
+dbExecute(neds, "ALTER TABLE ip SET UNLOGGED") 
+dbExecute(neds, "ALTER TABLE ip DISABLE TRIGGER ALL") 
+
 for(i in 1:length(files)){
 	file = files[i]
 	cat("\n", file)
 	temp = read_fst(file)
 	dbWriteTable(neds, "ip", temp, append = TRUE, row.names=FALSE)
-	if(i==1){
-		dbExecute(neds, "ALTER TABLE ip SET UNLOGGED") 
-		dbExecute(neds, "ALTER TABLE ip DISABLE TRIGGER ALL") 
-	}
 	rm(temp)
 	cat("\t\tcomplete")
 }
@@ -320,17 +369,24 @@ gc()
 files = list.files("Data/", pattern = "Hospital.fst", full.names = T)
 check_for_all_years(files)
 dbExecute(neds, "DROP TABLE IF EXISTS hosp")
+
+dbExecute(neds,
+					"CREATE UNLOGGED TABLE hosp (
+						hosp_ed FLOAT8,
+						neds_stratum TEXT,
+						year_hosp TEXT
+						)")
+dbExecute(neds, "ALTER TABLE hosp SET UNLOGGED") 
+dbExecute(neds, "ALTER TABLE hosp DISABLE TRIGGER ALL") 
+
 for(i in 1:length(files)){
 	file = files[i]
 	cat("\n", file)
 	temp = read_fst(file)
 	temp$year_hosp = as.character(temp$year)
+	temp$hosp_ed = as.numeric(temp$hosp_ed)
 	temp = temp[, c("hosp_ed", "neds_stratum", "year_hosp")]
 	dbWriteTable(neds, "hosp", temp, append = TRUE, row.names=FALSE)
-	if(i==1){
-		dbExecute(neds, "ALTER TABLE hosp SET UNLOGGED") 
-		dbExecute(neds, "ALTER TABLE hosp DISABLE TRIGGER ALL") 
-	}
 	rm(temp)
 	cat("\t\tcomplete")
 }
@@ -363,19 +419,8 @@ gc()
 
 # create indexes ----------------------------------------------------------
 
-dbGetQuery(neds, "SELECT pg_size_pretty( pg_database_size('neds') )")
-
-
-dbExecute(neds, "ALTER TABLE demos ALTER COLUMN key_ed TYPE bigint USING key_ed::bigint")
-dbExecute(neds, "ALTER TABLE dx ALTER COLUMN key_ed TYPE bigint USING key_ed::bigint")
-dbExecute(neds, "ALTER TABLE ecodes ALTER COLUMN key_ed TYPE bigint USING key_ed::bigint")
-dbExecute(neds, "ALTER TABLE ip ALTER COLUMN key_ed TYPE bigint USING key_ed::bigint")
-dbExecute(neds, "ALTER TABLE outcomes ALTER COLUMN key_ed TYPE bigint USING key_ed::bigint")
 
 dbGetQuery(neds, "SELECT pg_size_pretty( pg_database_size('neds') )")
-
-
-
 
 dbExecute(neds, "CREATE INDEX index_key_ed_demos ON demos (key_ed)")
 dbExecute(neds, "CREATE INDEX index_key_ed_dx ON dx (key_ed)")
@@ -401,7 +446,7 @@ dbGetQuery(neds, "SELECT pg_size_pretty( pg_database_size('neds') )")
 # ~ injury dx filter ---------------------------------------
 dbSendQuery(neds, 
 						"DELETE FROM dx
-										WHERE dx1 IS NULL OR dx1 NOT IN (SELECT injury_dx FROM injury_dx)")
+										WHERE dx1 IS NULL OR dx1 = '' OR dx1 NOT IN (SELECT injury_dx FROM injury_dx)")
 
 dbExecute(neds, "VACUUM ANALYZE dx")
 
@@ -664,7 +709,7 @@ dbSendQuery(neds,
 
 dbSendQuery(neds,
 						"DELETE FROM ecodes
-										WHERE ecode1 IS NULL")
+										WHERE ecode1 IS NULL OR ecode1 = ''")
 
 
 dbExecute(neds, "VACUUM ANALYZE ecodes")
@@ -719,7 +764,7 @@ dbGetQuery(neds, "SELECT year, COUNT(*) FROM dx GROUP BY year")
 # 5     2014 1506363
 # 6 2015Q1Q3  972570
 # 7   2015Q4  328945
-# 8     2016 2041286
+# 8     2016 1585246
 
 
 
@@ -760,11 +805,12 @@ rm(tables, q, i, r)
 #create table for join results to go into
 dbSendQuery(neds, 
 						"CREATE UNLOGGED TABLE join_res (
+						key_ed BIGINT, 
 						age INTEGER, 
             discwt FLOAT8, 
             female INTEGER, 
           --  hosp_ed FLOAT8, 
-            key_ed BIGINT, 
+          --  key_ed BIGINT, 
             pay1 INTEGER, 
             pay2 INTEGER, 
             totchg_ed FLOAT8, 
@@ -807,7 +853,7 @@ dbSendQuery(neds,
  
 						
 						hosp_ed FLOAT8, 
-            neds_stratum FLOAT8, 
+            neds_stratum TEXT, 
             year_hosp TEXT
 						)")
 
@@ -833,9 +879,10 @@ rm(tables, q, i, r)
 #vars in INSERT command have to be in same order as in the creation of join_res
 dbSendQuery(neds,
 						"INSERT INTO join_res
-						 SELECT demos.age,  demos.discwt,  demos.female,  
+						 SELECT DISTINCT ON (demos.key_ed) demos.key_ed, demos.age,  demos.discwt,  demos.female,  
 						 -- demos.hosp_ed,  
-						 demos.key_ed,  demos.pay1,  demos.pay2,  
+						 -- demos.key_ed, 
+						 demos.pay1,  demos.pay2,  
 						 demos.totchg_ed,  demos.zipinc_qrtl,
 						 
 						 outcomes.died_visit,  outcomes.disp_ed,  outcomes.edevent,
@@ -874,16 +921,6 @@ dbSendQuery(neds,
 
 
 
-dbGetQuery(neds, "SELECT year, COUNT(*) FROM join_res GROUP BY year")
-# 			year   count
-# 1     2010 4124638
-# 2     2011 4347725
-# 3     2012 4775188
-# 4     2013 4634410
-# 5     2014 4794694
-# 6 2015Q1Q3 2866723
-# 7   2015Q4  977469
-# 8     2016 5890822
 
 
 dbExecute(neds, "DROP INDEX IF EXISTS index_key_ed_demos")
@@ -904,45 +941,6 @@ dbExecute(neds, "VACUUM ANALYZE join_res")
 
 
 
-
-
-
-
-
-
-
-
-
-
-# ~ delete duplicates that were added in the join -----------------------------------------------------
-
-dbListFields(neds, "join_res")
-
-dbExecute(neds, "CREATE INDEX index_key_ed_join_res ON join_res (key_ed)")
-
-
-dbGetQuery(neds,
-					 'SELECT COUNT(*), key_ed FROM join_res
-					 GROUP BY key_ed
-					 ORDER BY COUNT(*) DESC LIMIT 10')
-
-
-
-dbExecute(neds, "SET work_mem = '5GB'")
-
-
-
-dbExecute(neds, "ALTER TABLE join_res ADD COLUMN row BIGSERIAL")
-
-
-
-dbSendQuery(neds,
-					"DELETE FROM join_res
-					 WHERE row NOT IN (SELECT MIN(row) FROM join_res GROUP BY key_ed)")
-
-
-
-
 dbGetQuery(neds, "SELECT year, COUNT(*) FROM join_res GROUP BY year")
 # 			year   count
 # 1     2010 1303163
@@ -952,18 +950,13 @@ dbGetQuery(neds, "SELECT year, COUNT(*) FROM join_res GROUP BY year")
 # 5     2014 1506363
 # 6 2015Q1Q3  972570
 # 7   2015Q4  328945
-# 8     2016 2041286
+# 8     2016 1585246
 
 
 dbGetQuery(neds,
 					 'SELECT COUNT(*), key_ed FROM join_res
 					 GROUP BY key_ed
 					 ORDER BY COUNT(*) DESC LIMIT 10')
-
-
-dbSendQuery(neds, "ALTER TABLE join_res DROP COLUMN row")
-
-
 
 
 
@@ -1047,8 +1040,7 @@ cat("N_obs after all filters = ", format(n, big.mark=","), "\n", file="nobs log.
 
 dbSendQuery(neds, 
 						"CREATE UNLOGGED TABLE dx_final (
-						key_ed FLOAT8,
-
+						key_ed BIGINT,
 						dx1 TEXT,
 						dx2 TEXT,
 						dx3 TEXT,
@@ -1098,13 +1090,14 @@ library(tmpm)
 
 
 
-
-
-
 #lets see if I can't speed up tmpm::tmpm()
 
 ICs = tmpm::marcTable[tmpm::marcTable$lexi == "icdIX", ]
 ICs$lexi = NULL
+
+#convert everything to a factor and remove non-trauma dxs to reduce object size
+dx = dx %>% mutate_at(vars(starts_with("dx")), factor, levels = ICs$index)
+
 
 tmpm2 = function(Pdat){
 	xBeta <- NULL
@@ -1366,7 +1359,8 @@ tmpm5 = function(Pdat){
 	
 }
 
-tmpm5_old = tmpm5 = function(Pdat){
+
+tmpm5_old = function(Pdat){
 	
 	
 	get_marcs = function(x){
@@ -1468,6 +1462,123 @@ tmpm5p = function(Pdat, cores = 6, max_combine = max(c(ceiling(nrow(Pdat)*0.1), 
 
 
 
+reps = 100
+n = 1000
+
+mb = data.frame(
+	# tmpm = rep(NA_real_, reps),
+	tmpm2 = rep(NA_real_, reps),
+	tmpm3 = rep(NA_real_, reps),
+	tmpm4 = rep(NA_real_, reps),
+	# tmpm4p_10p = rep(NA_real_, reps),
+	# tmpm4p_500 = rep(NA_real_, reps),
+	# tmpm4p_1000 = rep(NA_real_, reps),
+	tmpm5 = rep(NA_real_, reps),
+	# tmpm5p_10p = rep(NA_real_, reps),
+	# tmpm5p_500 = rep(NA_real_, reps),
+	# tmpm5p_1000 = rep(NA_real_, reps),
+	tmpm5_old = rep(NA_real_, reps)
+)
+
+gc()
+set.seed(11)
+for(i in 1:reps){
+	temp = slice_sample(dx, n = n)
+	
+	# mb$tmpm[i] = unname(system.time({tmpm(temp, ILex = 9)})["elapsed"])
+	mb$tmpm2[i] = unname(system.time({tmpm2(temp)})["elapsed"])
+	mb$tmpm3[i] = unname(system.time({tmpm3(temp)})["elapsed"])
+	mb$tmpm4[i] = unname(system.time({tmpm4(temp)})["elapsed"])
+	# mb$tmpm4p_10p[i] = unname(system.time({tmpm4p(temp)})["elapsed"])
+	# mb$tmpm4p_500[i] = unname(system.time({tmpm4p(temp, max_combine = 500)})["elapsed"])
+	# mb$tmpm4p_1000[i] = unname(system.time({tmpm4p(temp, max_combine = 1000)})["elapsed"])
+	mb$tmpm5[i] = unname(system.time({tmpm5(temp)})["elapsed"])
+	# mb$tmpm5p_10p[i] = unname(system.time({tmpm5p(temp)})["elapsed"])
+	# mb$tmpm5p_500[i] = unname(system.time({tmpm5p(temp, max_combine = 500)})["elapsed"])
+	# mb$tmpm5p_1000[i] = unname(system.time({tmpm5p(temp, max_combine = 1000)})["elapsed"])
+	mb$tmpm5_old[i] = unname(system.time({tmpm5_old(temp)})["elapsed"])
+	cat(i, "\n")
+}
+
+rm(temp)
+
+summary(mb)
+
+mb %>%
+	pivot_longer(cols = colnames(mb)) %>% 
+	ggplot(aes(x = name, y=value)) + 
+	geom_violin() + 
+	geom_boxplot(alpha=0) +
+	coord_flip() + scale_y_log10() +
+	labs(title = paste(reps, "Replicates. N =", n))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+reps = 20
+n = 20000
+
+mb2 = data.frame(
+	# tmpm = rep(NA_real_, reps),
+	tmpm2 = rep(NA_real_, reps),
+	tmpm3 = rep(NA_real_, reps),
+	tmpm4 = rep(NA_real_, reps),
+	# tmpm4p_10p = rep(NA_real_, reps),
+	# tmpm4p_500 = rep(NA_real_, reps),
+	# tmpm4p_1000 = rep(NA_real_, reps),
+	tmpm5 = rep(NA_real_, reps),
+	# tmpm5p_10p = rep(NA_real_, reps),
+	# tmpm5p_500 = rep(NA_real_, reps),
+	# tmpm5p_1000 = rep(NA_real_, reps),
+	tmpm5_old = rep(NA_real_, reps)
+)
+
+gc()
+set.seed(11)
+for(i in 1:reps){
+	temp = slice_sample(dx, n = n)
+	
+	# mb2$tmpm[i] = unname(system.time({tmpm(temp, ILex = 9)})["elapsed"])
+	mb2$tmpm2[i] = unname(system.time({tmpm2(temp)})["elapsed"])
+	mb2$tmpm3[i] = unname(system.time({tmpm3(temp)})["elapsed"])
+	mb2$tmpm4[i] = unname(system.time({tmpm4(temp)})["elapsed"])
+	# mb2$tmpm4p_10p[i] = unname(system.time({tmpm4p(temp)})["elapsed"])
+	# mb2$tmpm4p_500[i] = unname(system.time({tmpm4p(temp, max_combine = 500)})["elapsed"])
+	# mb2$tmpm4p_1000[i] = unname(system.time({tmpm4p(temp, max_combine = 1000)})["elapsed"])
+	mb2$tmpm5[i] = unname(system.time({tmpm5(temp)})["elapsed"])
+	# mb2$tmpm5p_10p[i] = unname(system.time({tmpm5p(temp)})["elapsed"])
+	# mb2$tmpm5p_500[i] = unname(system.time({tmpm5p(temp, max_combine = 500)})["elapsed"])
+	# mb2$tmpm5p_1000[i] = unname(system.time({tmpm5p(temp, max_combine = 1000)})["elapsed"])
+	mb2$tmpm5_old[i] = unname(system.time({tmpm5_old(temp)})["elapsed"])
+	cat(i, "\n")
+}
+
+rm(temp)
+
+summary(mb2)
+
+mb2 %>%
+	pivot_longer(cols = colnames(mb2)) %>% 
+	ggplot(aes(x = name, y=value)) + 
+	geom_violin() + 
+	geom_boxplot(alpha=0) +
+	coord_flip() +
+	labs(title = paste(reps, "Replicates. N =", n))
+
+
+
+
+
 
 # mb =  microbenchmark::microbenchmark(
 # 	#{tmpm(dx[1:1000, ], ILex = 9)},
@@ -1482,17 +1593,14 @@ tmpm5p = function(Pdat, cores = 6, max_combine = max(c(ceiling(nrow(Pdat)*0.1), 
 # 	{tmpm5p(dx[1:1000, ], max_combine = 1000)},
 # 	{tmpm5p(dx[1:1000, ], max_combine = 500)},
 # 	{tmpm5_old(dx[1:1000, ])},
-# 	times = 100,
-# 	control = list(warmup = 5))
+# 	times = 2,
+# 	control = list(warmup = 2))
 # gc()
 # 
 # 
 # mb
 # ggplot2::autoplot(mb)
-# 
-# mb2
-# ggplot2::autoplot(mb2)
-# 
+
 
 
 
@@ -1512,7 +1620,7 @@ all.equal(temp, tmpm5_old(dx[1:1000, ]) )  #same results
 
 
 
-rm(temp, mb, tmpm2, tmpm3, tmpm4p, tmpm5, tmpm5p)
+rm(temp, mb, mb2, i, n, reps, tmpm2, tmpm3, tmpm4, tmpm4p, tmpm5, tmpm5p)
 
 
 
@@ -1520,15 +1628,12 @@ rm(temp, mb, tmpm2, tmpm3, tmpm4p, tmpm5, tmpm5p)
 
 
 
-
-
-#convert everything to a factor to reduce object size
-dx = dx%>% mutate_all(., factor)
 
 
 
 #do in chunks to reduce memory pressure
 #takes about 25 mins with 7 cores and chunk.size = 1000
+# **IF** non-trauma dxs are removed/nulled out first
 dx$pDeath = NA_real_
 
 chunk.size = 1000
@@ -1615,7 +1720,7 @@ rm(dx)
 
 
 if(file.exists("Data/final/comorbids.csv")){file.remove("Data/final/comorbids.csv")}
-
+Sys.time()
 for(i in 1:nchunks){
 	
 	cat("\nchunk", i, "of", nchunks, sep = "\t")
@@ -1663,7 +1768,7 @@ for(i in 1:nchunks){
 	
 	
 }
-
+Sys.time()
 
 
 #read CSV file back in, convert to FST, and delete the CSV file
@@ -1702,11 +1807,7 @@ ecodes = as.data.table(ecodes)
 
 #to standardize the length of the strings
 dx_recode = function(dx){
-	case_when( 
-		nchar(dx) == 3 ~ paste0(dx, "00"),
-		nchar(dx) == 4 ~ paste0(dx, "0"),
-		TRUE ~ dx
-	)
+	stringr::str_pad(dx, width=5, side = "right", pad = "0")
 }
 
 ecodes = ecodes %>% mutate_at(vars(starts_with("ecode")), dx_recode)
