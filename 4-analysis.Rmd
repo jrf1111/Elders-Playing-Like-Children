@@ -96,13 +96,13 @@ cat_perc = function(df, x, w = "discwt"){
 cat_perc_by = function(df, groups, wt_var = "discwt"){
 	
 	plyr::count(df, groups, wt_var = wt_var) %>% 
-	group_by_(groups[1]) %>% 
-	mutate(perc = round((freq/sum(freq))*100, 2) ) %>% 
-	ungroup() %>% 
-	mutate(val = paste0(format(round(freq), big.mark = ","), " (", perc, "%)")) %>% 
-	select(-freq, -perc) %>% 
-	pivot_wider(names_from = groups[1], 
-							values_from = val)
+		group_by_(groups[1]) %>% 
+		mutate(perc = round((freq/sum(freq))*100, 2) ) %>% 
+		ungroup() %>% 
+		mutate(val = paste0(format(round(freq), big.mark = ","), " (", perc, "%)")) %>% 
+		select(-freq, -perc) %>% 
+		pivot_wider(names_from = groups[1], 
+								values_from = val)
 	
 }
 
@@ -111,8 +111,8 @@ cat_perc_by = function(df, groups, wt_var = "discwt"){
 
 wilcox_weighted_p = function(y, x, w = mdata$discwt){
 	y = data.table::frank(y)
-	res = broom::tidy(lm(y ~ x, weights = w))
-	res = res[2, "p.value"]
+	res = broom::glance(lm(y ~ x, weights = w))
+	res = res[1, "p.value"]
 	res = as.numeric(res)
 	
 	if(res < 0.0001){
@@ -139,131 +139,182 @@ wilcox_weighted_p = function(y, x, w = mdata$discwt){
 
 if(!file.exists("Data/final/final combined dataset with added vars and filters.fst")){
 	
-
-#add definition for high risk vs. not -----
-high_risk_codes = readxl::read_excel("high-risk_ecodes.xlsx",
-																		 sheet = "ICD-9"
-																		 )
-
-#remove periods
-high_risk_codes$ecode = str_remove_all(high_risk_codes$ecode, 
-																			 fixed("."))
-
-
-mdata$high_risk = mdata$ecode1 %in% high_risk_codes$ecode
-
-mdata$high_risk[mdata$high_risk == TRUE] = "High-risk"
-mdata$high_risk[mdata$high_risk == "FALSE"] = "Non-high-risk"
-
-rm(high_risk_codes)
-
-
-
-
-#pull out trauma center level -----
-#NEDS Stratum: 2nd digit – Trauma: 
-#(0) Not a trauma center,
-#(1) Trauma center level I, 
-#(2) Trauma center level II,
-#(3) Trauma center level III.
-#Collapsed categories used for strata with small sample sizes: 
-#(4) Nontrauma center or trauma center level III, 
-#(8) Trauma center level I or II. 
-
-
-mdata$hosp_trauma_level = case_when(
-	substring(mdata$neds_stratum, 2, 2) == 1 ~ "Trauma center level I",
-	substring(mdata$neds_stratum, 2, 2) == 2 ~ "Trauma center level II",
-	substring(mdata$neds_stratum, 2, 2) == 3 ~ "Trauma center level III",
-	TRUE ~ "All Other Hospitals") %>% 
-	factor(., 
-				 levels = c("Trauma center level I", 
-				 					 "Trauma center level II",
-				 					 "Trauma center level III",
-				 					 "All Other Hospitals"),
-				 ordered = TRUE)
-
-
-
-
-
-
-
-#add injury dx flags ----
-
-dx = read_fst("Data/final/dx_final.fst",
-							columns = c("key_ed", "dx1"))
-source("icd9_to_Barell.R")
-
-bar = icd9_to_barrel(dx$dx1)
-
-all.equal(as.integer64(mdata$key_ed), as.integer64(dx$key_ed))
-
-
-# Brain Injury: 850-854
-mdata$injury_brain = dx$dx1 %in% as.character(85000:85499)
-
-# Skull Fracture: 800-804
-mdata$injury_skull_fx = dx$dx1 %in% as.character(80000:80499)
-
-# Cervical Spine Fracture
-mdata$injury_cspine = bar$region_3 %in% c("CERVICAL VCI", "CERVICAL SCI")
-
-# Rib or Sternum Fracture: 809
-mdata$injury_rib_fx = dx$dx1 %in% as.character(80900:80999)
-
-# Cardiac or Pulmonary Injury: 860-861
-mdata$injury_cardio_pulm = dx$dx1 %in% as.character(86000:86199)
-
-# Thoracic Spine Fracture
-mdata$injury_tspine = bar$region_3 %in% c("THORACIC/DORSAL VCI", "THORACIC/DORSAL SCI")
-
-# Lumbar Spine Fracture
-mdata$injury_lspine = bar$region_3 %in% c("THORACIC/DORSAL VCI", "THORACIC/DORSAL SCI")
-
-
-# Solid Abdominal Organ Injury
-mdata$injury_solid_abd = dx$dx1 %in% as.character(c( 86400:86699, #liver, spleen, kidneys
-																										 86381:86384, #pancreas
-																										 86391:86394  #pancreas
-																										 ))
-
-# Hollow Viscera Injury
-mdata$injury_hollow_abd = dx$dx1 %in% as.character(c( 86300:86380, #stomach, intestines
-																											86389, 86390, 86399, #other GI
-																											86700:86799 #bladder, ureter, urethra
-																										 ))
-
-
-
-
-# Upper Extremity Fracture
-mdata$injury_ue_fx = bar$dx_type %in% "FRACTURES" & bar$region_2 %in% "UPPER EXTREMITY"
-
-# Pelvis Fracture: 808
-mdata$injury_pelvic_fx = dx$dx1 %in% as.character(80800:80899)
-
-# Lower Extremity Fracture
-mdata$injury_le_fx = bar$dx_type %in% "FRACTURES" & bar$region_2 %in% "LOWER EXTREMITY"
-
-rm(bar, dx)
-
-
-
-
-# a little recoding
-mdata$year_whole = mdata$year %>% substr(., 1, 4) %>% as.integer()
-
-mdata$pay1_recode = case_when(
-	mdata$pay1 == "Medicare" | mdata$pay1 == "Medicaid" ~ "Medicare/Medicaid",
-	TRUE ~ as.character(mdata$pay1)
-) %>% as.factor()
-
-
-
-write_fst(mdata, "Data/final/final combined dataset with added vars and filters.fst")
-
-
+	
+	#add definition for high risk vs. not -----
+	high_risk_codes = readxl::read_excel("high-risk_ecodes.xlsx",
+																			 sheet = "ICD-9"
+	)
+	
+	#remove periods
+	high_risk_codes$ecode = str_remove_all(high_risk_codes$ecode, 
+																				 fixed("."))
+	
+	
+	mdata$high_risk = mdata$ecode1 %in% high_risk_codes$ecode
+	
+	mdata$high_risk[mdata$high_risk == TRUE] = "High-risk"
+	mdata$high_risk[mdata$high_risk == "FALSE"] = "Non-high-risk"
+	
+	rm(high_risk_codes)
+	
+	
+	#add ecode descriptions -----
+	
+	
+	#to standardize the length of the strings
+	dx_recode = function(dx){
+		stringr::str_pad(dx, width=5, side = "right", pad = "0")
+	}
+	
+	
+	
+	
+	ecodes = read_csv("https://raw.githubusercontent.com/jrf1111/ICD10-to-ICD9/master/ICD10%20ecodes%20with%20ICD9%20links.csv")
+	
+	#select needed vars
+	ecodes = ecodes[, c("icd9_ecode", "icd9_display")]
+	ecodes = ecodes[!is.na(ecodes$icd9_ecode), ]
+	
+	
+	
+	#reformat to match ecodes file
+	ecodes$icd9_ecode = ecodes$icd9_ecode %>% 
+		as.character() %>%  #convert to character
+		gsub(".", "", ., fixed = T) %>% #remove periods
+		dx_recode() #standardize the length of the strings
+	
+	
+	
+	#join mapping file to ecode1
+	colnames(ecodes) = c("ecode1", "ecode1_desc")
+	mdata = plyr::join(mdata, ecodes,
+										 by = "ecode1",
+										 type = "left", 
+										 match = "first")
+	
+	rm(ecodes)
+	
+	
+	
+	mdata$trauma_type = case_when(
+		mdata$mech1 == "CUT_PIERCE" ~ "Penetrating",
+		mdata$mech1 == "FIREARM" ~ "Penetrating",
+		mdata$mech1 == "MACHINERY" ~ "Blunt",
+		str_detect(mdata$mech1, "MOTOR_VEHICLE_") ~ "Blunt",
+		mdata$mech1 == "PEDAL_CYCLIST_OTHER" ~ "Blunt",
+		mdata$mech1 == "PEDESTRIAN_OTHER" ~ "Blunt",
+		mdata$mech1 == "TRANSPORT_OTHER" ~ "Blunt",
+		mdata$mech1 == "STRUCK_BY_AGAINST" ~ "Blunt",
+		mdata$mech1 == "FALL" ~ "Blunt",
+		TRUE ~ "Other"
+	)
+	
+	
+	
+	#pull out trauma center level -----
+	#NEDS Stratum: 2nd digit – Trauma: 
+	#(0) Not a trauma center,
+	#(1) Trauma center level I, 
+	#(2) Trauma center level II,
+	#(3) Trauma center level III.
+	#Collapsed categories used for strata with small sample sizes: 
+	#(4) Nontrauma center or trauma center level III, 
+	#(8) Trauma center level I or II. 
+	
+	
+	mdata$hosp_trauma_level = case_when(
+		substring(mdata$neds_stratum, 2, 2) == 1 ~ "Trauma center level I",
+		substring(mdata$neds_stratum, 2, 2) == 2 ~ "Trauma center level II",
+		substring(mdata$neds_stratum, 2, 2) == 3 ~ "Trauma center level III",
+		TRUE ~ "All Other Hospitals") %>% 
+		factor(., 
+					 levels = c("Trauma center level I", 
+					 					 "Trauma center level II",
+					 					 "Trauma center level III",
+					 					 "All Other Hospitals"),
+					 ordered = TRUE)
+	
+	
+	
+	
+	
+	
+	
+	#add injury dx flags ----
+	
+	dx = read_fst("Data/final/dx_final.fst",
+								columns = c("key_ed", "dx1"))
+	source("icd9_to_Barell.R")
+	
+	bar = icd9_to_barrel(dx$dx1)
+	
+	all.equal(as.integer64(mdata$key_ed), as.integer64(dx$key_ed))
+	
+	
+	# Brain Injury: 850-854
+	mdata$injury_brain = dx$dx1 %in% as.character(85000:85499)
+	
+	# Skull Fracture: 800-804
+	mdata$injury_skull_fx = dx$dx1 %in% as.character(80000:80499)
+	
+	# Cervical Spine Fracture
+	mdata$injury_cspine = bar$region_3 %in% c("CERVICAL VCI", "CERVICAL SCI")
+	
+	# Rib or Sternum Fracture: 809
+	mdata$injury_rib_fx = dx$dx1 %in% as.character(80900:80999)
+	
+	# Cardiac or Pulmonary Injury: 860-861
+	mdata$injury_cardio_pulm = dx$dx1 %in% as.character(86000:86199)
+	
+	# Thoracic Spine Fracture
+	mdata$injury_tspine = bar$region_3 %in% c("THORACIC/DORSAL VCI", "THORACIC/DORSAL SCI")
+	
+	# Lumbar Spine Fracture
+	mdata$injury_lspine = bar$region_3 %in% c("THORACIC/DORSAL VCI", "THORACIC/DORSAL SCI")
+	
+	
+	# Solid Abdominal Organ Injury
+	mdata$injury_solid_abd = dx$dx1 %in% as.character(c( 86400:86699, #liver, spleen, kidneys
+																											 86381:86384, #pancreas
+																											 86391:86394  #pancreas
+	))
+	
+	# Hollow Viscera Injury
+	mdata$injury_hollow_abd = dx$dx1 %in% as.character(c( 86300:86380, #stomach, intestines
+																												86389, 86390, 86399, #other GI
+																												86700:86799 #bladder, ureter, urethra
+	))
+	
+	
+	
+	
+	# Upper Extremity Fracture
+	mdata$injury_ue_fx = bar$dx_type %in% "FRACTURES" & bar$region_2 %in% "UPPER EXTREMITY"
+	
+	# Pelvis Fracture: 808
+	mdata$injury_pelvic_fx = dx$dx1 %in% as.character(80800:80899)
+	
+	# Lower Extremity Fracture
+	mdata$injury_le_fx = bar$dx_type %in% "FRACTURES" & bar$region_2 %in% "LOWER EXTREMITY"
+	
+	rm(bar, dx)
+	
+	
+	
+	
+	# a little recoding
+	mdata$year_whole = mdata$year %>% substr(., 1, 4) %>% as.integer()
+	
+	mdata$pay1_recode = case_when(
+		mdata$pay1 == "Medicare" | mdata$pay1 == "Medicaid" ~ "Medicare/Medicaid",
+		TRUE ~ as.character(mdata$pay1)
+	) %>% as.factor()
+	
+	
+	
+	write_fst(mdata, "Data/final/final combined dataset with added vars and filters.fst")
+	
+	
 } else{
 	mdata = read_fst("Data/final/final combined dataset with added vars and filters.fst")
 	mdata$hosp_ed = as.factor(mdata$hosp_ed)
@@ -391,15 +442,15 @@ a -> b_out -> c_out -> d_out -> e_out
 
 
 count(mdata, high_risk) %>% 
-    mutate(pct = round((n/sum(n))*100,2),
-    			 n = format(n, big.mark = ",")
-    			 )
+	mutate(pct = round((n/sum(n))*100,2),
+				 n = format(n, big.mark = ",")
+	)
 
 
 count(mdata, high_risk, wt = discwt) %>% 
-    mutate(pct = round((n/sum(n))*100,2),
-    			 n = format(n, big.mark = ",")
-    			 )
+	mutate(pct = round((n/sum(n))*100,2),
+				 n = format(n, big.mark = ",")
+	)
 
 
 
@@ -407,13 +458,13 @@ count(mdata, high_risk, wt = discwt) %>%
 mdata %>%
 	group_by(high_risk) %>% 
 	summarise(
-						age = med_iqi(age, w = discwt),
-						elixhauser = med_iqi(elixhauser, w = discwt),
-						pDeath = med_iqi(pDeath*100, w = discwt)#,
-						# los_ip = med_iqi(los_ip, w = discwt),
-						# totchg_ed = med_iqi(totchg_ed, w = discwt),
-						# totchg_ip = med_iqi(totchg_ip, w = discwt),
-						# totchg = med_iqi(totchg, w = discwt)
+		age = med_iqi(age, w = discwt),
+		elixhauser = med_iqi(elixhauser, w = discwt),
+		pDeath = med_iqi(pDeath*100, w = discwt),
+		los_ip = med_iqi(los_ip, w = discwt),
+		totchg_ed = med_iqi(totchg_ed, w = discwt),
+		totchg_ip = med_iqi(totchg_ip, w = discwt),
+		totchg = med_iqi(totchg, w = discwt)
 	) %>% t() %>% as.data.frame() %>% 
 	knitr::kable()
 
@@ -529,6 +580,54 @@ weights::wtd.chi.sq(mdata$high_risk, mdata$hosp_trauma_level,
 
 ```{r}
 
+mdata %>% 
+	filter(high_risk == "High-risk") %>% 
+	group_by(mech1) %>% 
+	summarise(
+		pDeath = med_iqi(pDeath*100, w = discwt),
+		totchg = med_iqi(totchg, w = discwt)
+	) %>% 
+	knitr::kable()
+
+
+mdata %>% 
+	filter(high_risk == "High-risk") %>% 
+	cat_perc_by(., c("mech1", "mortality")) %>% 
+	t() %>% as.data.frame() %>% 
+	knitr::kable()
+
+
+
+
+
+
+
+
+
+
+
+mdata %>% 
+	filter(high_risk == "High-risk") %>% 
+	group_by(ecode1_desc) %>% 
+	summarise(
+		pDeath = med_iqi(pDeath*100, w = discwt),
+		totchg = med_iqi(totchg, w = discwt)
+	) %>% 
+	knitr::kable()
+
+
+mdata %>% 
+	filter(high_risk == "High-risk") %>% 
+	cat_perc_by(., c("ecode1_desc", "mortality")) %>% 
+	t() %>% as.data.frame() %>% 
+	knitr::kable()
+
+
+
+
+
+
+
 ```
 
 
@@ -537,15 +636,322 @@ weights::wtd.chi.sq(mdata$high_risk, mdata$hosp_trauma_level,
 \
 \
 
-# Table 3. Characteristics of `r format(nrow(mdata), big.mark=",")` encounters with traumatic injuries from high-risk activities by survival status  
+# Table 3. Characteristics of `r format(nrow(mdata[mdata$high_risk == "High-risk",]), big.mark=",")` encounters with traumatic injuries from high-risk activities by survival status  
 
 ```{r}
 
+mdata %>% 
+	filter(high_risk == "High-risk") %>% 
+	count(., mortality) %>% 
+	mutate(pct = round((n/sum(n))*100,2),
+				 n = format(n, big.mark = ",")
+	)
+
+mdata %>% 
+	filter(high_risk == "High-risk") %>% 
+	count(., mortality, wt = discwt) %>% 
+	mutate(pct = round((n/sum(n))*100,2),
+				 n = format(n, big.mark = ",")
+	)
+
+
+
+
+mdata %>% 
+	filter(high_risk == "High-risk") %>% 
+	group_by(mortality) %>% 
+	summarise(
+		age = med_iqi(age, w = discwt),
+		elixhauser = med_iqi(elixhauser, w = discwt),
+		pDeath = med_iqi(pDeath*100, w = discwt),
+		los_ip = med_iqi(los_ip, w = discwt),
+		totchg_ed = med_iqi(totchg_ed, w = discwt),
+		totchg_ip = med_iqi(totchg_ip, w = discwt),
+		totchg = med_iqi(totchg, w = discwt)
+	) %>% t() %>% as.data.frame() %>% 
+	knitr::kable()
+
+
+temp = mdata %>% filter(high_risk == "High-risk")
+
+wilcox_weighted_p(temp$age, temp$mortality, temp$discwt)
+wilcox_weighted_p(temp$elixhauser, temp$mortality, temp$discwt)
+wilcox_weighted_p(temp$pDeath, temp$mortality, temp$discwt)
+wilcox_weighted_p(temp$los_ip, temp$mortality, temp$discwt)
+wilcox_weighted_p(temp$totchg_ed, temp$mortality, temp$discwt)
+wilcox_weighted_p(temp$totchg_ip, temp$mortality, temp$discwt)
+wilcox_weighted_p(temp$totchg, temp$mortality, temp$discwt)
+
+
+
+cat_perc_by(temp, c("mortality", "female"))
+weights::wtd.chi.sq(temp$mortality, temp$female, 
+										weight = temp$discwt, mean1 = F) %>% knitr::kable()
+
+
+
+cat_perc_by(temp, c("mortality", "trauma_type"))
+weights::wtd.chi.sq(temp$mortality, temp$trauma_type, 
+										weight = temp$discwt, mean1 = F) %>% knitr::kable()
+
+
+cat_perc_by(temp, c("mortality", "injury_brain"))
+weights::wtd.chi.sq(temp$mortality, temp$injury_brain, 
+										weight = temp$discwt, mean1 = F) %>% knitr::kable()
+
+
+
+cat_perc_by(temp, c("mortality", "injury_skull_fx"))
+weights::wtd.chi.sq(temp$mortality, temp$injury_skull_fx, 
+										weight = temp$discwt, mean1 = F) %>% knitr::kable()
+
+cat_perc_by(temp, c("mortality", "injury_cspine"))
+weights::wtd.chi.sq(temp$mortality, temp$injury_cspine, 
+										weight = temp$discwt, mean1 = F) %>% knitr::kable()
+
+cat_perc_by(temp, c("mortality", "injury_rib_fx"))
+weights::wtd.chi.sq(temp$mortality, temp$injury_rib_fx, 
+										weight = temp$discwt, mean1 = F) %>% knitr::kable()
+
+cat_perc_by(temp, c("mortality", "injury_cardio_pulm"))
+weights::wtd.chi.sq(temp$mortality, temp$injury_cardio_pulm, 
+										weight = temp$discwt, mean1 = F) %>% knitr::kable()
+
+cat_perc_by(temp, c("mortality", "injury_tspine"))
+weights::wtd.chi.sq(temp$mortality, temp$injury_tspine, 
+										weight = temp$discwt, mean1 = F) %>% knitr::kable()
+
+cat_perc_by(temp, c("mortality", "injury_lspine"))
+weights::wtd.chi.sq(temp$mortality, temp$injury_lspine, 
+										weight = temp$discwt, mean1 = F) %>% knitr::kable()
+
+cat_perc_by(temp, c("mortality", "injury_solid_abd"))
+weights::wtd.chi.sq(temp$mortality, temp$injury_solid_abd, 
+										weight = temp$discwt, mean1 = F) %>% knitr::kable()
+
+cat_perc_by(temp, c("mortality", "injury_hollow_abd"))
+weights::wtd.chi.sq(temp$mortality, temp$injury_hollow_abd, 
+										weight = temp$discwt, mean1 = F) %>% knitr::kable()
+
+cat_perc_by(temp, c("mortality", "injury_ue_fx"))
+weights::wtd.chi.sq(temp$mortality, temp$injury_ue_fx, 
+										weight = temp$discwt, mean1 = F) %>% knitr::kable()
+
+cat_perc_by(temp, c("mortality", "injury_pelvic_fx"))
+weights::wtd.chi.sq(temp$mortality, temp$injury_pelvic_fx, 
+										weight = temp$discwt, mean1 = F) %>% knitr::kable()
+
+cat_perc_by(temp, c("mortality", "injury_le_fx"))
+weights::wtd.chi.sq(temp$mortality, temp$injury_le_fx, 
+										weight = temp$discwt, mean1 = F) %>% knitr::kable()
+
+cat_perc_by(temp, c("mortality", "pay1_recode"))
+weights::wtd.chi.sq(temp$mortality, temp$pay1_recode, 
+										weight = temp$discwt, mean1 = F) %>% knitr::kable()
+
+cat_perc_by(temp, c("mortality", "zipinc_qrtl"))
+weights::wtd.chi.sq(temp$mortality, temp$zipinc_qrtl, 
+										weight = temp$discwt, mean1 = F) %>% knitr::kable()
+
+cat_perc_by(temp, c("mortality", "disp_ed"))
+weights::wtd.chi.sq(temp$mortality, temp$disp_ed, 
+										weight = temp$discwt, mean1 = F) %>% knitr::kable()
+
+cat_perc_by(temp, c("mortality", "edevent"))
+weights::wtd.chi.sq(temp$mortality, temp$edevent, 
+										weight = temp$discwt, mean1 = F) %>% knitr::kable()
+
+cat_perc_by(temp, c("mortality", "disp_ip"))
+weights::wtd.chi.sq(temp$mortality, temp$disp_ip, 
+										weight = temp$discwt, mean1 = F) %>% knitr::kable()
+
+cat_perc_by(temp, c("mortality", "hosp_trauma_level"))
+weights::wtd.chi.sq(temp$mortality, temp$hosp_trauma_level, 
+										weight = temp$discwt, mean1 = F) %>% knitr::kable()
+
+
+
+cat_perc_by(temp, c("mortality", "year_whole"))
+weights::wtd.chi.sq(temp$mortality, temp$year_whole, 
+										weight = temp$discwt, mean1 = F) %>% knitr::kable()
+
+
+
+
+
+
 ```
 
 
 
 
+\
+\
+\
+\
+
+# Table 4. Clinical profile of encounters injured in high-risk activities by age group  
+```{r}
+
+
+temp %>% 
+	filter(high_risk == "High-risk") %>% 
+	count(age_group) %>% 
+	mutate(pct = round((n/sum(n))*100,2),
+				 n = format(n, big.mark = ",")
+	) %>% t() %>% as.data.frame() %>% 
+	knitr::kable()
+
+
+temp %>% 
+	filter(high_risk == "High-risk") %>% 
+	count(age_group, wt = discwt) %>% 
+	mutate(pct = round((n/sum(n))*100,2),
+				 n = format(n, big.mark = ",")
+	) %>% t() %>% as.data.frame() %>% 
+	knitr::kable()
+
+
+
+temp %>%
+	group_by(age_group) %>% 
+	summarise(
+		age = med_iqi(age, w = discwt),
+		elixhauser = med_iqi(elixhauser, w = discwt),
+		pDeath = med_iqi(pDeath*100, w = discwt),
+		los_ip = med_iqi(los_ip, w = discwt),
+		totchg_ed = med_iqi(totchg_ed, w = discwt),
+		totchg_ip = med_iqi(totchg_ip, w = discwt),
+		totchg = med_iqi(totchg, w = discwt)
+	) %>% t() %>% as.data.frame() %>% 
+	knitr::kable()
+
+
+wilcox_weighted_p(temp$age, temp$age_group, temp$discwt)
+wilcox_weighted_p(temp$elixhauser, temp$age_group, temp$discwt)
+wilcox_weighted_p(temp$pDeath, temp$age_group, temp$discwt)
+wilcox_weighted_p(temp$los_ip, temp$age_group, temp$discwt)
+wilcox_weighted_p(temp$totchg_ed, temp$age_group, temp$discwt)
+wilcox_weighted_p(temp$totchg_ip, temp$age_group, temp$discwt)
+wilcox_weighted_p(temp$totchg, temp$age_group, temp$discwt)
+
+
+
+cat_perc_by(temp, c("age_group", "female"))
+weights::wtd.chi.sq(temp$age_group, temp$female, 
+										weight = temp$discwt, mean1 = F) %>% knitr::kable()
+
+
+
+cat_perc_by(temp, c("age_group", "trauma_type"))
+weights::wtd.chi.sq(temp$age_group, temp$trauma_type, 
+										weight = temp$discwt, mean1 = F) %>% knitr::kable()
+
+
+cat_perc_by(temp, c("age_group", "injury_brain"))
+weights::wtd.chi.sq(temp$age_group, temp$injury_brain, 
+										weight = temp$discwt, mean1 = F) %>% knitr::kable()
+
+
+
+cat_perc_by(temp, c("age_group", "injury_skull_fx"))
+weights::wtd.chi.sq(temp$age_group, temp$injury_skull_fx, 
+										weight = temp$discwt, mean1 = F) %>% knitr::kable()
+
+cat_perc_by(temp, c("age_group", "injury_cspine"))
+weights::wtd.chi.sq(temp$age_group, temp$injury_cspine, 
+										weight = temp$discwt, mean1 = F) %>% knitr::kable()
+
+cat_perc_by(temp, c("age_group", "injury_rib_fx"))
+weights::wtd.chi.sq(temp$age_group, temp$injury_rib_fx, 
+										weight = temp$discwt, mean1 = F) %>% knitr::kable()
+
+cat_perc_by(temp, c("age_group", "injury_cardio_pulm"))
+weights::wtd.chi.sq(temp$age_group, temp$injury_cardio_pulm, 
+										weight = temp$discwt, mean1 = F) %>% knitr::kable()
+
+cat_perc_by(temp, c("age_group", "injury_tspine"))
+weights::wtd.chi.sq(temp$age_group, temp$injury_tspine, 
+										weight = temp$discwt, mean1 = F) %>% knitr::kable()
+
+cat_perc_by(temp, c("age_group", "injury_lspine"))
+weights::wtd.chi.sq(temp$age_group, temp$injury_lspine, 
+										weight = temp$discwt, mean1 = F) %>% knitr::kable()
+
+cat_perc_by(temp, c("age_group", "injury_solid_abd"))
+weights::wtd.chi.sq(temp$age_group, temp$injury_solid_abd, 
+										weight = temp$discwt, mean1 = F) %>% knitr::kable()
+
+cat_perc_by(temp, c("age_group", "injury_hollow_abd"))
+weights::wtd.chi.sq(temp$age_group, temp$injury_hollow_abd, 
+										weight = temp$discwt, mean1 = F) %>% knitr::kable()
+
+cat_perc_by(temp, c("age_group", "injury_ue_fx"))
+weights::wtd.chi.sq(temp$age_group, temp$injury_ue_fx, 
+										weight = temp$discwt, mean1 = F) %>% knitr::kable()
+
+cat_perc_by(temp, c("age_group", "injury_pelvic_fx"))
+weights::wtd.chi.sq(temp$age_group, temp$injury_pelvic_fx, 
+										weight = temp$discwt, mean1 = F) %>% knitr::kable()
+
+cat_perc_by(temp, c("age_group", "injury_le_fx"))
+weights::wtd.chi.sq(temp$age_group, temp$injury_le_fx, 
+										weight = temp$discwt, mean1 = F) %>% knitr::kable()
+
+cat_perc_by(temp, c("age_group", "pay1_recode"))
+weights::wtd.chi.sq(temp$age_group, temp$pay1_recode, 
+										weight = temp$discwt, mean1 = F) %>% knitr::kable()
+
+cat_perc_by(temp, c("age_group", "zipinc_qrtl"))
+weights::wtd.chi.sq(temp$age_group, temp$zipinc_qrtl, 
+										weight = temp$discwt, mean1 = F) %>% knitr::kable()
+
+cat_perc_by(temp, c("age_group", "disp_ed"))
+weights::wtd.chi.sq(temp$age_group, temp$disp_ed, 
+										weight = temp$discwt, mean1 = F) %>% knitr::kable()
+
+cat_perc_by(temp, c("age_group", "edevent"))
+weights::wtd.chi.sq(temp$age_group, temp$edevent, 
+										weight = temp$discwt, mean1 = F) %>% knitr::kable()
+
+cat_perc_by(temp, c("age_group", "disp_ip"))
+weights::wtd.chi.sq(temp$age_group, temp$disp_ip, 
+										weight = temp$discwt, mean1 = F) %>% knitr::kable()
+
+cat_perc_by(temp, c("age_group", "hosp_trauma_level"))
+weights::wtd.chi.sq(temp$age_group, temp$hosp_trauma_level, 
+										weight = temp$discwt, mean1 = F) %>% knitr::kable()
+
+
+
+cat_perc_by(temp, c("age_group", "year_whole"))
+weights::wtd.chi.sq(temp$age_group, temp$year_whole, 
+										weight = temp$discwt, mean1 = F) %>% knitr::kable()
+
+
+
+
+
+
+
+cat_perc_by(temp, c("age_group", "mortality"))
+weights::wtd.chi.sq(temp$age_group, temp$mortality, 
+										weight = temp$discwt, mean1 = F) %>% knitr::kable()
+
+
+
+
+
+
+
+
+
+
+
+
+```
+
+
 
 \
 \
@@ -554,10 +960,10 @@ weights::wtd.chi.sq(mdata$high_risk, mdata$hosp_trauma_level,
 
 
 
- 
+
 https://m-clark.github.io/posts/2019-10-20-big-mixed-models/#additive-models-as-mixed-models
 
- 
+
 ```{r mixed model}
 library(mgcv)
 library(gammit)
