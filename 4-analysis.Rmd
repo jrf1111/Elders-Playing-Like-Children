@@ -270,7 +270,7 @@ if(!file.exists("Data/final/final combined dataset with added vars and filters.f
 	mdata$injury_tspine = bar$region_3 %in% c("THORACIC/DORSAL VCI", "THORACIC/DORSAL SCI")
 	
 	# Lumbar Spine Fracture
-	mdata$injury_lspine = bar$region_3 %in% c("THORACIC/DORSAL VCI", "THORACIC/DORSAL SCI")
+	mdata$injury_lspine = bar$region_3 %in% c("LUMBAR VCI", "LUMBAR SCI")
 	
 	
 	# Solid Abdominal Organ Injury
