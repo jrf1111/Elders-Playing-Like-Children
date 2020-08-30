@@ -1,5 +1,5 @@
 ---
-title: "EPLC analysis"
+title: "EPLC Descriptives"
 author: "Jacob W. Roden-Foreman"
 date: "`r Sys.time()`"
 output:
@@ -36,7 +36,7 @@ mdata$hosp_ed = as.factor(mdata$hosp_ed)
 
 
 
-med_iqi = function(x, w=mdata$discwt, na.rm=T, digits=2){
+med_iqi = function(x, w=mdata$discwt, na.rm=T, digits=0){
 	
 	digits = as.character(digits)
 	
@@ -229,7 +229,7 @@ a -> b_out -> c_out -> d_out -> e_out
 # Table 1. Characteristics of `r format(nrow(mdata), big.mark=",")` encounters with traumatic injury
 
 
-```{r}
+```{r table 1}
 
 
 
@@ -252,7 +252,7 @@ mdata %>%
 	summarise(
 		age = med_iqi(age, w = discwt),
 		elixhauser = med_iqi(elixhauser, w = discwt),
-		pDeath = med_iqi(pDeath*100, w = discwt),
+		pDeath = med_iqi(pDeath*100, w = discwt, digits=2),
 		los_ip = med_iqi(los_ip, w = discwt),
 		totchg_ed = med_iqi(totchg_ed, w = discwt),
 		totchg_ip = med_iqi(totchg_ip, w = discwt),
@@ -346,9 +346,14 @@ cat_perc_by(mdata, c("high_risk", "edevent"))
 weights::wtd.chi.sq(mdata$high_risk, mdata$edevent, 
 										weight = mdata$discwt, mean1 = F) %>% knitr::kable()
 
-cat_perc_by(mdata, c("high_risk", "disp_ip"))
-weights::wtd.chi.sq(mdata$high_risk, mdata$disp_ip, 
-										weight = mdata$discwt, mean1 = F) %>% knitr::kable()
+
+
+ip = mdata %>% filter(disp_ed == "Admitted as inpatient") 
+cat_perc_by(ip, c("high_risk", "disp_ip_recode"))
+weights::wtd.chi.sq(ip$high_risk, ip$disp_ip_recode, 
+										weight = ip$discwt, mean1 = F) %>% knitr::kable()
+rm(ip)
+
 
 cat_perc_by(mdata, c("high_risk", "hosp_trauma_level"))
 weights::wtd.chi.sq(mdata$high_risk, mdata$hosp_trauma_level, 
@@ -370,13 +375,15 @@ weights::wtd.chi.sq(mdata$high_risk, mdata$hosp_trauma_level,
 
 # Table 2. High-risk mechanisms of injury by TMPM probability of death, actual mortality, and median total charge  
 
-```{r}
+```{r table 2}
 
 mdata %>% 
 	filter(high_risk == "High-risk") %>% 
 	group_by(mech1) %>% 
 	summarise(
-		pDeath = med_iqi(pDeath*100, w = discwt),
+		n_obs = n(),
+		n_weighted = round(sum(discwt)),
+		pDeath = med_iqi(pDeath*100, w = discwt, digits=2),
 		totchg = med_iqi(totchg, w = discwt)
 	) %>% 
 	knitr::kable()
@@ -402,7 +409,9 @@ mdata %>%
 	filter(high_risk == "High-risk") %>% 
 	group_by(ecode1_desc) %>% 
 	summarise(
-		pDeath = med_iqi(pDeath*100, w = discwt),
+		n_obs = n(),
+		n_weighted = round(sum(discwt)),
+		pDeath = med_iqi(pDeath*100, w = discwt, digits=2),
 		totchg = med_iqi(totchg, w = discwt)
 	) %>% 
 	knitr::kable()
@@ -430,7 +439,7 @@ mdata %>%
 
 # Table 3. Characteristics of `r format(nrow(mdata[mdata$high_risk == "High-risk",]), big.mark=",")` encounters with traumatic injuries from high-risk activities by survival status  
 
-```{r}
+```{r table 3}
 
 mdata %>% 
 	filter(high_risk == "High-risk") %>% 
@@ -455,7 +464,7 @@ mdata %>%
 	summarise(
 		age = med_iqi(age, w = discwt),
 		elixhauser = med_iqi(elixhauser, w = discwt),
-		pDeath = med_iqi(pDeath*100, w = discwt),
+		pDeath = med_iqi(pDeath*100, w = discwt, digits=2),
 		los_ip = med_iqi(los_ip, w = discwt),
 		totchg_ed = med_iqi(totchg_ed, w = discwt),
 		totchg_ip = med_iqi(totchg_ip, w = discwt),
@@ -553,9 +562,19 @@ cat_perc_by(temp, c("mortality", "edevent"))
 weights::wtd.chi.sq(temp$mortality, temp$edevent, 
 										weight = temp$discwt, mean1 = F) %>% knitr::kable()
 
-cat_perc_by(temp, c("mortality", "disp_ip"))
-weights::wtd.chi.sq(temp$mortality, temp$disp_ip, 
-										weight = temp$discwt, mean1 = F) %>% knitr::kable()
+
+
+
+
+ip = temp %>% filter(disp_ed == "Admitted as inpatient") 
+cat_perc_by(ip, c("mortality", "disp_ip_recode"))
+weights::wtd.chi.sq(ip$mortality, ip$disp_ip_recode, 
+										weight = ip$discwt, mean1 = F) %>% knitr::kable()
+rm(ip)
+
+
+
+
 
 cat_perc_by(temp, c("mortality", "hosp_trauma_level"))
 weights::wtd.chi.sq(temp$mortality, temp$hosp_trauma_level, 
@@ -583,7 +602,7 @@ weights::wtd.chi.sq(temp$mortality, temp$year_whole,
 \
 
 # Table 4. Clinical profile of encounters injured in high-risk activities by age group  
-```{r}
+```{r table 4}
 
 
 temp %>% 
@@ -610,7 +629,7 @@ temp %>%
 	summarise(
 		age = med_iqi(age, w = discwt),
 		elixhauser = med_iqi(elixhauser, w = discwt),
-		pDeath = med_iqi(pDeath*100, w = discwt),
+		pDeath = med_iqi(pDeath*100, w = discwt, digits=2),
 		los_ip = med_iqi(los_ip, w = discwt),
 		totchg_ed = med_iqi(totchg_ed, w = discwt),
 		totchg_ip = med_iqi(totchg_ip, w = discwt),
@@ -706,9 +725,16 @@ cat_perc_by(temp, c("age_group", "edevent"))
 weights::wtd.chi.sq(temp$age_group, temp$edevent, 
 										weight = temp$discwt, mean1 = F) %>% knitr::kable()
 
-cat_perc_by(temp, c("age_group", "disp_ip"))
-weights::wtd.chi.sq(temp$age_group, temp$disp_ip, 
-										weight = temp$discwt, mean1 = F) %>% knitr::kable()
+
+
+
+ip = temp %>% filter(disp_ed == "Admitted as inpatient") 
+cat_perc_by(ip, c("age_group", "disp_ip_recode"))
+weights::wtd.chi.sq(ip$age_group, ip$disp_ip_recode, 
+										weight = ip$discwt, mean1 = F) %>% knitr::kable()
+rm(ip)
+
+
 
 cat_perc_by(temp, c("age_group", "hosp_trauma_level"))
 weights::wtd.chi.sq(temp$age_group, temp$hosp_trauma_level, 
@@ -745,22 +771,6 @@ weights::wtd.chi.sq(temp$age_group, temp$mortality,
 
 
 
-\
-\
-\
-\
-
-
-
-
-https://m-clark.github.io/posts/2019-10-20-big-mixed-models/#additive-models-as-mixed-models
-
-
-```{r mixed model}
-library(mgcv)
-library(gammit)
-
-```
 
 
 

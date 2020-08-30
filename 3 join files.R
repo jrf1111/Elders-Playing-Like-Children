@@ -524,16 +524,16 @@ final$pay1_recode = case_when(
 ) %>% as.factor()
 
 
-final$disp_ip = case_when(
-	final$disp_ip == "Against medical advice"  ~  "Other", 
-	final$disp_ip == "Died in hospital"  ~  "Died in hospital", 
-	final$disp_ip == "Discharged alive, destination unknown"  ~  "Other", 
+
+
+
+
+final$disp_ip_recode = as.character(final$disp_ip)
+
+final$disp_ip_recode = case_when(
 	final$disp_ip == "Home Health Care"  ~  "Home with/without services", 
-	final$disp_ip == "Missing/Unknown"  ~  "Missing/Unknown", 
 	final$disp_ip == "Routine"  ~  "Home with/without services", 
-	final$disp_ip == "Transfer other"  ~  "Transfer other", 
-	final$disp_ip == "Transfer to short-term hospital"  ~  "Transfer to short-term hospital",
-	TRUE ~ NA_character_
+	TRUE ~ as.character(final$disp_ip_recode)
 )
 
 
