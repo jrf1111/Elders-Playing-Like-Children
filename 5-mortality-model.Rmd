@@ -1,0 +1,165 @@
+---
+title: "EPLC Mortality Model"
+author: "Jacob W. Roden-Foreman"
+date: "`r Sys.time()`"
+output:
+  html_document:
+    pandoc_args: "--dpi=150"
+    fig_height: 3
+    fig_width: 5
+    code_folding: show
+    df_print: kable
+    toc: true
+    toc_depth: 3
+    toc_float: true
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup and import}
+knitr::opts_chunk$set(echo = TRUE,
+											results = "asis",
+											cache = TRUE)
+
+library(tidyverse)
+library(tidylog)
+library(data.table)
+library(fst)
+library(bit64)
+library(DiagrammeR)
+library(weights)
+
+
+
+mdata = read_fst("Data/final/final combined dataset.fst")
+mdata$hosp_ed = as.factor(mdata$hosp_ed)
+
+
+
+med_iqi = function(x, w=mdata$discwt, na.rm=T, digits=0){
+	
+	digits = as.character(digits)
+	
+	fmt = paste0("%.", digits, "f [%.", digits, "f, %.", digits, "f]")
+	
+	if(is.null(w)){
+		sprintf(fmt,
+						quantile(x=x, probs = 0.5, na.rm = na.rm), 
+						quantile(x=x, probs = 0.25, na.rm = na.rm), 
+						quantile(x=x, probs = 0.75, na.rm = na.rm))
+	} else{
+		sprintf(fmt,
+						spatstat::weighted.quantile(x=x, w=w, probs = 0.5, na.rm = na.rm), 
+						spatstat::weighted.quantile(x=x, w=w, probs = 0.25, na.rm = na.rm), 
+						spatstat::weighted.quantile(x=x, w=w, probs = 0.75, na.rm = na.rm))
+	}
+	
+}
+
+
+
+my.weighted.mean = function(x, w = mdata$discwt, na.rm=T){
+	
+	weighted.mean(x=x, w = w, na.rm = na.rm)
+	
+	
+}
+
+
+cat_perc = function(df, x, w = "discwt"){
+	
+	df = as.data.frame(df)
+	x = df[, x]
+	w = df[, w]
+	rm(df)
+	
+	res = data.frame(var = unique(x))
+	res$n = NA_real_
+	res$perc = NA_real_
+	total = sum(w, na.rm = T)
+	
+	for(i in 1:nrow(res)){
+		res$n[i] = round( sum( w[x==res$var[i] ], na.rm = T ) )
+	}
+	
+	res$var = as.character(res$var)
+	res = res[!is.na(res$var), ]
+	res = rbind(res, c("Missing", round(sum(w[ is.na(x) ])), NA))
+	res$n = as.numeric(res$n)
+	res$perc = round((res$n/total)*100, 2)
+	
+	
+	res
+	
+}
+
+cat_perc_by = function(df, groups, wt_var = "discwt"){
+	
+	plyr::count(df, groups, wt_var = wt_var) %>% 
+		dplyr::group_by_(groups[1]) %>% 
+		dplyr::mutate(perc = round((freq/sum(freq))*100, 2) ) %>% 
+		dplyr::ungroup() %>% 
+		dplyr::mutate(val = paste0(format(round(freq), big.mark = ","), " (", perc, "%)")) %>% 
+		dplyr::select(-freq, -perc) %>% 
+		tidyr::pivot_wider(names_from = groups[1], 
+											 values_from = val)
+	
+}
+
+
+
+
+wilcox_weighted_p = function(y, x, w = mdata$discwt){
+	y = data.table::frank(y)
+	res = broom::glance(lm(y ~ x, weights = w))
+	res = res[1, "p.value"]
+	res = as.numeric(res)
+	
+	if(res < 0.0001){
+		res = "< 0.0001"
+	} else{
+		res = round(res, 4)
+	}
+	
+	res
+	
+}
+
+
+
+
+
+```
+
+
+
+
+
+\
+\
+\
+\
+
+
+https://m-clark.github.io/posts/2019-10-20-big-mixed-models/#additive-models-as-mixed-models
+
+
+```{r mixed model}
+library(mgcv)
+library(gammit)
+
+```
+
+
+\
+\
+\
+\
+
+
+
+
+
+```{r} 
+pander::pander(sessionInfo())
+```
