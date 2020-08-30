@@ -43,17 +43,17 @@ icd9_to_barrel = function(dx){
 	
 	ISRCODE = case_when(
 		dplyr::between(DX13, 800, 829)  ~ 1,
-		DX13 >= 830 & DX13 <= 839  ~  2,
-		DX13 >= 840 & DX13 <= 848  ~  3,
+		dplyr::between(DX13, 830, 839)  ~  2,
+		dplyr::between(DX13, 840, 848)  ~  3,
 		dplyr::between(DX13, 860, 869) | dplyr::between(DX13, 850, 854) | 
 			DX13 == 952 | DX15 == 99555  ~  4,
 		dplyr::between(DX13, 870, 884) | dplyr::between(DX13, 890, 894)  ~  5,
 		dplyr::between(DX13, 885, 887) | dplyr::between(DX13, 895, 897)  ~  6,
-		DX13 >= 900 & DX13 <= 904  ~  7,
-		DX13 >= 910 & DX13 <= 924  ~  8,
-		DX13 >= 925 & DX13 <= 929  ~  9,
-		DX13 >= 940 & DX13 <= 949  ~  10,
-		(DX13 >= 950 & DX13 <= 951) | dplyr::between(DX13, 953, 957)  ~  11,
+		dplyr::between(DX13, 900, 904)  ~  7,
+		dplyr::between(DX13, 910, 924)  ~  8,
+		dplyr::between(DX13, 925, 929)  ~  9,
+		dplyr::between(DX13, 940, 949)  ~  10,
+		(dplyr::between(DX13, 950, 951)) | dplyr::between(DX13, 953, 957)  ~  11,
 		DX13 == 959  ~  12,
 		dplyr::between(DX13, 930, 939) | dplyr::between(DX13, 960, 994) | 
 			dplyr::between(DX13, 905, 908) | dplyr::between(DX14, 9090, 9092) | 
@@ -238,14 +238,14 @@ icd9_to_barrel = function(dx){
 	
 	
 	ISRSITE2 = case_when(
-		ISRSITE >=1 & ISRSITE <=3  ~  1,
-		ISRSITE >=4 & ISRSITE <=8  ~  2,
-		ISRSITE >=9 & ISRSITE <=13  ~  3,
-		ISRSITE >=14 & ISRSITE <=18  ~  4,
-		ISRSITE >=19 & ISRSITE <=23  ~  5,
-		ISRSITE >=24 & ISRSITE <=27  ~  6,
-		ISRSITE >=28 & ISRSITE <=33  ~  7,
-		ISRSITE >=34 & ISRSITE <=35  ~  8,
+		dplyr::between(ISRSITE, 1, 3)  ~  1,
+		dplyr::between(ISRSITE, 4, 8)  ~  2,
+		dplyr::between(ISRSITE, 9, 13)  ~  3,
+		dplyr::between(ISRSITE, 14, 18)  ~  4,
+		dplyr::between(ISRSITE, 19, 23)  ~  5,
+		dplyr::between(ISRSITE, 24, 27)  ~  6,
+		dplyr::between(ISRSITE, 28, 33)  ~  7,
+		dplyr::between(ISRSITE, 34, 35)  ~  8,
 		ISRSITE == 36  ~  9,
 		TRUE ~ NA_real_
 	)
@@ -253,11 +253,11 @@ icd9_to_barrel = function(dx){
 	
 	
 	ISRSITE3 = case_when(
-		ISRSITE >=1 & ISRSITE <=8  ~  1,
-		ISRSITE >=9 & ISRSITE <=18  ~  2,
-		ISRSITE >=19 & ISRSITE <=23  ~  3,
-		ISRSITE >=24 & ISRSITE <=33  ~  4,
-		ISRSITE >=34 & ISRSITE <=36  ~  5,
+		dplyr::between(ISRSITE, 1, 8)  ~  1,
+		dplyr::between(ISRSITE, 9, 18)  ~  2,
+		dplyr::between(ISRSITE, 19, 23)  ~  3,
+		dplyr::between(ISRSITE, 24, 33)  ~  4,
+		dplyr::between(ISRSITE, 34, 36)  ~  5,
 		TRUE ~ NA_real_
 	)
 	
@@ -327,3 +327,7 @@ icd9_to_barrel = function(dx){
 	
 	
 }
+
+
+
+
