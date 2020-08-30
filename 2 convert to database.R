@@ -1018,12 +1018,6 @@ dbGetQuery(neds,
 
 
 
-n = dbGetQuery(neds, "SELECT COUNT(key_ed) FROM join_res")
-n = as.integer(n)
-cat("N_obs after all filters = ", format(n, big.mark=","), "\n", file="nobs log.txt", append = T)
-
-
-
 
 
 

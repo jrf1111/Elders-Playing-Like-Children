@@ -191,12 +191,6 @@ final$npr_ip = as.integer(final$npr_ip)
 
 
 
-final %>% select_if(is.numeric) %>% summary()
-
-
-
-
-
 final$zipinc_qrtl = factor(final$zipinc_qrtl,
 													 levels = 1:4, 
 													 ordered = T)
@@ -315,9 +309,264 @@ final$age_group = case_when(
 
 
 
+
+
+#add definition for high risk vs. not -----
+high_risk_codes = readxl::read_excel("high-risk_ecodes.xlsx",
+																		 sheet = "ICD-9"
+)
+
+#remove periods
+high_risk_codes$ecode = str_remove_all(high_risk_codes$ecode, 
+																			 fixed("."))
+
+
+final$high_risk = final$ecode1 %in% high_risk_codes$ecode
+
+final$high_risk[final$high_risk == TRUE] = "High-risk"
+final$high_risk[final$high_risk == "FALSE"] = "Non-high-risk"
+
+rm(high_risk_codes)
+
+
+#add ecode descriptions -----
+
+
+#to standardize the length of the strings
+dx_recode = function(dx){
+	stringr::str_pad(dx, width=5, side = "right", pad = "0")
+}
+
+
+
+
+ecodes = read_csv("https://raw.githubusercontent.com/jrf1111/ICD10-to-ICD9/master/ICD10%20ecodes%20with%20ICD9%20links.csv")
+
+#select needed vars
+ecodes = ecodes[, c("icd9_ecode", "icd9_display")]
+ecodes = ecodes[!is.na(ecodes$icd9_ecode), ]
+
+
+
+#reformat to match ecodes file
+ecodes$icd9_ecode = ecodes$icd9_ecode %>% 
+	as.character() %>%  #convert to character
+	gsub(".", "", ., fixed = T) %>% #remove periods
+	dx_recode() #standardize the length of the strings
+
+
+
+#join mapping file to ecode1
+colnames(ecodes) = c("ecode1", "ecode1_desc")
+final = plyr::join(final, ecodes,
+									 by = "ecode1",
+									 type = "left", 
+									 match = "first")
+
+rm(ecodes)
+
+
+
+final$trauma_type = case_when(
+	final$mech1 == "CUT_PIERCE" ~ "Penetrating",
+	final$mech1 == "FIREARM" ~ "Penetrating",
+	final$mech1 == "MACHINERY" ~ "Blunt",
+	str_detect(final$mech1, "MOTOR_VEHICLE_") ~ "Blunt",
+	final$mech1 == "PEDAL_CYCLIST_OTHER" ~ "Blunt",
+	final$mech1 == "PEDESTRIAN_OTHER" ~ "Blunt",
+	final$mech1 == "TRANSPORT_OTHER" ~ "Blunt",
+	final$mech1 == "STRUCK_BY_AGAINST" ~ "Blunt",
+	final$mech1 == "FALL" ~ "Blunt",
+	TRUE ~ "Other"
+)
+
+
+
+#pull out trauma center level -----
+#NEDS Stratum: 2nd digit – Trauma: 
+#(0) Not a trauma center,
+#(1) Trauma center level I, 
+#(2) Trauma center level II,
+#(3) Trauma center level III.
+#Collapsed categories used for strata with small sample sizes: 
+#(4) Nontrauma center or trauma center level III, 
+#(8) Trauma center level I or II. 
+
+
+final$hosp_trauma_level = case_when(
+	substring(final$neds_stratum, 2, 2) == 1 ~ "Trauma center level I",
+	substring(final$neds_stratum, 2, 2) == 2 ~ "Trauma center level II",
+	substring(final$neds_stratum, 2, 2) == 3 ~ "Trauma center level III",
+	TRUE ~ "All Other Hospitals") %>% 
+	factor(., 
+				 levels = c("Trauma center level I", 
+				 					 "Trauma center level II",
+				 					 "Trauma center level III",
+				 					 "All Other Hospitals"),
+				 ordered = TRUE)
+
+
+
+
+
+
+
+#add injury dx flags ----
+
+dx = read_fst("Data/final/dx_final.fst")
+source("icd9_to_Barell.R")
+
+all.equal(as.integer64(final$key_ed), as.integer64(dx$key_ed))
+
+
+# Brain Injury
+final$injury_brain = FALSE
+# Skull Fracture
+final$injury_skull_fx = FALSE
+# Cervical Spine Fracture
+final$injury_cspine = FALSE
+# Rib or Sternum Fracture
+final$injury_rib_fx = FALSE
+# Cardiac or Pulmonary Injury:
+final$injury_cardio_pulm = FALSE
+# Thoracic Spine Fracture
+final$injury_tspine = FALSE
+# Lumbar Spine Fracture
+final$injury_lspine = FALSE
+# Solid Abdominal Organ Injury
+final$injury_solid_abd = FALSE
+# Hollow Viscera Injury
+final$injury_hollow_abd = FALSE
+# Upper Extremity Fracture
+final$injury_ue_fx = FALSE
+# Pelvis Fracture
+final$injury_pelvic_fx = FALSE
+# Lower Extremity Fracture
+final$injury_le_fx = FALSE
+
+
+
+
+
+dx_nums = paste0("dx", 1:15)
+
+for(i in 1:length(dx_nums)){
+	
+	dx_num = dx_nums[i]
+	
+	temp = dx[, dx_num]
+	
+	bar = icd9_to_barrel(temp)
+	
+	
+	
+	# Brain Injury: 850-854
+	final$injury_brain = final$injury_brain | temp %in% as.character(85000:85499)
+	
+	# Skull Fracture: 800-804
+	final$injury_skull_fx = final$injury_skull_fx | temp %in% as.character(80000:80499)
+	
+	# Cervical Spine Fracture
+	final$injury_cspine = final$injury_cspine | bar$region_3 %in% c("CERVICAL VCI", "CERVICAL SCI")
+	
+	# Rib or Sternum Fracture
+	final$injury_rib_fx = final$injury_rib_fx | temp %in% as.character(80700:80740)
+	
+	# Cardiac or Pulmonary Injury: 860-861
+	final$injury_cardio_pulm = final$injury_cardio_pulm | temp %in% as.character(86000:86199)
+	
+	# Thoracic Spine Fracture
+	final$injury_tspine = final$injury_tspine | bar$region_3 %in% c("THORACIC/DORSAL VCI", "THORACIC/DORSAL SCI")
+	
+	# Lumbar Spine Fracture
+	final$injury_lspine = final$injury_lspine | bar$region_3 %in% c("LUMBAR VCI", "LUMBAR SCI")
+	
+	
+	# Solid Abdominal Organ Injury
+	final$injury_solid_abd = final$injury_solid_abd | temp %in% as.character(c( 86400:86699, #liver, spleen, kidneys
+																																							86381:86384, #pancreas
+																																							86391:86394  #pancreas
+	))
+	
+	# Hollow Viscera Injury
+	final$injury_hollow_abd = final$injury_hollow_abd | temp %in% as.character(c( 86300:86380, #stomach, intestines
+																																								86389, 86390, 86399, #other GI
+																																								86700:86799 #bladder, ureter, urethra
+	))
+	
+	
+	
+	
+	# Upper Extremity Fracture
+	final$injury_ue_fx = final$injury_ue_fx | bar$dx_type %in% "FRACTURES" & bar$region_2 %in% "UPPER EXTREMITY"
+	
+	# Pelvis Fracture: 808
+	final$injury_pelvic_fx = final$injury_pelvic_fx | temp %in% as.character(80800:80899)
+	
+	# Lower Extremity Fracture
+	final$injury_le_fx = final$injury_le_fx | bar$dx_type %in% "FRACTURES" & bar$region_2 %in% "LOWER EXTREMITY"
+	
+	gc()
+	
+}
+
+rm(bar, dx, temp)
+
+
+
+
+# a little more recoding ----
+final$year_whole = final$year %>% substr(., 1, 4) %>% as.integer()
+
+final$pay1_recode = case_when(
+	final$pay1 == "Medicare" | final$pay1 == "Medicaid" ~ "Medicare/Medicaid",
+	TRUE ~ as.character(final$pay1)
+) %>% as.factor()
+
+
+final$disp_ip = case_when(
+	final$disp_ip == "Against medical advice"  ~  "Other", 
+	final$disp_ip == "Died in hospital"  ~  "Died in hospital", 
+	final$disp_ip == "Discharged alive, destination unknown"  ~  "Other", 
+	final$disp_ip == "Home Health Care"  ~  "Home with/without services", 
+	final$disp_ip == "Missing/Unknown"  ~  "Missing/Unknown", 
+	final$disp_ip == "Routine"  ~  "Home with/without services", 
+	final$disp_ip == "Transfer other"  ~  "Transfer other", 
+	final$disp_ip == "Transfer to short-term hospital"  ~  "Transfer to short-term hospital",
+	TRUE ~ NA_character_
+)
+
+
+
+
+
+
+
+
+final %>% select_if(is.numeric) %>% summary()
+
+
 final = final %>% mutate_if(is.character, as.factor)
 
 final %>% select_if(is.factor) %>% summary()
+
+
+
+
+
+
+
+# remove cases with missing data -----
+final = filter(final, !is.na(mortality))
+final = filter(final, !is.na(totchg))
+
+
+n = nrow(final)
+n = as.integer(n)
+cat("N_obs removing missing mortality, total charges = ", 
+		format(n, big.mark=","), "\n", file = "nobs log.txt", 
+		append = TRUE)
+
 
 
 
