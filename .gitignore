@@ -39,6 +39,7 @@ EPLC_IRB_App.docx
 #ecode decoder files from Cook
 ecode_decoder_code.txt
 ecode_decoder_ring.xls
-
 #HTML markdown results files
 **/*.html
+#the results folder
+/Results/**
