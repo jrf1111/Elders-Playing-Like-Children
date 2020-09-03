@@ -18,8 +18,7 @@ editor_options:
 
 ```{r setup and import}
 knitr::opts_chunk$set(echo = TRUE,
-											results = "asis",
-											cache = TRUE)
+											results = "asis")
 
 library(tidyverse)
 library(tidylog)
@@ -30,10 +29,31 @@ library(DiagrammeR)
 library(weights)
 
 
-
 mdata = read_fst("Data/final/final combined dataset.fst")
 mdata$hosp_ed = as.factor(mdata$hosp_ed)
 
+
+
+mdata$ecode1_group2_name = str_replace_all(mdata$ecode1_group2_name, 
+																					 "Motor vehicle traffic unintentional injury",
+																					 "Motor vehicle traffic collision"
+																					 )
+
+mdata$ecode1_group2_name = str_replace_all(mdata$ecode1_group2_name, 
+																					 "nontraffic unintentional injury",
+																					 "nontraffic injury"
+																					 )
+
+mdata$ecode1_group2_name = str_replace_all(mdata$ecode1_group2_name, 
+																					 "traffic unintentional injury",
+																					 "traffic injury"
+																					 )
+
+
+
+
+
+source("my_print.R")
 
 
 med_iqi = function(x, w=mdata$discwt, na.rm=T, digits=0){
@@ -226,7 +246,7 @@ a -> b_out -> c_out -> d_out -> e_out
 
 
 
-# Table 1. Characteristics of `r format(nrow(mdata), big.mark=",")` encounters with traumatic injury
+# Table 1. Characteristics of `r format(nrow(mdata), big.mark=",")` unweighted encounters (`r format(sum(mdata$discwt), big.mark=",")` weighted encounters) with traumatic injury
 
 
 ```{r table 1}
@@ -236,18 +256,17 @@ a -> b_out -> c_out -> d_out -> e_out
 count(mdata, high_risk) %>% 
 	mutate(pct = round((n/sum(n))*100,2),
 				 n = format(n, big.mark = ",")
-	)
+	) %>% my_print()
 
 
 count(mdata, high_risk, wt = discwt) %>% 
 	mutate(pct = round((n/sum(n))*100,2),
 				 n = format(n, big.mark = ",")
-	)
+	) %>% my_print()
 
 
 
-
-mdata %>%
+tbl = mdata %>%
 	group_by(high_risk) %>% 
 	summarise(
 		age = med_iqi(age, w = discwt),
@@ -257,105 +276,111 @@ mdata %>%
 		totchg_ed = med_iqi(totchg_ed, w = discwt),
 		totchg_ip = med_iqi(totchg_ip, w = discwt),
 		totchg = med_iqi(totchg, w = discwt)
-	) %>% t() %>% as.data.frame() %>% 
-	knitr::kable()
+	) %>% t() %>% as.data.frame() 
 
 
-wilcox_weighted_p(mdata$age, mdata$high_risk)
-wilcox_weighted_p(mdata$elixhauser, mdata$high_risk)
-wilcox_weighted_p(mdata$pDeath, mdata$high_risk)
-wilcox_weighted_p(mdata$los_ip, mdata$high_risk)
-wilcox_weighted_p(mdata$totchg_ed, mdata$high_risk)
-wilcox_weighted_p(mdata$totchg_ip, mdata$high_risk)
-wilcox_weighted_p(mdata$totchg, mdata$high_risk)
+ps = c(
+	"p",
+	wilcox_weighted_p(mdata$age, mdata$high_risk),
+	wilcox_weighted_p(mdata$elixhauser, mdata$high_risk),
+	wilcox_weighted_p(mdata$pDeath, mdata$high_risk),
+	wilcox_weighted_p(mdata$los_ip, mdata$high_risk),
+	wilcox_weighted_p(mdata$totchg_ed, mdata$high_risk),
+	wilcox_weighted_p(mdata$totchg_ip, mdata$high_risk),
+	wilcox_weighted_p(mdata$totchg, mdata$high_risk)
+)
+
+
+cbind(rownames(tbl), tbl, ps) %>% my_print()
 
 
 
-cat_perc_by(mdata, c("high_risk", "female"))
+
+cat_perc_by(mdata, c("high_risk", "female")) %>% my_print()
 weights::wtd.chi.sq(mdata$high_risk, mdata$female, 
 										weight = mdata$discwt, mean1 = F) %>% knitr::kable()
 
 
-cat_perc_by(mdata, c("high_risk", "injury_brain"))
+cat_perc_by(mdata, c("high_risk", "injury_brain")) %>% my_print()
 weights::wtd.chi.sq(mdata$high_risk, mdata$injury_brain, 
 										weight = mdata$discwt, mean1 = F) %>% knitr::kable()
 
 
 
-cat_perc_by(mdata, c("high_risk", "injury_skull_fx"))
+cat_perc_by(mdata, c("high_risk", "injury_skull_fx")) %>% my_print()
 weights::wtd.chi.sq(mdata$high_risk, mdata$injury_skull_fx, 
 										weight = mdata$discwt, mean1 = F) %>% knitr::kable()
 
-cat_perc_by(mdata, c("high_risk", "injury_cspine"))
+cat_perc_by(mdata, c("high_risk", "injury_cspine")) %>% my_print()
 weights::wtd.chi.sq(mdata$high_risk, mdata$injury_cspine, 
 										weight = mdata$discwt, mean1 = F) %>% knitr::kable()
 
-cat_perc_by(mdata, c("high_risk", "injury_rib_fx"))
+cat_perc_by(mdata, c("high_risk", "injury_rib_fx")) %>% my_print()
 weights::wtd.chi.sq(mdata$high_risk, mdata$injury_rib_fx, 
 										weight = mdata$discwt, mean1 = F) %>% knitr::kable()
 
-cat_perc_by(mdata, c("high_risk", "injury_cardio_pulm"))
+cat_perc_by(mdata, c("high_risk", "injury_cardio_pulm")) %>% my_print()
 weights::wtd.chi.sq(mdata$high_risk, mdata$injury_cardio_pulm, 
 										weight = mdata$discwt, mean1 = F) %>% knitr::kable()
 
-cat_perc_by(mdata, c("high_risk", "injury_tspine"))
+cat_perc_by(mdata, c("high_risk", "injury_tspine")) %>% my_print()
 weights::wtd.chi.sq(mdata$high_risk, mdata$injury_tspine, 
 										weight = mdata$discwt, mean1 = F) %>% knitr::kable()
 
-cat_perc_by(mdata, c("high_risk", "injury_lspine"))
+cat_perc_by(mdata, c("high_risk", "injury_lspine")) %>% my_print()
 weights::wtd.chi.sq(mdata$high_risk, mdata$injury_lspine, 
 										weight = mdata$discwt, mean1 = F) %>% knitr::kable()
 
-cat_perc_by(mdata, c("high_risk", "injury_solid_abd"))
+cat_perc_by(mdata, c("high_risk", "injury_solid_abd")) %>% my_print()
 weights::wtd.chi.sq(mdata$high_risk, mdata$injury_solid_abd, 
 										weight = mdata$discwt, mean1 = F) %>% knitr::kable()
 
-cat_perc_by(mdata, c("high_risk", "injury_hollow_abd"))
+cat_perc_by(mdata, c("high_risk", "injury_hollow_abd")) %>% my_print()
 weights::wtd.chi.sq(mdata$high_risk, mdata$injury_hollow_abd, 
 										weight = mdata$discwt, mean1 = F) %>% knitr::kable()
 
-cat_perc_by(mdata, c("high_risk", "injury_ue_fx"))
+cat_perc_by(mdata, c("high_risk", "injury_ue_fx")) %>% my_print()
 weights::wtd.chi.sq(mdata$high_risk, mdata$injury_ue_fx, 
 										weight = mdata$discwt, mean1 = F) %>% knitr::kable()
 
-cat_perc_by(mdata, c("high_risk", "injury_pelvic_fx"))
+cat_perc_by(mdata, c("high_risk", "injury_pelvic_fx")) %>% my_print()
 weights::wtd.chi.sq(mdata$high_risk, mdata$injury_pelvic_fx, 
 										weight = mdata$discwt, mean1 = F) %>% knitr::kable()
 
-cat_perc_by(mdata, c("high_risk", "injury_le_fx"))
+cat_perc_by(mdata, c("high_risk", "injury_le_fx")) %>% my_print()
 weights::wtd.chi.sq(mdata$high_risk, mdata$injury_le_fx, 
 										weight = mdata$discwt, mean1 = F) %>% knitr::kable()
 
-cat_perc_by(mdata, c("high_risk", "pay1_recode"))
+cat_perc_by(mdata, c("high_risk", "pay1_recode")) %>% my_print()
 weights::wtd.chi.sq(mdata$high_risk, mdata$pay1_recode, 
 										weight = mdata$discwt, mean1 = F) %>% knitr::kable()
 
-cat_perc_by(mdata, c("high_risk", "zipinc_qrtl"))
+cat_perc_by(mdata, c("high_risk", "zipinc_qrtl")) %>% my_print()
 weights::wtd.chi.sq(mdata$high_risk, mdata$zipinc_qrtl, 
 										weight = mdata$discwt, mean1 = F) %>% knitr::kable()
 
-cat_perc_by(mdata, c("high_risk", "died_visit"))
+cat_perc_by(mdata, c("high_risk", "died_visit")) %>% my_print()
 weights::wtd.chi.sq(mdata$high_risk, mdata$died_visit, 
 										weight = mdata$discwt, mean1 = F) %>% knitr::kable()
 
-cat_perc_by(mdata, c("high_risk", "disp_ed"))
+cat_perc_by(mdata, c("high_risk", "disp_ed")) %>% my_print()
 weights::wtd.chi.sq(mdata$high_risk, mdata$disp_ed, 
 										weight = mdata$discwt, mean1 = F) %>% knitr::kable()
 
-cat_perc_by(mdata, c("high_risk", "edevent"))
+cat_perc_by(mdata, c("high_risk", "edevent")) %>% my_print()
 weights::wtd.chi.sq(mdata$high_risk, mdata$edevent, 
 										weight = mdata$discwt, mean1 = F) %>% knitr::kable()
 
 
 
 ip = mdata %>% filter(disp_ed == "Admitted as inpatient") 
-cat_perc_by(ip, c("high_risk", "disp_ip_recode"))
+cat_perc_by(ip, c("high_risk", "disp_ip_recode")) %>% my_print()
 weights::wtd.chi.sq(ip$high_risk, ip$disp_ip_recode, 
 										weight = ip$discwt, mean1 = F) %>% knitr::kable()
 rm(ip)
 
 
-cat_perc_by(mdata, c("high_risk", "hosp_trauma_level"))
+cat_perc_by(mdata, c("high_risk", "hosp_trauma_level")) %>% my_print()
 weights::wtd.chi.sq(mdata$high_risk, mdata$hosp_trauma_level, 
 										weight = mdata$discwt, mean1 = F) %>% knitr::kable()
 
@@ -375,6 +400,9 @@ weights::wtd.chi.sq(mdata$high_risk, mdata$hosp_trauma_level,
 
 # Table 2. High-risk mechanisms of injury by TMPM probability of death, actual mortality, and median total charge  
 
+## By mechanism  
+
+
 ```{r table 2}
 
 mdata %>% 
@@ -384,48 +412,199 @@ mdata %>%
 		n_obs = n(),
 		n_weighted = round(sum(discwt)),
 		pDeath = med_iqi(pDeath*100, w = discwt, digits=2),
+		mort_rate = my.weighted.mean(mortality, w = discwt),
+		
+		death = paste0(round(sum(discwt[mortality==1])), " (", 
+									 round(mort_rate*100, 2), "%)"),
+		
 		totchg = med_iqi(totchg, w = discwt)
 	) %>% 
-	knitr::kable()
+	mutate(obs_pct = n_obs/sum(n_obs),
+				 wgt_pct = n_weighted/sum(n_weighted),
+				 #a bit ridiculous, but this gives descending rankings
+				 tmpm_rank = n() - rank(pDeath) + 1,
+				 mort_rank = rank(-mort_rate),
+				 freq_rank = rank(-wgt_pct)
+	) %>% 
+	select(mech1, 
+				 n_obs, obs_pct, 
+				 n_weighted, wgt_pct,
+				 pDeath, death, mort_rate, totchg, 
+				 tmpm_rank, mort_rank, freq_rank
+	) %>% 
+	my_print()
+
+```
+
+\
+\
+\
+\
+
+
+## By ecode group  
+
+```{r}
+
+mdata %>% 
+	filter(high_risk == "High-risk") %>% 
+	group_by(ecode1_group1_code, ecode1_group1_name) %>% 
+	summarise(
+		n_obs = n(),
+		n_weighted = round(sum(discwt)),
+		pDeath = med_iqi(pDeath*100, w = discwt, digits=2),
+		mort_rate = my.weighted.mean(mortality, w = discwt),
+		
+		death = paste0(round(sum(discwt[mortality==1])), " (", 
+									 round(mort_rate*100, 2), "%)"),
+		
+		totchg = med_iqi(totchg, w = discwt)
+	) %>% 
+	mutate(obs_pct = n_obs/sum(n_obs),
+				 wgt_pct = n_weighted/sum(n_weighted),
+				 #a bit ridiculous, but this gives descending rankings
+				 tmpm_rank = n() - rank(pDeath) + 1,
+				 mort_rank = rank(-mort_rate),
+				 freq_rank = rank(-wgt_pct)
+	) %>% 
+	select(ecode1_group1_name, 
+				 n_obs, obs_pct, 
+				 n_weighted, wgt_pct,
+				 pDeath, death, mort_rate, totchg, 
+				 tmpm_rank, mort_rank, freq_rank
+	) %>% 
+	my_print()
+
+
+
+
+
+
+
+```
+
+\
+\
+\
+\
+
+
+## By ecode subgroup  
+
+```{r}
 
 
 mdata %>% 
 	filter(high_risk == "High-risk") %>% 
-	cat_perc_by(., c("mech1", "mortality")) %>% 
-	t() %>% as.data.frame() %>% 
-	knitr::kable()
+	group_by(ecode1_group2_code, ecode1_group2_name) %>% 
+	summarise(
+		n_obs = n(),
+		n_weighted = round(sum(discwt)),
+		pDeath = med_iqi(pDeath*100, w = discwt, digits=2),
+		mort_rate = my.weighted.mean(mortality, w = discwt),
+		
+		death = paste0(round(sum(discwt[mortality==1])), " (", 
+									 round(mort_rate*100, 2), "%)"),
+		
+		totchg = med_iqi(totchg, w = discwt)
+	) %>% 
+	mutate(obs_pct = n_obs/sum(n_obs),
+				 wgt_pct = n_weighted/sum(n_weighted),
+				 #a bit ridiculous, but this gives descending rankings
+				 tmpm_rank = n() - rank(pDeath) + 1,
+				 mort_rank = rank(-mort_rate),
+				 freq_rank = rank(-wgt_pct)
+	) %>% 
+	select(ecode1_group2_name, 
+				 n_obs, obs_pct, 
+				 n_weighted, wgt_pct,
+				 pDeath, death, mort_rate, totchg, 
+				 tmpm_rank, mort_rank, freq_rank
+	) %>% 
+	my_print()
 
 
 
 
+```
 
 
+\
+\
+\
+\
 
 
+## By ecode  
 
+
+```{r}
 
 
 mdata %>% 
 	filter(high_risk == "High-risk") %>% 
-	group_by(ecode1_desc) %>% 
+	group_by(ecode1, ecode1_desc) %>% 
+	summarise(
+		n_obs = n(),
+		n_weighted = round(sum(discwt)),
+		pDeath = med_iqi(pDeath*100, w = discwt, digits=2),
+		mort_rate = my.weighted.mean(mortality, w = discwt),
+		
+		death = paste0(round(sum(discwt[mortality==1])), " (", 
+									 round(mort_rate*100, 2), "%)"),
+		
+		totchg = med_iqi(totchg, w = discwt)
+	) %>% 
+	mutate(obs_pct = n_obs/sum(n_obs),
+				 wgt_pct = n_weighted/sum(n_weighted),
+				 #a bit ridiculous, but this gives descending rankings
+				 tmpm_rank = n() - rank(pDeath) + 1,
+				 mort_rank = rank(-mort_rate),
+				 freq_rank = rank(-wgt_pct)
+	) %>% 
+	select(ecode1_desc, 
+				 n_obs, obs_pct, 
+				 n_weighted, wgt_pct,
+				 pDeath, death, mort_rate, totchg, 
+				 tmpm_rank, mort_rank, freq_rank
+	) %>% 
+	my_print()
+
+```
+
+
+
+\
+\
+\
+\
+
+```{r}
+
+top_10 = mdata %>%
+	filter(high_risk == "High-risk") %>%
+	group_by(ecode1_group2_code, ecode1_group2_name) %>%
 	summarise(
 		n_obs = n(),
 		n_weighted = round(sum(discwt)),
 		pDeath = med_iqi(pDeath*100, w = discwt, digits=2),
 		totchg = med_iqi(totchg, w = discwt)
-	) %>% 
-	knitr::kable()
-
-
-mdata %>% 
-	filter(high_risk == "High-risk") %>% 
-	cat_perc_by(., c("ecode1_desc", "mortality")) %>% 
-	t() %>% as.data.frame() %>% 
-	knitr::kable()
+	) %>%
+	ungroup() %>%
+	arrange(desc(n_weighted)) %>%
+	slice_head(n=10)
 
 
 
+for(i in 1:10){
+	ecode = top_10$ecode1_group2_code[i] %>% as.character()
+	flag_name = paste0("top_10_ecode_", ecode)
+	mdata[, flag_name] = mdata$ecode1_group2_code == ecode
+}
+rm(ecode, flag_name, i)
 
+
+write_fst(mdata, "Data/final/final combined dataset with top 10.fst")
 
 
 
@@ -446,19 +625,19 @@ mdata %>%
 	count(., mortality) %>% 
 	mutate(pct = round((n/sum(n))*100,2),
 				 n = format(n, big.mark = ",")
-	)
+	) %>% my_print()
 
 mdata %>% 
 	filter(high_risk == "High-risk") %>% 
 	count(., mortality, wt = discwt) %>% 
 	mutate(pct = round((n/sum(n))*100,2),
 				 n = format(n, big.mark = ",")
-	)
+	) %>% my_print()
 
 
 
 
-mdata %>% 
+tbl = mdata %>% 
 	filter(high_risk == "High-risk") %>% 
 	group_by(mortality) %>% 
 	summarise(
@@ -469,96 +648,174 @@ mdata %>%
 		totchg_ed = med_iqi(totchg_ed, w = discwt),
 		totchg_ip = med_iqi(totchg_ip, w = discwt),
 		totchg = med_iqi(totchg, w = discwt)
-	) %>% t() %>% as.data.frame() %>% 
-	knitr::kable()
+	) %>% t() %>% as.data.frame() 
 
 
 temp = mdata %>% filter(high_risk == "High-risk")
 
-wilcox_weighted_p(temp$age, temp$mortality, temp$discwt)
-wilcox_weighted_p(temp$elixhauser, temp$mortality, temp$discwt)
-wilcox_weighted_p(temp$pDeath, temp$mortality, temp$discwt)
-wilcox_weighted_p(temp$los_ip, temp$mortality, temp$discwt)
-wilcox_weighted_p(temp$totchg_ed, temp$mortality, temp$discwt)
-wilcox_weighted_p(temp$totchg_ip, temp$mortality, temp$discwt)
-wilcox_weighted_p(temp$totchg, temp$mortality, temp$discwt)
+
+
+ps = c(
+	"p",
+	wilcox_weighted_p(temp$age, temp$mortality, temp$discwt),
+	wilcox_weighted_p(temp$elixhauser, temp$mortality, temp$discwt),
+	wilcox_weighted_p(temp$pDeath, temp$mortality, temp$discwt),
+	wilcox_weighted_p(temp$los_ip, temp$mortality, temp$discwt),
+	wilcox_weighted_p(temp$totchg_ed, temp$mortality, temp$discwt),
+	wilcox_weighted_p(temp$totchg_ip, temp$mortality, temp$discwt),
+	wilcox_weighted_p(temp$totchg, temp$mortality, temp$discwt)
+)
+
+
+cbind(rownames(tbl), tbl, ps) %>% my_print()
 
 
 
-cat_perc_by(temp, c("mortality", "female"))
+
+
+
+
+top_10$ecode1_group2_name[1]
+cat_perc_by(temp, c("mortality", "top_10_ecode_E826"))%>% my_print()
+weights::wtd.chi.sq(temp$mortality, temp$top_10_ecode_E826,
+										weight = temp$discwt, mean1 = F) %>% knitr::kable()
+
+
+top_10$ecode1_group2_name[2]
+cat_perc_by(temp, c("mortality", "top_10_ecode_E812")) %>% my_print()
+weights::wtd.chi.sq(temp$mortality, temp$top_10_ecode_E812,
+										weight = temp$discwt, mean1 = F) %>% knitr::kable()
+
+
+top_10$ecode1_group2_name[3]
+cat_perc_by(temp, c("mortality", "top_10_ecode_E821")) %>% my_print()
+weights::wtd.chi.sq(temp$mortality, temp$top_10_ecode_E821,
+										weight = temp$discwt, mean1 = F) %>% knitr::kable()
+
+
+top_10$ecode1_group2_name[4]
+cat_perc_by(temp, c("mortality", "top_10_ecode_E816")) %>% my_print()
+weights::wtd.chi.sq(temp$mortality, temp$top_10_ecode_E816,
+										weight = temp$discwt, mean1 = F) %>% knitr::kable()
+
+
+top_10$ecode1_group2_name[5]
+cat_perc_by(temp, c("mortality", "top_10_ecode_E819")) %>% my_print()
+weights::wtd.chi.sq(temp$mortality, temp$top_10_ecode_E819,
+										weight = temp$discwt, mean1 = F) %>% knitr::kable()
+
+
+top_10$ecode1_group2_name[6]
+cat_perc_by(temp, c("mortality", "top_10_ecode_E885")) %>% my_print()
+weights::wtd.chi.sq(temp$mortality, temp$top_10_ecode_E885,
+										weight = temp$discwt, mean1 = F) %>% knitr::kable()
+
+
+top_10$ecode1_group2_name[7]
+cat_perc_by(temp, c("mortality", "top_10_ecode_E813")) %>% my_print()
+weights::wtd.chi.sq(temp$mortality, temp$top_10_ecode_E813,
+										weight = temp$discwt, mean1 = F) %>% knitr::kable()
+
+
+top_10$ecode1_group2_name[8]
+cat_perc_by(temp, c("mortality", "top_10_ecode_E818")) %>% my_print()
+weights::wtd.chi.sq(temp$mortality, temp$top_10_ecode_E818,
+										weight = temp$discwt, mean1 = F) %>% knitr::kable()
+
+
+top_10$ecode1_group2_name[9]
+cat_perc_by(temp, c("mortality", "top_10_ecode_E006")) %>% my_print()
+weights::wtd.chi.sq(temp$mortality, temp$top_10_ecode_E006,
+										weight = temp$discwt, mean1 = F) %>% knitr::kable()
+
+
+top_10$ecode1_group2_name[10]
+cat_perc_by(temp, c("mortality", "top_10_ecode_E815")) %>% my_print()
+weights::wtd.chi.sq(temp$mortality, temp$top_10_ecode_E815,
+										weight = temp$discwt, mean1 = F) %>% knitr::kable()
+
+
+
+
+
+
+
+
+
+cat_perc_by(temp, c("mortality", "female")) %>% my_print()
 weights::wtd.chi.sq(temp$mortality, temp$female, 
 										weight = temp$discwt, mean1 = F) %>% knitr::kable()
 
 
 
-cat_perc_by(temp, c("mortality", "trauma_type"))
+cat_perc_by(temp, c("mortality", "trauma_type")) %>% my_print()
 weights::wtd.chi.sq(temp$mortality, temp$trauma_type, 
 										weight = temp$discwt, mean1 = F) %>% knitr::kable()
 
 
-cat_perc_by(temp, c("mortality", "injury_brain"))
+cat_perc_by(temp, c("mortality", "injury_brain")) %>% my_print()
 weights::wtd.chi.sq(temp$mortality, temp$injury_brain, 
 										weight = temp$discwt, mean1 = F) %>% knitr::kable()
 
 
 
-cat_perc_by(temp, c("mortality", "injury_skull_fx"))
+cat_perc_by(temp, c("mortality", "injury_skull_fx")) %>% my_print()
 weights::wtd.chi.sq(temp$mortality, temp$injury_skull_fx, 
 										weight = temp$discwt, mean1 = F) %>% knitr::kable()
 
-cat_perc_by(temp, c("mortality", "injury_cspine"))
+cat_perc_by(temp, c("mortality", "injury_cspine")) %>% my_print()
 weights::wtd.chi.sq(temp$mortality, temp$injury_cspine, 
 										weight = temp$discwt, mean1 = F) %>% knitr::kable()
 
-cat_perc_by(temp, c("mortality", "injury_rib_fx"))
+cat_perc_by(temp, c("mortality", "injury_rib_fx")) %>% my_print()
 weights::wtd.chi.sq(temp$mortality, temp$injury_rib_fx, 
 										weight = temp$discwt, mean1 = F) %>% knitr::kable()
 
-cat_perc_by(temp, c("mortality", "injury_cardio_pulm"))
+cat_perc_by(temp, c("mortality", "injury_cardio_pulm")) %>% my_print()
 weights::wtd.chi.sq(temp$mortality, temp$injury_cardio_pulm, 
 										weight = temp$discwt, mean1 = F) %>% knitr::kable()
 
-cat_perc_by(temp, c("mortality", "injury_tspine"))
+cat_perc_by(temp, c("mortality", "injury_tspine")) %>% my_print()
 weights::wtd.chi.sq(temp$mortality, temp$injury_tspine, 
 										weight = temp$discwt, mean1 = F) %>% knitr::kable()
 
-cat_perc_by(temp, c("mortality", "injury_lspine"))
+cat_perc_by(temp, c("mortality", "injury_lspine")) %>% my_print()
 weights::wtd.chi.sq(temp$mortality, temp$injury_lspine, 
 										weight = temp$discwt, mean1 = F) %>% knitr::kable()
 
-cat_perc_by(temp, c("mortality", "injury_solid_abd"))
+cat_perc_by(temp, c("mortality", "injury_solid_abd")) %>% my_print()
 weights::wtd.chi.sq(temp$mortality, temp$injury_solid_abd, 
 										weight = temp$discwt, mean1 = F) %>% knitr::kable()
 
-cat_perc_by(temp, c("mortality", "injury_hollow_abd"))
+cat_perc_by(temp, c("mortality", "injury_hollow_abd")) %>% my_print()
 weights::wtd.chi.sq(temp$mortality, temp$injury_hollow_abd, 
 										weight = temp$discwt, mean1 = F) %>% knitr::kable()
 
-cat_perc_by(temp, c("mortality", "injury_ue_fx"))
+cat_perc_by(temp, c("mortality", "injury_ue_fx")) %>% my_print()
 weights::wtd.chi.sq(temp$mortality, temp$injury_ue_fx, 
 										weight = temp$discwt, mean1 = F) %>% knitr::kable()
 
-cat_perc_by(temp, c("mortality", "injury_pelvic_fx"))
+cat_perc_by(temp, c("mortality", "injury_pelvic_fx")) %>% my_print()
 weights::wtd.chi.sq(temp$mortality, temp$injury_pelvic_fx, 
 										weight = temp$discwt, mean1 = F) %>% knitr::kable()
 
-cat_perc_by(temp, c("mortality", "injury_le_fx"))
+cat_perc_by(temp, c("mortality", "injury_le_fx")) %>% my_print()
 weights::wtd.chi.sq(temp$mortality, temp$injury_le_fx, 
 										weight = temp$discwt, mean1 = F) %>% knitr::kable()
 
-cat_perc_by(temp, c("mortality", "pay1_recode"))
+cat_perc_by(temp, c("mortality", "pay1_recode")) %>% my_print()
 weights::wtd.chi.sq(temp$mortality, temp$pay1_recode, 
 										weight = temp$discwt, mean1 = F) %>% knitr::kable()
 
-cat_perc_by(temp, c("mortality", "zipinc_qrtl"))
+cat_perc_by(temp, c("mortality", "zipinc_qrtl")) %>% my_print()
 weights::wtd.chi.sq(temp$mortality, temp$zipinc_qrtl, 
 										weight = temp$discwt, mean1 = F) %>% knitr::kable()
 
-cat_perc_by(temp, c("mortality", "disp_ed"))
+cat_perc_by(temp, c("mortality", "disp_ed")) %>% my_print()
 weights::wtd.chi.sq(temp$mortality, temp$disp_ed, 
 										weight = temp$discwt, mean1 = F) %>% knitr::kable()
 
-cat_perc_by(temp, c("mortality", "edevent"))
+cat_perc_by(temp, c("mortality", "edevent")) %>% my_print()
 weights::wtd.chi.sq(temp$mortality, temp$edevent, 
 										weight = temp$discwt, mean1 = F) %>% knitr::kable()
 
@@ -567,7 +824,7 @@ weights::wtd.chi.sq(temp$mortality, temp$edevent,
 
 
 ip = temp %>% filter(disp_ed == "Admitted as inpatient") 
-cat_perc_by(ip, c("mortality", "disp_ip_recode"))
+cat_perc_by(ip, c("mortality", "disp_ip_recode")) %>% my_print()
 weights::wtd.chi.sq(ip$mortality, ip$disp_ip_recode, 
 										weight = ip$discwt, mean1 = F) %>% knitr::kable()
 rm(ip)
@@ -576,13 +833,13 @@ rm(ip)
 
 
 
-cat_perc_by(temp, c("mortality", "hosp_trauma_level"))
+cat_perc_by(temp, c("mortality", "hosp_trauma_level")) %>% my_print()
 weights::wtd.chi.sq(temp$mortality, temp$hosp_trauma_level, 
 										weight = temp$discwt, mean1 = F) %>% knitr::kable()
 
 
 
-cat_perc_by(temp, c("mortality", "year_whole"))
+cat_perc_by(temp, c("mortality", "year_whole")) %>% my_print()
 weights::wtd.chi.sq(temp$mortality, temp$year_whole, 
 										weight = temp$discwt, mean1 = F) %>% knitr::kable()
 
@@ -602,6 +859,7 @@ weights::wtd.chi.sq(temp$mortality, temp$year_whole,
 \
 
 # Table 4. Clinical profile of encounters injured in high-risk activities by age group  
+
 ```{r table 4}
 
 
@@ -610,8 +868,7 @@ temp %>%
 	count(age_group) %>% 
 	mutate(pct = round((n/sum(n))*100,2),
 				 n = format(n, big.mark = ",")
-	) %>% t() %>% as.data.frame() %>% 
-	knitr::kable()
+	) %>% t() %>% as.data.frame() %>% my_print()
 
 
 temp %>% 
@@ -619,12 +876,11 @@ temp %>%
 	count(age_group, wt = discwt) %>% 
 	mutate(pct = round((n/sum(n))*100,2),
 				 n = format(n, big.mark = ",")
-	) %>% t() %>% as.data.frame() %>% 
-	knitr::kable()
+	) %>% t() %>% as.data.frame()  %>% my_print()
 
 
 
-temp %>%
+tbl = temp %>%
 	group_by(age_group) %>% 
 	summarise(
 		age = med_iqi(age, w = discwt),
@@ -634,94 +890,174 @@ temp %>%
 		totchg_ed = med_iqi(totchg_ed, w = discwt),
 		totchg_ip = med_iqi(totchg_ip, w = discwt),
 		totchg = med_iqi(totchg, w = discwt)
-	) %>% t() %>% as.data.frame() %>% 
-	knitr::kable()
+	) %>% t() %>% as.data.frame() 
 
 
-wilcox_weighted_p(temp$age, temp$age_group, temp$discwt)
-wilcox_weighted_p(temp$elixhauser, temp$age_group, temp$discwt)
-wilcox_weighted_p(temp$pDeath, temp$age_group, temp$discwt)
-wilcox_weighted_p(temp$los_ip, temp$age_group, temp$discwt)
-wilcox_weighted_p(temp$totchg_ed, temp$age_group, temp$discwt)
-wilcox_weighted_p(temp$totchg_ip, temp$age_group, temp$discwt)
-wilcox_weighted_p(temp$totchg, temp$age_group, temp$discwt)
+ps = c(
+	"p",
+	wilcox_weighted_p(temp$age, temp$age_group, temp$discwt),
+	wilcox_weighted_p(temp$elixhauser, temp$age_group, temp$discwt),
+	wilcox_weighted_p(temp$pDeath, temp$age_group, temp$discwt),
+	wilcox_weighted_p(temp$los_ip, temp$age_group, temp$discwt),
+	wilcox_weighted_p(temp$totchg_ed, temp$age_group, temp$discwt),
+	wilcox_weighted_p(temp$totchg_ip, temp$age_group, temp$discwt),
+	wilcox_weighted_p(temp$totchg, temp$age_group, temp$discwt)
+)
+
+
+cbind(rownames(tbl), tbl, ps)  %>% my_print()
 
 
 
-cat_perc_by(temp, c("age_group", "female"))
+
+top_10$ecode1_group2_name[1]
+cat_perc_by(temp, c("age_group", "top_10_ecode_E826"))%>% my_print()
+weights::wtd.chi.sq(temp$age_group, temp$top_10_ecode_E826,
+										weight = temp$discwt, mean1 = F) %>% knitr::kable()
+
+
+top_10$ecode1_group2_name[2]
+cat_perc_by(temp, c("age_group", "top_10_ecode_E812")) %>% my_print()
+weights::wtd.chi.sq(temp$age_group, temp$top_10_ecode_E812,
+										weight = temp$discwt, mean1 = F) %>% knitr::kable()
+
+
+top_10$ecode1_group2_name[3]
+cat_perc_by(temp, c("age_group", "top_10_ecode_E821")) %>% my_print()
+weights::wtd.chi.sq(temp$age_group, temp$top_10_ecode_E821,
+										weight = temp$discwt, mean1 = F) %>% knitr::kable()
+
+
+top_10$ecode1_group2_name[4]
+cat_perc_by(temp, c("age_group", "top_10_ecode_E816")) %>% my_print()
+weights::wtd.chi.sq(temp$age_group, temp$top_10_ecode_E816,
+										weight = temp$discwt, mean1 = F) %>% knitr::kable()
+
+
+top_10$ecode1_group2_name[5]
+cat_perc_by(temp, c("age_group", "top_10_ecode_E819")) %>% my_print()
+weights::wtd.chi.sq(temp$age_group, temp$top_10_ecode_E819,
+										weight = temp$discwt, mean1 = F) %>% knitr::kable()
+
+
+top_10$ecode1_group2_name[6]
+cat_perc_by(temp, c("age_group", "top_10_ecode_E885")) %>% my_print()
+weights::wtd.chi.sq(temp$age_group, temp$top_10_ecode_E885,
+										weight = temp$discwt, mean1 = F) %>% knitr::kable()
+
+
+top_10$ecode1_group2_name[7]
+cat_perc_by(temp, c("age_group", "top_10_ecode_E813")) %>% my_print()
+weights::wtd.chi.sq(temp$age_group, temp$top_10_ecode_E813,
+										weight = temp$discwt, mean1 = F) %>% knitr::kable()
+
+
+top_10$ecode1_group2_name[8]
+cat_perc_by(temp, c("age_group", "top_10_ecode_E818")) %>% my_print()
+weights::wtd.chi.sq(temp$age_group, temp$top_10_ecode_E818,
+										weight = temp$discwt, mean1 = F) %>% knitr::kable()
+
+
+top_10$ecode1_group2_name[9]
+cat_perc_by(temp, c("age_group", "top_10_ecode_E006")) %>% my_print()
+weights::wtd.chi.sq(temp$age_group, temp$top_10_ecode_E006,
+										weight = temp$discwt, mean1 = F) %>% knitr::kable()
+
+
+top_10$ecode1_group2_name[10]
+cat_perc_by(temp, c("age_group", "top_10_ecode_E815")) %>% my_print()
+weights::wtd.chi.sq(temp$age_group, temp$top_10_ecode_E815,
+										weight = temp$discwt, mean1 = F) %>% knitr::kable()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+cat_perc_by(temp, c("age_group", "female")) %>% my_print()
 weights::wtd.chi.sq(temp$age_group, temp$female, 
 										weight = temp$discwt, mean1 = F) %>% knitr::kable()
 
 
 
-cat_perc_by(temp, c("age_group", "trauma_type"))
+cat_perc_by(temp, c("age_group", "trauma_type")) %>% my_print()
 weights::wtd.chi.sq(temp$age_group, temp$trauma_type, 
 										weight = temp$discwt, mean1 = F) %>% knitr::kable()
 
 
-cat_perc_by(temp, c("age_group", "injury_brain"))
+cat_perc_by(temp, c("age_group", "injury_brain")) %>% my_print()
 weights::wtd.chi.sq(temp$age_group, temp$injury_brain, 
 										weight = temp$discwt, mean1 = F) %>% knitr::kable()
 
 
 
-cat_perc_by(temp, c("age_group", "injury_skull_fx"))
+cat_perc_by(temp, c("age_group", "injury_skull_fx")) %>% my_print()
 weights::wtd.chi.sq(temp$age_group, temp$injury_skull_fx, 
 										weight = temp$discwt, mean1 = F) %>% knitr::kable()
 
-cat_perc_by(temp, c("age_group", "injury_cspine"))
+cat_perc_by(temp, c("age_group", "injury_cspine")) %>% my_print()
 weights::wtd.chi.sq(temp$age_group, temp$injury_cspine, 
 										weight = temp$discwt, mean1 = F) %>% knitr::kable()
 
-cat_perc_by(temp, c("age_group", "injury_rib_fx"))
+cat_perc_by(temp, c("age_group", "injury_rib_fx")) %>% my_print()
 weights::wtd.chi.sq(temp$age_group, temp$injury_rib_fx, 
 										weight = temp$discwt, mean1 = F) %>% knitr::kable()
 
-cat_perc_by(temp, c("age_group", "injury_cardio_pulm"))
+cat_perc_by(temp, c("age_group", "injury_cardio_pulm")) %>% my_print()
 weights::wtd.chi.sq(temp$age_group, temp$injury_cardio_pulm, 
 										weight = temp$discwt, mean1 = F) %>% knitr::kable()
 
-cat_perc_by(temp, c("age_group", "injury_tspine"))
+cat_perc_by(temp, c("age_group", "injury_tspine")) %>% my_print()
 weights::wtd.chi.sq(temp$age_group, temp$injury_tspine, 
 										weight = temp$discwt, mean1 = F) %>% knitr::kable()
 
-cat_perc_by(temp, c("age_group", "injury_lspine"))
+cat_perc_by(temp, c("age_group", "injury_lspine")) %>% my_print()
 weights::wtd.chi.sq(temp$age_group, temp$injury_lspine, 
 										weight = temp$discwt, mean1 = F) %>% knitr::kable()
 
-cat_perc_by(temp, c("age_group", "injury_solid_abd"))
+cat_perc_by(temp, c("age_group", "injury_solid_abd")) %>% my_print()
 weights::wtd.chi.sq(temp$age_group, temp$injury_solid_abd, 
 										weight = temp$discwt, mean1 = F) %>% knitr::kable()
 
-cat_perc_by(temp, c("age_group", "injury_hollow_abd"))
+cat_perc_by(temp, c("age_group", "injury_hollow_abd")) %>% my_print()
 weights::wtd.chi.sq(temp$age_group, temp$injury_hollow_abd, 
 										weight = temp$discwt, mean1 = F) %>% knitr::kable()
 
-cat_perc_by(temp, c("age_group", "injury_ue_fx"))
+cat_perc_by(temp, c("age_group", "injury_ue_fx")) %>% my_print()
 weights::wtd.chi.sq(temp$age_group, temp$injury_ue_fx, 
 										weight = temp$discwt, mean1 = F) %>% knitr::kable()
 
-cat_perc_by(temp, c("age_group", "injury_pelvic_fx"))
+cat_perc_by(temp, c("age_group", "injury_pelvic_fx")) %>% my_print()
 weights::wtd.chi.sq(temp$age_group, temp$injury_pelvic_fx, 
 										weight = temp$discwt, mean1 = F) %>% knitr::kable()
 
-cat_perc_by(temp, c("age_group", "injury_le_fx"))
+cat_perc_by(temp, c("age_group", "injury_le_fx")) %>% my_print()
 weights::wtd.chi.sq(temp$age_group, temp$injury_le_fx, 
 										weight = temp$discwt, mean1 = F) %>% knitr::kable()
 
-cat_perc_by(temp, c("age_group", "pay1_recode"))
+cat_perc_by(temp, c("age_group", "pay1_recode")) %>% my_print()
 weights::wtd.chi.sq(temp$age_group, temp$pay1_recode, 
 										weight = temp$discwt, mean1 = F) %>% knitr::kable()
 
-cat_perc_by(temp, c("age_group", "zipinc_qrtl"))
+cat_perc_by(temp, c("age_group", "zipinc_qrtl")) %>% my_print()
 weights::wtd.chi.sq(temp$age_group, temp$zipinc_qrtl, 
 										weight = temp$discwt, mean1 = F) %>% knitr::kable()
 
-cat_perc_by(temp, c("age_group", "disp_ed"))
+cat_perc_by(temp, c("age_group", "disp_ed")) %>% my_print()
 weights::wtd.chi.sq(temp$age_group, temp$disp_ed, 
 										weight = temp$discwt, mean1 = F) %>% knitr::kable()
 
-cat_perc_by(temp, c("age_group", "edevent"))
+cat_perc_by(temp, c("age_group", "edevent")) %>% my_print()
 weights::wtd.chi.sq(temp$age_group, temp$edevent, 
 										weight = temp$discwt, mean1 = F) %>% knitr::kable()
 
@@ -729,20 +1065,20 @@ weights::wtd.chi.sq(temp$age_group, temp$edevent,
 
 
 ip = temp %>% filter(disp_ed == "Admitted as inpatient") 
-cat_perc_by(ip, c("age_group", "disp_ip_recode"))
+cat_perc_by(ip, c("age_group", "disp_ip_recode")) %>% my_print()
 weights::wtd.chi.sq(ip$age_group, ip$disp_ip_recode, 
 										weight = ip$discwt, mean1 = F) %>% knitr::kable()
 rm(ip)
 
 
 
-cat_perc_by(temp, c("age_group", "hosp_trauma_level"))
+cat_perc_by(temp, c("age_group", "hosp_trauma_level")) %>% my_print()
 weights::wtd.chi.sq(temp$age_group, temp$hosp_trauma_level, 
 										weight = temp$discwt, mean1 = F) %>% knitr::kable()
 
 
 
-cat_perc_by(temp, c("age_group", "year_whole"))
+cat_perc_by(temp, c("age_group", "year_whole")) %>% my_print()
 weights::wtd.chi.sq(temp$age_group, temp$year_whole, 
 										weight = temp$discwt, mean1 = F) %>% knitr::kable()
 
@@ -752,7 +1088,7 @@ weights::wtd.chi.sq(temp$age_group, temp$year_whole,
 
 
 
-cat_perc_by(temp, c("age_group", "mortality"))
+cat_perc_by(temp, c("age_group", "mortality")) %>% my_print()
 weights::wtd.chi.sq(temp$age_group, temp$mortality, 
 										weight = temp$discwt, mean1 = F) %>% knitr::kable()
 
