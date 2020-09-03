@@ -709,7 +709,14 @@ dbSendQuery(neds,
 
 dbSendQuery(neds,
 						"DELETE FROM ecodes
-										WHERE ecode1 IS NULL OR ecode1 = ''")
+										WHERE ecode1 IS NULL OR ecode1 = '' OR ecode1 = 'invl'")
+
+
+dbSendQuery(neds,
+						"DELETE FROM ecodes
+										WHERE SUBSTR(ecode1, 1, 1) = 'Y'")
+
+
 
 
 dbExecute(neds, "VACUUM ANALYZE ecodes")
@@ -757,14 +764,14 @@ dbExecute(neds, "REINDEX INDEX index_key_ed_outcomes")
 
 dbGetQuery(neds, "SELECT year, COUNT(*) FROM dx GROUP BY year")
 #       year   count
-# 1     2010 1303163
-# 2     2011 1320362
-# 3     2012 1447254
-# 4     2013 1424419
-# 5     2014 1506363
+# 1     2010 1303082
+# 2     2011 1320346
+# 3     2012 1447247
+# 4     2013 1421954
+# 5     2014 1506330
 # 6 2015Q1Q3  972570
-# 7   2015Q4  328945
-# 8     2016 1585246
+# 7   2015Q4  327819
+# 8     2016 1559047
 
 
 
@@ -943,14 +950,14 @@ dbExecute(neds, "VACUUM ANALYZE join_res")
 
 dbGetQuery(neds, "SELECT year, COUNT(*) FROM join_res GROUP BY year")
 # 			year   count
-# 1     2010 1303163
-# 2     2011 1320362
-# 3     2012 1447254
-# 4     2013 1424419
-# 5     2014 1506363
+# 1     2010 1303082
+# 2     2011 1320346
+# 3     2012 1447247
+# 4     2013 1421954
+# 5     2014 1506330
 # 6 2015Q1Q3  972570
-# 7   2015Q4  328945
-# 8     2016 1585246
+# 7   2015Q4  327819
+# 8     2016 1559047
 
 
 dbGetQuery(neds,
@@ -1665,7 +1672,7 @@ if(res>1){
 } else {
 	print(Sys.time())
 	for(i in 1:nchunks){
-		dx$pDeath[ starts[i]:ends[i] ] = tmpm4(dx[ starts[i]:ends[i], ]) 
+		dx$pDeath[ starts[i]:ends[i] ] = tmpm5_old(dx[ starts[i]:ends[i], ]) 
 	}
 	print(Sys.time())
 }
