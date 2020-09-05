@@ -16,116 +16,245 @@ editor_options:
   chunk_output_type: console
 ---
 
+# Setup and import  
+
 ```{r setup and import}
 knitr::opts_chunk$set(echo = TRUE,
-											results = "asis",
-											cache = TRUE)
+											results = "asis")
 
 library(tidyverse)
 library(tidylog)
 library(data.table)
 library(fst)
 library(bit64)
-library(DiagrammeR)
 library(weights)
+library(glmnet)
+library(glmnetUtils)
+library(mgcv)
+library(gammit)
 
 
 
-mdata = read_fst("Data/final/final combined dataset.fst")
+mdata = read_fst("Data/final/final combined dataset with top 10.fst",
+								 columns = c('hosp_ed', 'year_whole',
+								 						'discwt', 
+								 						# 'age',
+								 						'age_group', 
+								 						'female', 'zipinc_qrtl',
+								 						'pay1_recode', 
+								 						'pDeath', 'elixhauser',
+								 						'mortality', 
+								 						# 'high_risk', 
+								 						'hosp_trauma_level',
+								 						'injury_brain', 'injury_skull_fx',
+								 						'injury_cspine', 'injury_rib_fx',
+								 						'injury_cardio_pulm', 'injury_tspine',
+								 						'injury_lspine', 'injury_solid_abd',
+								 						'injury_hollow_abd', 'injury_ue_fx',
+								 						'injury_pelvic_fx', 'injury_le_fx',
+								 						'top_10_ecode_E826', 'top_10_ecode_E812',
+								 						'top_10_ecode_E821', 'top_10_ecode_E816',
+								 						'top_10_ecode_E819', 'top_10_ecode_E885',
+								 						'top_10_ecode_E813', 'top_10_ecode_E818',
+								 						'top_10_ecode_E006', 'top_10_ecode_E815'
+								 )
+)
 mdata$hosp_ed = as.factor(mdata$hosp_ed)
 
 
+```
 
-med_iqi = function(x, w=mdata$discwt, na.rm=T, digits=0){
+
+
+\
+\
+\
+\
+
+
+
+# Preprocessing
+```{r}
+
+
+mdata = mdata %>% 
+	select(discwt, age_group, female, zipinc_qrtl, pay1_recode,
+				 pDeath, elixhauser, mortality, #high_risk,  
+				 injury_brain, injury_skull_fx, injury_cspine, injury_rib_fx,
+				 injury_cardio_pulm, injury_tspine, injury_lspine, injury_solid_abd,
+				 injury_hollow_abd, injury_ue_fx, injury_pelvic_fx, injury_le_fx, 
+				 top_10_ecode_E826, top_10_ecode_E812, top_10_ecode_E821,
+				 top_10_ecode_E816, top_10_ecode_E819, top_10_ecode_E885, 
+				 top_10_ecode_E813, top_10_ecode_E818, top_10_ecode_E006,
+				 top_10_ecode_E815)
+
+
+# CV Elastic net procedure requires complete data
+
+sort(sapply(mdata, function(x){mean(is.na(x))}))
+
+n_weighted_pre = sum(mdata$discwt)
+mdata = mdata %>% filter(complete.cases(mdata))
+n_weighted_post = sum(mdata$discwt)
+n_weighted_pre-n_weighted_post
+(n_weighted_pre-n_weighted_post)/n_weighted_pre
+
+
+
+# mdata$high_risk = mdata$high_risk == "High-risk"
+
+
+
+
+
+Y = mdata$mortality
+
+W = mdata$discwt
+
+
+
+
+library(Matrix)
+# use -1 to avoid creating an intercept column
+X = sparse.model.matrix( ~ -1 + age_group + female + zipinc_qrtl + 
+											pay1_recode + pDeath + elixhauser + 
+											injury_brain + injury_skull_fx + injury_cspine + 
+											injury_rib_fx + injury_cardio_pulm + injury_tspine + 
+											injury_lspine + injury_solid_abd + injury_hollow_abd + 
+											injury_ue_fx + injury_pelvic_fx + injury_le_fx + 
+											# high_risk + 
+											top_10_ecode_E826 + top_10_ecode_E812 + top_10_ecode_E821 + 
+											top_10_ecode_E816 + top_10_ecode_E819 + top_10_ecode_E885 +
+											top_10_ecode_E813 + top_10_ecode_E818 + top_10_ecode_E006 + 
+											top_10_ecode_E815,
+											mdata
+											)
+
+rm(mdata)
+
+
+```
+
+
+
+
+# Variable Selection  
+
+```{r}
+
+#https://cran.r-project.org/web/packages/glmnetUtils/vignettes/intro.html
+
+invisible(gc())
+set.seed(1111)
+#takes about 70 mins with nfolds = 5 & dfmax = 10
+#takes about 2 hours with nfolds = 10 & dfmax = 15
+Sys.time()
+cv_fit = cva.glmnet(y = Y, x = X,
+										weights = W,
+										alpha = seq(0, 1, by = 0.1), 
+										nfolds = 10,
+										family = "binomial", 
+										type.measure="mse", 
+										thresh = 0.001, 
+										maxit = 10^4, #default is 10^5
+										dfmax = 15,
+										type.logistic = "modified.Newton",
+										trace.it = 1)
+Sys.time()
+
+
+saveRDS(cv_fit, "Results/mortality cva glmnet.RDS")
+
+
+
+
+get_cv_data = function(cv_fit){
+	#based on glmnetUtils:::plot.cva.glmnet
+	cvm <- sapply(cv_fit$modlist, "[[", "cvm", simplify = FALSE)
+	ylab <- cv_fit$modlist[[1]]$name
+	xlst <- lapply(cv_fit$modlist, "[[", "lambda")
+	ylst <- lapply(cv_fit$modlist, "[[", "cvm")
 	
-	digits = as.character(digits)
 	
-	fmt = paste0("%.", digits, "f [%.", digits, "f, %.", digits, "f]")
+	plot_data = data.frame(log_lambda = NA,  #log lambda
+												 loss = NA,        #loss function
+												 alpha = NA        #alpha
+		)
 	
-	if(is.null(w)){
-		sprintf(fmt,
-						quantile(x=x, probs = 0.5, na.rm = na.rm), 
-						quantile(x=x, probs = 0.25, na.rm = na.rm), 
-						quantile(x=x, probs = 0.75, na.rm = na.rm))
-	} else{
-		sprintf(fmt,
-						spatstat::weighted.quantile(x=x, w=w, probs = 0.5, na.rm = na.rm), 
-						spatstat::weighted.quantile(x=x, w=w, probs = 0.25, na.rm = na.rm), 
-						spatstat::weighted.quantile(x=x, w=w, probs = 0.75, na.rm = na.rm))
+	
+	for (i in seq_along(cvm)){
+		temp = data.frame(log_lambda = log(xlst[[i]]),
+											loss = ylst[[i]],
+											alpha = cv_fit$alpha[i]
+											)
+		
+			plot_data = rbind(plot_data, temp)
 	}
 	
-}
+	
+plot_data = plot_data[-1, ]	
 
+attr(plot_data$loss, "loss_type") = ylab
 
-
-my.weighted.mean = function(x, w = mdata$discwt, na.rm=T){
-	
-	weighted.mean(x=x, w = w, na.rm = na.rm)
-	
-	
-}
-
-
-cat_perc = function(df, x, w = "discwt"){
-	
-	df = as.data.frame(df)
-	x = df[, x]
-	w = df[, w]
-	rm(df)
-	
-	res = data.frame(var = unique(x))
-	res$n = NA_real_
-	res$perc = NA_real_
-	total = sum(w, na.rm = T)
-	
-	for(i in 1:nrow(res)){
-		res$n[i] = round( sum( w[x==res$var[i] ], na.rm = T ) )
-	}
-	
-	res$var = as.character(res$var)
-	res = res[!is.na(res$var), ]
-	res = rbind(res, c("Missing", round(sum(w[ is.na(x) ])), NA))
-	res$n = as.numeric(res$n)
-	res$perc = round((res$n/total)*100, 2)
-	
-	
-	res
-	
-}
-
-cat_perc_by = function(df, groups, wt_var = "discwt"){
-	
-	plyr::count(df, groups, wt_var = wt_var) %>% 
-		dplyr::group_by_(groups[1]) %>% 
-		dplyr::mutate(perc = round((freq/sum(freq))*100, 2) ) %>% 
-		dplyr::ungroup() %>% 
-		dplyr::mutate(val = paste0(format(round(freq), big.mark = ","), " (", perc, "%)")) %>% 
-		dplyr::select(-freq, -perc) %>% 
-		tidyr::pivot_wider(names_from = groups[1], 
-											 values_from = val)
+plot_data
 	
 }
 
 
+plot_data = get_cv_data(cv_fit)
+
+plot_data$alpha = factor(plot_data$alpha)
+
+library(plotly)
+
+p = ggplot(plot_data, aes(x = log_lambda, y = loss, color = alpha)) +
+	geom_smooth(method = "loess", span = 0.5, se = F, size = 0.8) +
+	geom_point() +
+	theme_bw() +
+	labs(x = "Log Lambda", y = attr(plot_data$loss, "loss_type") )
 
 
-wilcox_weighted_p = function(y, x, w = mdata$discwt){
-	y = data.table::frank(y)
-	res = broom::glance(lm(y ~ x, weights = w))
-	res = res[1, "p.value"]
-	res = as.numeric(res)
-	
-	if(res < 0.0001){
-		res = "< 0.0001"
-	} else{
-		res = round(res, 4)
-	}
-	
-	res
-	
+p 
+ggplotly(p)
+
+par(mfrow = c(1,2))
+minlossplot(cv_fit, cv.type = "1se")
+title("1 SE")
+minlossplot(cv_fit, cv.type = "min")
+title("Min")
+par(mfrow = c(1,1))
+
+
+tapply(plot_data$loss, plot_data$alpha, summary)
+
+
+#ridge (alpha = 0) is out, so is LASS) (alpha = 1) and alpha = 0.9
+#all alpha > 0.5 did worse than alpha = 0.5
+#alphas < 0.5 all did pretty similarly, with 
+#   0.1 doing the best (achieving similar loss at lower penalty levels)
+
+
+coefs_non_zero = function(cv_fit, alpha = 0.5){
+	coefs = coef(cv_fit, alpha = alpha)
+	coefs = data.frame( var = rownames(coefs),
+											b = as.vector(coefs))
+	coefs = coefs[coefs$b != 0, ]
+	coefs = coefs[coefs$var != "(Intercept)", ]
+	coefs
 }
 
 
+#looks like a true elastic net (alpha = 0.5) with log lambda = -7.75 is a good balance of loss and penalty
+coefs_non_zero(cv_fit, alpha = 0.5)
+
+#alpha = 0.1 and log lambda = -6.25 as a lower penalty option
+coefs_non_zero(cv_fit, alpha = 0.1)
+
+#alpha = 0.8 and log lambda ~= -8.2 as a higher penalty option
+coefs_non_zero(cv_fit, alpha = 0.9)
+
+
+rm(X, Y, W, plot_data, p, cv_fit)
 
 
 
@@ -134,19 +263,73 @@ wilcox_weighted_p = function(y, x, w = mdata$discwt){
 
 
 
-
-\
-\
-\
-\
-
-
 https://m-clark.github.io/posts/2019-10-20-big-mixed-models/#additive-models-as-mixed-models
 
 
-```{r mixed model}
-library(mgcv)
-library(gammit)
+```{r }
+
+mdata = read_fst("Data/final/final combined dataset with top 10.fst",
+								 columns = c('hosp_ed', 'year_whole',
+								 						'discwt', 
+								 						'age_group', 
+								 						'female', 'zipinc_qrtl',
+								 						'pay1_recode', 
+								 						'pDeath', 'elixhauser',
+								 						'mortality', 
+								 						'hosp_trauma_level',
+								 						'injury_brain', 'injury_skull_fx',
+								 						'injury_cspine', 'injury_rib_fx',
+								 						'injury_cardio_pulm', 'injury_tspine',
+								 						'injury_lspine', 'injury_solid_abd',
+								 						'injury_hollow_abd', 'injury_ue_fx',
+								 						'injury_pelvic_fx', 'injury_le_fx',
+								 						'top_10_ecode_E826', 'top_10_ecode_E812',
+								 						'top_10_ecode_E821', 'top_10_ecode_E816',
+								 						'top_10_ecode_E819', 'top_10_ecode_E885',
+								 						'top_10_ecode_E813', 'top_10_ecode_E818',
+								 						'top_10_ecode_E006', 'top_10_ecode_E815'
+								 )
+)
+
+
+
+
+#remove cases with missing data
+sort(sapply(mdata, function(x){mean(is.na(x))}))
+n_weighted_pre = sum(mdata$discwt)
+mdata = mdata %>% filter(complete.cases(mdata))
+n_weighted_post = sum(mdata$discwt)
+n_weighted_pre-n_weighted_post
+(n_weighted_pre-n_weighted_post)/n_weighted_pre
+
+
+
+start = Sys.time()
+start
+mort_mod = bam(mortality ~ 
+							 	#fixed effects:
+							 	age_group + female + zipinc_qrtl + 
+											pay1_recode + pDeath + elixhauser + 
+											# injury_brain + injury_skull_fx + injury_cspine + 
+											# injury_rib_fx + injury_cardio_pulm + injury_tspine + 
+											# injury_lspine + injury_solid_abd + injury_hollow_abd + 
+											# injury_ue_fx + injury_pelvic_fx + injury_le_fx + 
+											# top_10_ecode_E826 + top_10_ecode_E812 + top_10_ecode_E821 + 
+											# top_10_ecode_E816 + top_10_ecode_E819 + top_10_ecode_E885 +
+											# top_10_ecode_E813 + top_10_ecode_E818 + top_10_ecode_E006 + 
+											# top_10_ecode_E815 +
+							 	#'random' effects:
+							 	s(hosp_ed, bs='re') + s(year_whole, bs='re'),
+							 family = binomial("logit"),
+							 data = mdata, 
+							 weights = mdata$discwt,
+							 samfrac = 0.1  #sample fraction to use to get starting values
+							 )
+end = Sys.time()
+beepr::beep()
+
+end - start
+
 
 ```
 
