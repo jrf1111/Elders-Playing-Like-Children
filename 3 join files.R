@@ -164,26 +164,6 @@ gc()
 final$female[which(final$female<0)] = NA
 
 
-
-#Per NEDS documentation at https://www.hcup-us.ahrq.gov/db/vars/totchg_ip/nedsnote.jsp
-#   "TOTCHG_IP contains the edited total charge for the inpatient stay, including the emergency department charges"
-#recode totchg_ip to only be in-patient charges
-
-
-final$totchg_ed = as.integer(final$totchg_ed)
-final$totchg_ed[which(final$totchg_ed < 0)] = NA
-
-
-final$totchg = as.integer(final$totchg_ip)
-final$totchg[which(final$totchg < 0)] = NA
-
-
-final$totchg_ip = as.integer(final$totchg - final$totchg_ed)
-final$totchg_ip[which(final$totchg_ip<0)] = NA
-
-
-
-
 final$los_ip = as.integer(final$los_ip)
 final$los_ip[which(final$los_ip<0)] = NA
 
@@ -313,6 +293,100 @@ final$age_group = case_when(
 ) %>% as.factor()
 
 
+
+
+
+
+#Per NEDS documentation at https://www.hcup-us.ahrq.gov/db/vars/totchg_ip/nedsnote.jsp
+#   "TOTCHG_IP contains the edited total charge for the inpatient stay, including the emergency department charges"
+#recode totchg_ip to only be in-patient charges
+
+final$totchg_ed[which(final$totchg_ed < 0)] = NA
+#NEDS documentation says min. charge is $100
+final$totchg_ed[final$pay1 == "No charge"  & is.na(final$totchg_ed) ] = 100
+final$totchg_ed = as.integer(final$totchg_ed)
+
+
+final %>%
+	group_by(edevent) %>%
+	summarise(
+		min = min(totchg_ed, na.rm = T),
+		median = median(totchg_ed, na.rm = T),
+		max = max(totchg_ed, na.rm = T),
+		"NA" = mean(is.na(totchg_ed))
+	)
+
+mean(is.na(final$totchg_ed))
+
+
+
+
+
+final$totchg_ip[which(final$totchg_ip<0)] = NA
+final$totchg_ip = as.integer(final$totchg_ip)
+
+final %>%
+	group_by(edevent) %>%
+	summarise(
+		min = min(totchg_ip, na.rm = T),
+		median = median(totchg_ip, na.rm = T),
+		max = max(totchg_ip, na.rm = T),
+		"NA" = mean(is.na(totchg_ip))
+	)
+
+mean(is.na(final$totchg_ip))
+
+final %>%
+	group_by(edevent) %>%
+	summarise(mean(is.na(totchg_ip)))
+
+
+
+final$totchg = case_when(
+	#if pt was *not* admitted
+	final$edevent != "Admitted as inpatient" ~ final$totchg_ed,
+	#if pt was admitted
+	final$edevent == "Admitted as inpatient" ~ final$totchg_ip,
+	#if totchg_ip is missing but totchg_ed isn't
+	!is.na(final$totchg_ed) & is.na(final$totchg_ip) ~ final$totchg_ed,
+	#if totchg_ed is missing but totchg_ip isn't
+	is.na(final$totchg_ed) & !is.na(final$totchg_ip) ~ final$totchg_ip,
+	TRUE ~ NA_integer_
+)
+
+final %>%
+	group_by(edevent) %>%
+	summarise(
+		min = min(totchg, na.rm = T),
+		median = median(totchg, na.rm = T),
+		max = max(totchg, na.rm = T),
+		"NA" = mean(is.na(totchg))
+	)
+
+mean(is.na(final$totchg))
+
+
+
+
+final$totchg_ip_recode = case_when(
+	#if neither is missing and pt was admitted
+	!is.na(final$totchg) & !is.na(final$totchg_ed) &
+		final$edevent == "Admitted as inpatient" ~ final$totchg - final$totchg_ed,
+	#if pt was not admitted
+	final$edevent != "Admitted as inpatient" ~ NA_integer_,
+	#if both are missing
+	is.na(final$totchg) & is.na(final$totchg_ed) ~ NA_integer_
+)
+
+mean(is.na(final$totchg_ip_recode))
+
+final %>%
+	group_by(edevent) %>%
+	summarise(mean(is.na(totchg_ip_recode)))
+
+#because ~25% of admits are missing totchg_ed (but not necessarily totchg_ip), at least as
+#  many have to have their "true" IP charges missing since IP charges = total charges - ED charges
+#can't safely assume that admits with missing ED charges have ED charge of 0
 
 
 
