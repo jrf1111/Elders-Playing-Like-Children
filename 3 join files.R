@@ -465,9 +465,20 @@ if(all.equal(as.integer64(final$key_ed), as.integer64(dx$key_ed))){
 		dx_num = dx_nums[i]
 		
 		temp = dx[, dx_num]
+		# DX13: 3 digit code for diagnosis
+		DX13 = substr(temp, 1, 3) %>% as.numeric()
 		
-		bar = icd9_to_barrel(temp)
+		# DX14: 4 digit code for diagnosis
+		DX14 = substr(temp, 1, 4) %>% as.numeric()
 		
+		# DX15: 5 digit code for diagnosis
+		DX15 = substr(temp, 1, 5) %>% as.numeric()
+		
+		# D5:		5th digit of diagnosis code
+		D5 = substr(temp, 5, 5) %>% as.numeric()
+		
+		#any fracture
+		fx = dplyr::between(DX13, 800, 829)
 		
 		
 		# Brain Injury: 850-854
@@ -476,8 +487,14 @@ if(all.equal(as.integer64(final$key_ed), as.integer64(dx$key_ed))){
 		# Skull Fracture: 800-804
 		final$injury_skull_fx = final$injury_skull_fx | temp %in% as.character(80000:80499)
 		
+		
 		# Cervical Spine Fracture
-		final$injury_cspine = final$injury_cspine | bar$region_3 %in% c("CERVICAL VCI", "CERVICAL SCI")
+		final$injury_cspine = final$injury_cspine | 
+			#CERVICAL SCI
+			dplyr::between(DX14, 8060, 8061) | (DX14 == 9520) | 
+			#CERVICAL VCI
+			dplyr::between(DX14, 8050, 8051) | dplyr::between(DX14, 8390, 8391) | DX14 == 8470
+		
 		
 		# Rib or Sternum Fracture
 		final$injury_rib_fx = final$injury_rib_fx | temp %in% as.character(80700:80740)
@@ -486,41 +503,102 @@ if(all.equal(as.integer64(final$key_ed), as.integer64(dx$key_ed))){
 		final$injury_cardio_pulm = final$injury_cardio_pulm | temp %in% as.character(86000:86199)
 		
 		# Thoracic Spine Fracture
-		final$injury_tspine = final$injury_tspine | bar$region_3 %in% c("THORACIC/DORSAL VCI", "THORACIC/DORSAL SCI")
+		final$injury_tspine = final$injury_tspine | 
+			#THORACIC/DORSAL VCI
+			dplyr::between(DX14, 8052, 8053) | (83921 == DX15 | 83931 == DX15) | DX14 == 8471 |
+			#THORACIC/DORSAL SCI
+			dplyr::between(DX14, 8062, 8063) | (DX14 == 9521)
+		
+		
+		
 		
 		# Lumbar Spine Fracture
-		final$injury_lspine = final$injury_lspine | bar$region_3 %in% c("LUMBAR VCI", "LUMBAR SCI")
+		final$injury_lspine = final$injury_lspine | 
+			#LUMBAR VCI 
+			dplyr::between(DX14, 8054, 8055) | (83920 == DX15 | 83930 == DX15) | DX14 == 8472 |
+			#LUMBAR SCI
+			dplyr::between(DX14, 8064, 8065) | (DX14 == 9522)
+		
 		
 		
 		# Solid Abdominal Organ Injury
-		final$injury_solid_abd = final$injury_solid_abd | temp %in% as.character(c( 86400:86699, #liver, spleen, kidneys
-																																								86381:86384, #pancreas
-																																								86391:86394  #pancreas
-		))
+		final$injury_solid_abd = final$injury_solid_abd | 
+			temp %in% as.character(c( 86400:86699, #liver, spleen, kidneys
+																86381:86384, #pancreas
+																86391:86394  #pancreas
+			))
 		
 		# Hollow Viscera Injury
-		final$injury_hollow_abd = final$injury_hollow_abd | temp %in% as.character(c( 86300:86380, #stomach, intestines
-																																									86389, 86390, 86399, #other GI
-																																									86700:86799 #bladder, ureter, urethra
-		))
+		final$injury_hollow_abd = final$injury_hollow_abd | 
+			temp %in% as.character(c( 86300:86380, #stomach, intestines
+																86389, 86390, 86399, #other GI
+																86700:86799 #bladder, ureter, urethra
+			))
 		
 		
 		
 		
 		# Upper Extremity Fracture
-		final$injury_ue_fx = final$injury_ue_fx | bar$dx_type %in% "FRACTURES" & bar$region_2 %in% "UPPER EXTREMITY"
+		final$injury_ue_fx = final$injury_ue_fx | 
+			fx & 
+			(	dplyr::between(DX13, 810, 812) | DX13 == 831 | DX13 == 840 | 
+					DX13 == 880 | dplyr::between(DX14, 8872, 8873) | (DX13 == 943 & dplyr::between(D5, 3, 6)) |
+					DX13 == 912 | DX14 == 9230 | DX14 == 9270 | DX14 == 9592  |
+					
+					DX13 == 813 | DX13 == 832 | DX13 == 841 | (DX13 == 881 & dplyr::between(D5, 0, 1) ) | 
+					dplyr::between(DX14, 8870, 8871) | DX14 == 9231 | DX14 == 9271 | 
+					(DX13 == 943 & dplyr::between(D5, 1, 2)) |
+					
+					dplyr::between(DX13, 814, 817) | dplyr::between(DX13, 833, 834) | 
+					DX13 == 842 | (DX13 == 881 & D5 == 2) | dplyr::between(DX13, 882, 883) | 
+					dplyr::between(DX13, 885, 886) | dplyr::between(DX13, 914, 915) | 
+					dplyr::between(DX14, 9232, 9233) | dplyr::between(DX14, 9272, 9273) | 
+					DX13 == 944 | dplyr::between(DX14, 9594, 9595) |
+					
+					DX13 == 818 | DX13 == 884 | dplyr::between(DX14, 8874, 8877) | DX13 == 903 |
+					DX13 == 913 | DX14 == 9593 | dplyr::between(DX14, 9238, 9239) | 
+					dplyr::between(DX14, 9278, 9279) | DX14 == 9534 | DX13 == 955 |
+					(DX13 == 943 & (D5 == 0 | D5 == 9)) 
+			)		
+		
+		
+		
+		
 		
 		# Pelvis Fracture: 808
 		final$injury_pelvic_fx = final$injury_pelvic_fx | temp %in% as.character(80800:80899)
 		
 		# Lower Extremity Fracture
-		final$injury_le_fx = final$injury_le_fx | bar$dx_type %in% "FRACTURES" & bar$region_2 %in% "LOWER EXTREMITY"
+		final$injury_le_fx = final$injury_le_fx | 
+			fx & (
+				DX13 == 820 | DX13 == 835 | DX13 == 843 | DX15 == 92401 | DX15 == 92801  |
+					
+					DX13 == 821 | dplyr::between(DX14, 8972, 8973) | DX15 == 92400 | 
+					DX15 == 92800 | (DX13 == 945 & D5 == 6) |
+					
+					DX13 == 822 | DX13 == 836 | dplyr::between(DX14, 8440, 8443) | 
+					DX15 == 92411 | DX15 == 92811 | (DX13 == 945 & D5 == 5)  |
+					
+					dplyr::between(DX13, 823, 824) | dplyr::between(DX14, 8970, 8971) | 
+					DX13 == 837 | DX14 == 8450 | DX15 == 92410 | DX15 == 92421 | 
+					DX15 == 92810 | DX15 == 92821 | (DX13 == 945 & dplyr::between(D5, 3, 4))  |
+					
+					dplyr::between(DX13, 825, 826) | DX13 == 838 | DX14 == 8451 | 
+					dplyr::between(DX13, 892, 893) | dplyr::between(DX13, 895, 896) | 
+					DX13 == 917 | DX15 == 92420 | DX14 == 9243 | DX15 == 92820 | 
+					DX14 == 9283 | (DX13 == 945 & dplyr::between(D5, 1, 2) ) |
+					
+					DX13 == 827 | dplyr::between(DX14, 8448, 8449) | dplyr::between(DX13, 890, 891) |
+					DX13 == 894 | dplyr::between(DX14, 8974, 8977) | dplyr::between(DX14, 9040, 9048) | 
+					DX13 == 916 | dplyr::between(DX14, 9244, 9245) | DX14 == 9288 | DX14 == 9289 | 
+					dplyr::between(DX14, 9596, 9597) | (DX13 == 945 & (D5 == 0 | D5 == 9)) 
+			)
 		
 		gc()
 		
 	}
 	
-	rm(bar, dx, temp)
+	rm(dx, temp, fx, DX13, DX14, DX15, D5)
 }
 
 
