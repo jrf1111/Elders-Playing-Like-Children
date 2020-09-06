@@ -619,8 +619,9 @@ final$pay1_recode = case_when(
 final$disp_ip_recode = as.character(final$disp_ip)
 
 final$disp_ip_recode = case_when(
-	final$disp_ip == "Home Health Care"  ~  "Home with/without services", 
-	final$disp_ip == "Routine"  ~  "Home with/without services", 
+	final$edevent != "Admitted as inpatient" ~ "Not admitted as inpatient",
+	final$disp_ip == "Home Health Care"  ~  "Home with/without services",
+	final$disp_ip == "Routine"  ~  "Home with/without services",
 	TRUE ~ as.character(final$disp_ip_recode)
 )
 
