@@ -645,7 +645,7 @@ final %>% select_if(is.factor) %>% summary()
 
 
 
-# remove cases with missing data -----
+# remove cases with missing outcomes -----
 final = filter(final, !is.na(mortality))
 final = filter(final, !is.na(totchg))
 
@@ -657,6 +657,35 @@ cat("N_obs removing missing mortality, total charges = ",
 		append = TRUE)
 
 
+
+
+
+# remove cases with missing covariates -----
+
+sapply(final, function(x){mean(is.na(x))}) %>% sort()
+
+
+final %>% select_if(is.factor) %>% 
+	sapply(., function(x){mean(x %in% "Missing/Unknown")}) %>% 
+		sort()
+
+
+
+
+
+final = filter(final, !is.na(female))
+final = filter(final, !is.na(zipinc_qrtl))
+final = filter(final, !is.na(totchg_ed))
+final = filter(final, pay1_recode != "Missing/Unknown")
+
+
+
+
+n = nrow(final)
+n = as.integer(n)
+cat("N_obs removing missing covariates = ", 
+		format(n, big.mark=","), "\n", file = "nobs log.txt", 
+		append = TRUE)
 
 
 
