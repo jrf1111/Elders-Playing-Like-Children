@@ -201,17 +201,8 @@ final$zipinc_qrtl = factor(final$zipinc_qrtl,
 
 
 
-final$pay1 = case_when(
-	final$pay1 == 1 ~ "Medicare",
-	final$pay1 == 2 ~ "Medicaid",
-	final$pay1 == 3 ~ "Private insurance",
-	final$pay1 == 4 ~ "Self-pay",
-	final$pay1 == 5 ~ "No charge",
-	final$pay1 == 6 ~ "Other",
-	TRUE ~ "Missing/Unknown"
-) %>% as.factor()
 
-
+#use pay2 if pay1 is missing
 
 final$pay2 = case_when(
 	final$pay2 == 1 ~ "Medicare",
@@ -221,7 +212,20 @@ final$pay2 = case_when(
 	final$pay2 == 5 ~ "No charge",
 	final$pay2 == 6 ~ "Other",
 	TRUE ~ "Missing/Unknown"
+) 
+
+final$pay1 = case_when(
+	final$pay1 == 1 ~ "Medicare",
+	final$pay1 == 2 ~ "Medicaid",
+	final$pay1 == 3 ~ "Private insurance",
+	final$pay1 == 4 ~ "Self-pay",
+	final$pay1 == 5 ~ "No charge",
+	final$pay1 == 6 ~ "Other",
+	TRUE ~ final$pay2
 ) %>% as.factor()
+
+
+
 
 
 
