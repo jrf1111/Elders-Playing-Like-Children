@@ -164,20 +164,23 @@ gc()
 final$female[which(final$female<0)] = NA
 
 
-final$totchg_ed = as.integer(final$totchg_ed)
-final$totchg_ed[which(final$totchg_ed<0)] = NA
 
-final$totchg_ip = as.integer(final$totchg_ip)
+#Per NEDS documentation at https://www.hcup-us.ahrq.gov/db/vars/totchg_ip/nedsnote.jsp
+#   "TOTCHG_IP contains the edited total charge for the inpatient stay, including the emergency department charges"
+#recode totchg_ip to only be in-patient charges
+
+
+final$totchg_ed = as.integer(final$totchg_ed)
+final$totchg_ed[which(final$totchg_ed < 0)] = NA
+
+
+final$totchg = as.integer(final$totchg_ip)
+final$totchg[which(final$totchg < 0)] = NA
+
+
+final$totchg_ip = as.integer(final$totchg - final$totchg_ed)
 final$totchg_ip[which(final$totchg_ip<0)] = NA
 
-
-#use L after zero to use integer form of zero instead of double
-final$totchg = case_when(
-	!is.na(final$totchg_ed) & !is.na(final$totchg_ip) ~ final$totchg_ed + final$totchg_ip,
-	!is.na(final$totchg_ed) & is.na(final$totchg_ip) ~ final$totchg_ed + 0L,
-	is.na(final$totchg_ed) & !is.na(final$totchg_ip) ~ 0L + final$totchg_ip,
-	TRUE ~ NA_integer_
-)
 
 
 
@@ -389,6 +392,7 @@ final$trauma_type = case_when(
 
 
 #pull out trauma center level -----
+#from https://www.hcup-us.ahrq.gov/db/vars/neds_stratum/nedsnote.jsp
 #NEDS Stratum: 2nd digit – Trauma: 
 #(0) Not a trauma center,
 #(1) Trauma center level I, 
