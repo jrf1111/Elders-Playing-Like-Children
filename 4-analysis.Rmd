@@ -185,12 +185,11 @@ pt_counts = rbind(pt_counts,
 pt_counts$label = c("Number of encounters in NEDS dataset, 2010-2016",
 										"Principal diagnosis of trauma",
 										"Age \u2265 50 years",
-										"Principal external cause of injury not one of burns,\nbites/stings, overexertion, poisoning, or\nmisadventures of medical/surgical care",
+										"Principal external cause of injury not one of burns, bites/stings, overexertion, poisoning, or misadventures of medical/surgical care",
 										"Not missing data for mortality or total charges",
+										"Not missing data for sex, ZIP code income quartile, total ED charges, or primary payer", 
 										"Included for analysis"
-)
-
-
+) %>% str_wrap(., width = 35)
 
 
 
@@ -207,15 +206,17 @@ c [label = '@@3']
 d [label = '@@4']
 e [label = '@@5']
 f [label = '@@6']
+g [label = '@@7']
 
-b_out [label = '@@7']
-c_out [label = '@@8']
-d_out [label = '@@9']
-e_out [label = '@@10']
+b_out [label = '@@8']
+c_out [label = '@@9']
+d_out [label = '@@10']
+e_out [label = '@@11']
+f_out [label = '@@12']
 
 
-a -> b -> c -> d -> e -> f
-a -> b_out -> c_out -> d_out -> e_out
+a -> b -> c -> d -> e -> f -> g
+a -> b_out -> c_out -> d_out -> e_out -> f_out
 
 }
 
@@ -225,10 +226,12 @@ a -> b_out -> c_out -> d_out -> e_out
 [4]: paste0(pt_counts$label[4], ': n = ', pt_counts$V2[4])
 [5]: paste0(pt_counts$label[5], ': n = ', pt_counts$V2[5])
 [6]: paste0(pt_counts$label[6], ': n = ', pt_counts$V2[6])
-[7]: paste0('Excluded: n = ', pt_counts$n_change[2])
-[8]: paste0('Excluded: n = ', pt_counts$n_change[3])
-[9]: paste0('Excluded: n = ', pt_counts$n_change[4])
-[10]: paste0('Excluded: n = ', pt_counts$n_change[5])
+[7]: paste0(pt_counts$label[7], ': n = ', pt_counts$V2[7])
+[8]: paste0('Excluded: n = ', pt_counts$n_change[2])
+[9]: paste0('Excluded: n = ', pt_counts$n_change[3])
+[10]: paste0('Excluded: n = ', pt_counts$n_change[4])
+[11]: paste0('Excluded: n = ', pt_counts$n_change[5])
+[12]: paste0('Excluded: n = ', pt_counts$n_change[6])
 "
 )
 
