@@ -33,22 +33,9 @@ mdata = read_fst("Data/final/final combined dataset.fst")
 mdata$hosp_ed = as.factor(mdata$hosp_ed)
 
 
+mdata$ecode1_group1 = paste0(mdata$ecode1_group1_code,": ", mdata$ecode1_group1_name)
 
-mdata$ecode1_group2_name = str_replace_all(mdata$ecode1_group2_name, 
-																					 "Motor vehicle traffic unintentional injury",
-																					 "Motor vehicle traffic collision"
-																					 )
-
-mdata$ecode1_group2_name = str_replace_all(mdata$ecode1_group2_name, 
-																					 "nontraffic unintentional injury",
-																					 "nontraffic injury"
-																					 )
-
-mdata$ecode1_group2_name = str_replace_all(mdata$ecode1_group2_name, 
-																					 "traffic unintentional injury",
-																					 "traffic injury"
-																					 )
-
+mdata$ecode1_group2 = paste0(mdata$ecode1_group2_code,": ", mdata$ecode1_group2_name)
 
 
 
@@ -60,19 +47,28 @@ med_iqi = function(x, w=mdata$discwt, na.rm=T, digits=0){
 	
 	digits = as.character(digits)
 	
-	fmt = paste0("%.", digits, "f [%.", digits, "f, %.", digits, "f]")
+	fmt = paste0("%.", digits, "f [%.", digits, "f - %.", digits, "f]")
 	
 	if(is.null(w)){
-		sprintf(fmt,
+		res = sprintf(fmt,
 						quantile(x=x, probs = 0.5, na.rm = na.rm), 
 						quantile(x=x, probs = 0.25, na.rm = na.rm), 
 						quantile(x=x, probs = 0.75, na.rm = na.rm))
 	} else{
-		sprintf(fmt,
+		res = sprintf(fmt,
 						spatstat::weighted.quantile(x=x, w=w, probs = 0.5, na.rm = na.rm), 
 						spatstat::weighted.quantile(x=x, w=w, probs = 0.25, na.rm = na.rm), 
 						spatstat::weighted.quantile(x=x, w=w, probs = 0.75, na.rm = na.rm))
 	}
+	
+	#add thousand marks
+	res = str_replace_all(res,
+												"(\\d{1,})(\\d{3})",
+												"\\1,\\2"
+												)
+	
+	res
+	
 	
 }
 
@@ -108,10 +104,14 @@ cat_perc = function(df, x, w = "discwt"){
 	res$n = as.numeric(res$n)
 	res$perc = round((res$n/total)*100, 2)
 	
+	res$n = format(res$n, big.mark = ",")
+	res$perc = paste0(res$perc, "%")
 	
 	res
 	
 }
+
+
 
 cat_perc_by = function(df, groups, wt_var = "discwt"){
 	
@@ -123,6 +123,9 @@ cat_perc_by = function(df, groups, wt_var = "discwt"){
 		dplyr::select(-freq, -perc) %>% 
 		tidyr::pivot_wider(names_from = groups[1], 
 											 values_from = val)
+	
+	
+	
 	
 }
 
@@ -277,7 +280,7 @@ tbl = mdata %>%
 		pDeath = med_iqi(pDeath*100, w = discwt, digits=2),
 		los_ip = med_iqi(los_ip, w = discwt),
 		totchg_ed = med_iqi(totchg_ed, w = discwt),
-		totchg_ip = med_iqi(totchg_ip, w = discwt),
+		totchg_ip_recode = med_iqi(totchg_ip_recode, w = discwt),
 		totchg = med_iqi(totchg, w = discwt)
 	) %>% t() %>% as.data.frame() 
 
@@ -289,7 +292,7 @@ ps = c(
 	wilcox_weighted_p(mdata$pDeath, mdata$high_risk),
 	wilcox_weighted_p(mdata$los_ip, mdata$high_risk),
 	wilcox_weighted_p(mdata$totchg_ed, mdata$high_risk),
-	wilcox_weighted_p(mdata$totchg_ip, mdata$high_risk),
+	wilcox_weighted_p(mdata$totchg_ip_recode, mdata$high_risk),
 	wilcox_weighted_p(mdata$totchg, mdata$high_risk)
 )
 
@@ -451,7 +454,7 @@ mdata %>%
 
 mdata %>% 
 	filter(high_risk == "High-risk") %>% 
-	group_by(ecode1_group1_code, ecode1_group1_name) %>% 
+	group_by(ecode1_group1) %>% 
 	summarise(
 		n_obs = n(),
 		n_weighted = round(sum(discwt)),
@@ -463,6 +466,7 @@ mdata %>%
 		
 		totchg = med_iqi(totchg, w = discwt)
 	) %>% 
+	ungroup() %>% 
 	mutate(obs_pct = n_obs/sum(n_obs),
 				 wgt_pct = n_weighted/sum(n_weighted),
 				 #a bit ridiculous, but this gives descending rankings
@@ -470,7 +474,7 @@ mdata %>%
 				 mort_rank = rank(-mort_rate),
 				 freq_rank = rank(-wgt_pct)
 	) %>% 
-	select(ecode1_group1_name, 
+	select(ecode1_group1, 
 				 n_obs, obs_pct, 
 				 n_weighted, wgt_pct,
 				 pDeath, death, mort_rate, totchg, 
@@ -499,7 +503,7 @@ mdata %>%
 
 mdata %>% 
 	filter(high_risk == "High-risk") %>% 
-	group_by(ecode1_group2_code, ecode1_group2_name) %>% 
+	group_by(ecode1_group2) %>% 
 	summarise(
 		n_obs = n(),
 		n_weighted = round(sum(discwt)),
@@ -511,6 +515,7 @@ mdata %>%
 		
 		totchg = med_iqi(totchg, w = discwt)
 	) %>% 
+	ungroup() %>% 
 	mutate(obs_pct = n_obs/sum(n_obs),
 				 wgt_pct = n_weighted/sum(n_weighted),
 				 #a bit ridiculous, but this gives descending rankings
@@ -518,7 +523,7 @@ mdata %>%
 				 mort_rank = rank(-mort_rate),
 				 freq_rank = rank(-wgt_pct)
 	) %>% 
-	select(ecode1_group2_name, 
+	select(ecode1_group2, 
 				 n_obs, obs_pct, 
 				 n_weighted, wgt_pct,
 				 pDeath, death, mort_rate, totchg, 
@@ -558,6 +563,7 @@ mdata %>%
 		
 		totchg = med_iqi(totchg, w = discwt)
 	) %>% 
+	ungroup() %>% 
 	mutate(obs_pct = n_obs/sum(n_obs),
 				 wgt_pct = n_weighted/sum(n_weighted),
 				 #a bit ridiculous, but this gives descending rankings
@@ -565,7 +571,7 @@ mdata %>%
 				 mort_rank = rank(-mort_rate),
 				 freq_rank = rank(-wgt_pct)
 	) %>% 
-	select(ecode1_desc, 
+	select(ecode1, ecode1_desc, 
 				 n_obs, obs_pct, 
 				 n_weighted, wgt_pct,
 				 pDeath, death, mort_rate, totchg, 
@@ -649,7 +655,7 @@ tbl = mdata %>%
 		pDeath = med_iqi(pDeath*100, w = discwt, digits=2),
 		los_ip = med_iqi(los_ip, w = discwt),
 		totchg_ed = med_iqi(totchg_ed, w = discwt),
-		totchg_ip = med_iqi(totchg_ip, w = discwt),
+		totchg_ip_recode = med_iqi(totchg_ip_recode, w = discwt),
 		totchg = med_iqi(totchg, w = discwt)
 	) %>% t() %>% as.data.frame() 
 
@@ -665,7 +671,7 @@ ps = c(
 	wilcox_weighted_p(temp$pDeath, temp$mortality, temp$discwt),
 	wilcox_weighted_p(temp$los_ip, temp$mortality, temp$discwt),
 	wilcox_weighted_p(temp$totchg_ed, temp$mortality, temp$discwt),
-	wilcox_weighted_p(temp$totchg_ip, temp$mortality, temp$discwt),
+	wilcox_weighted_p(temp$totchg_ip_recode, temp$mortality, temp$discwt),
 	wilcox_weighted_p(temp$totchg, temp$mortality, temp$discwt)
 )
 
@@ -677,61 +683,62 @@ cbind(rownames(tbl), tbl, ps) %>% my_print()
 
 
 
-
+top_10$ecode1_group2_code[1]
 top_10$ecode1_group2_name[1]
 cat_perc_by(temp, c("mortality", "top_10_ecode_E826"))%>% my_print()
 weights::wtd.chi.sq(temp$mortality, temp$top_10_ecode_E826,
 										weight = temp$discwt, mean1 = F) %>% knitr::kable()
 
 
+top_10$ecode1_group2_code[2]
 top_10$ecode1_group2_name[2]
 cat_perc_by(temp, c("mortality", "top_10_ecode_E812")) %>% my_print()
 weights::wtd.chi.sq(temp$mortality, temp$top_10_ecode_E812,
 										weight = temp$discwt, mean1 = F) %>% knitr::kable()
 
-
+top_10$ecode1_group2_code[3]
 top_10$ecode1_group2_name[3]
 cat_perc_by(temp, c("mortality", "top_10_ecode_E821")) %>% my_print()
 weights::wtd.chi.sq(temp$mortality, temp$top_10_ecode_E821,
 										weight = temp$discwt, mean1 = F) %>% knitr::kable()
 
-
+top_10$ecode1_group2_code[4]
 top_10$ecode1_group2_name[4]
 cat_perc_by(temp, c("mortality", "top_10_ecode_E816")) %>% my_print()
 weights::wtd.chi.sq(temp$mortality, temp$top_10_ecode_E816,
 										weight = temp$discwt, mean1 = F) %>% knitr::kable()
 
-
+top_10$ecode1_group2_code[5]
 top_10$ecode1_group2_name[5]
 cat_perc_by(temp, c("mortality", "top_10_ecode_E819")) %>% my_print()
 weights::wtd.chi.sq(temp$mortality, temp$top_10_ecode_E819,
 										weight = temp$discwt, mean1 = F) %>% knitr::kable()
 
-
+top_10$ecode1_group2_code[6]
 top_10$ecode1_group2_name[6]
 cat_perc_by(temp, c("mortality", "top_10_ecode_E885")) %>% my_print()
 weights::wtd.chi.sq(temp$mortality, temp$top_10_ecode_E885,
 										weight = temp$discwt, mean1 = F) %>% knitr::kable()
 
-
+top_10$ecode1_group2_code[7]
 top_10$ecode1_group2_name[7]
 cat_perc_by(temp, c("mortality", "top_10_ecode_E813")) %>% my_print()
 weights::wtd.chi.sq(temp$mortality, temp$top_10_ecode_E813,
 										weight = temp$discwt, mean1 = F) %>% knitr::kable()
 
-
+top_10$ecode1_group2_code[8]
 top_10$ecode1_group2_name[8]
 cat_perc_by(temp, c("mortality", "top_10_ecode_E818")) %>% my_print()
 weights::wtd.chi.sq(temp$mortality, temp$top_10_ecode_E818,
 										weight = temp$discwt, mean1 = F) %>% knitr::kable()
 
-
+top_10$ecode1_group2_code[9]
 top_10$ecode1_group2_name[9]
 cat_perc_by(temp, c("mortality", "top_10_ecode_E006")) %>% my_print()
 weights::wtd.chi.sq(temp$mortality, temp$top_10_ecode_E006,
 										weight = temp$discwt, mean1 = F) %>% knitr::kable()
 
-
+top_10$ecode1_group2_code[10]
 top_10$ecode1_group2_name[10]
 cat_perc_by(temp, c("mortality", "top_10_ecode_E815")) %>% my_print()
 weights::wtd.chi.sq(temp$mortality, temp$top_10_ecode_E815,
@@ -891,7 +898,7 @@ tbl = temp %>%
 		pDeath = med_iqi(pDeath*100, w = discwt, digits=2),
 		los_ip = med_iqi(los_ip, w = discwt),
 		totchg_ed = med_iqi(totchg_ed, w = discwt),
-		totchg_ip = med_iqi(totchg_ip, w = discwt),
+		totchg_ip_recode = med_iqi(totchg_ip_recode, w = discwt),
 		totchg = med_iqi(totchg, w = discwt)
 	) %>% t() %>% as.data.frame() 
 
@@ -903,7 +910,7 @@ ps = c(
 	wilcox_weighted_p(temp$pDeath, temp$age_group, temp$discwt),
 	wilcox_weighted_p(temp$los_ip, temp$age_group, temp$discwt),
 	wilcox_weighted_p(temp$totchg_ed, temp$age_group, temp$discwt),
-	wilcox_weighted_p(temp$totchg_ip, temp$age_group, temp$discwt),
+	wilcox_weighted_p(temp$totchg_ip_recode, temp$age_group, temp$discwt),
 	wilcox_weighted_p(temp$totchg, temp$age_group, temp$discwt)
 )
 
