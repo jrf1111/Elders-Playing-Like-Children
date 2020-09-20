@@ -390,6 +390,17 @@ final %>%
 
 
 
+#the above ends up creating 4 cases with recoded IP charges <0
+#this is because their ED charges are higher than their total charges
+#(even before my recoding).  See:
+final %>% 
+	filter(totchg_ip_recode<0) %>% 
+	select(year, edevent, totchg_ed, totchg_ip, totchg, totchg_ip_recode) 
+
+final$totchg_ip_recode[final$totchg_ip_recode<0] = NA
+
+
+
 
 
 #add definition for high risk vs. not -----
@@ -466,6 +477,25 @@ final$trauma_type = case_when(
 	final$mech1 == "FALL" ~ "Blunt",
 	TRUE ~ "Other"
 )
+
+
+
+
+final$ecode1_group2_name = str_replace_all(final$ecode1_group2_name, 
+																					 "Motor vehicle traffic unintentional injury",
+																					 "Motor vehicle traffic collision"
+)
+
+final$ecode1_group2_name = str_replace_all(final$ecode1_group2_name, 
+																					 "nontraffic unintentional injury",
+																					 "nontraffic injury"
+)
+
+final$ecode1_group2_name = str_replace_all(final$ecode1_group2_name, 
+																					 "traffic unintentional injury",
+																					 "traffic injury"
+)
+
 
 
 
