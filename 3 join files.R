@@ -434,6 +434,7 @@ dx_recode = function(dx){
 
 ecodes = read_csv("https://raw.githubusercontent.com/jrf1111/ICD9/master/icd9_ecodes_with_groups.csv")
 
+ecodes = ecodes %>% filter(nchar(ecodes$ecode) > 4)
 
 
 #reformat to match ecodes file
@@ -534,7 +535,10 @@ final$hosp_trauma_level = case_when(
 dx = read_fst("Data/final/dx_final.fst")
 source("icd9_to_Barell.R")
 
+
+
 if(all.equal(as.integer64(final$key_ed), as.integer64(dx$key_ed))){
+	
 	
 	
 	# Brain Injury
@@ -547,9 +551,9 @@ if(all.equal(as.integer64(final$key_ed), as.integer64(dx$key_ed))){
 	final$injury_rib_fx = FALSE
 	# Cardiac or Pulmonary Injury:
 	final$injury_cardio_pulm = FALSE
-	# Thoracic Spine Fracture
+	# Thoracic Spine injury
 	final$injury_tspine = FALSE
-	# Lumbar Spine Fracture
+	# Lumbar Spine injury
 	final$injury_lspine = FALSE
 	# Solid Abdominal Organ Injury
 	final$injury_solid_abd = FALSE
@@ -565,6 +569,40 @@ if(all.equal(as.integer64(final$key_ed), as.integer64(dx$key_ed))){
 	
 	
 	
+	# dx_num = "dx1"
+	# temp = dx[, dx_num]
+	# 
+	# 
+	# system.time({
+	# 	bar = cbind(temp, icd9_to_barrel(temp))
+	# })
+	# #~60 secs
+	# 
+	# system.time({
+	# 	icd = seq(from = 800.00, to = 999.99, by = 0.01) %>% 
+	# 		as.character() %>% 
+	# 		gsub(".", "", ., fixed = TRUE) %>% 
+	# 		dx_recode()
+	# 	
+	# 	bar2 = cbind(icd, icd9_to_barrel(icd))
+	# 	temp = data.frame(icd = temp)
+	# 	bar2 = left_join(temp, bar2, by = "icd")
+	# })
+	# #<1 sec
+	# 
+	# colnames(bar) = colnames(bar2)
+	# 
+	# all.equal(target = bar2, current = bar)
+	# #TRUE
+	
+	
+	
+	icd = seq(from = 800.00, to = 999.99, by = 0.01) %>% 
+		as.character() %>% 
+		gsub(".", "", ., fixed = TRUE) %>% 
+		dx_recode()
+	
+	
 	
 	dx_nums = paste0("dx", 1:15)
 	
@@ -574,40 +612,45 @@ if(all.equal(as.integer64(final$key_ed), as.integer64(dx$key_ed))){
 		
 		temp = dx[, dx_num]
 		
-		bar = icd9_to_barrel(temp)
+		
+		bar = cbind(icd, icd9_to_barrel(icd))
+		temp = data.frame(icd = temp)
+		bar = left_join(temp, bar, by = "icd")
 		
 		
+		
+		library(fastmatch)
 		
 		# Brain Injury: 850-854
-		final$injury_brain = final$injury_brain | temp %in% as.character(85000:85499)
+		final$injury_brain = final$injury_brain | temp$icd %fin% as.character(85000:85499)
 		
 		# Skull Fracture: 800-804
-		final$injury_skull_fx = final$injury_skull_fx | temp %in% as.character(80000:80499)
+		final$injury_skull_fx = final$injury_skull_fx | temp$icd %fin% as.character(80000:80499)
 		
 		# Cervical Spine Fracture
-		final$injury_cspine = final$injury_cspine | bar$region_3 %in% c("CERVICAL VCI", "CERVICAL SCI")
+		final$injury_cspine = final$injury_cspine | bar$region_3 %fin% c("CERVICAL VCI", "CERVICAL SCI")
 		
 		# Rib or Sternum Fracture
-		final$injury_rib_fx = final$injury_rib_fx | temp %in% as.character(80700:80740)
+		final$injury_rib_fx = final$injury_rib_fx | temp$icd %fin% as.character(80700:80740)
 		
 		# Cardiac or Pulmonary Injury: 860-861
-		final$injury_cardio_pulm = final$injury_cardio_pulm | temp %in% as.character(86000:86199)
+		final$injury_cardio_pulm = final$injury_cardio_pulm | temp$icd %fin% as.character(86000:86199)
 		
 		# Thoracic Spine Fracture
-		final$injury_tspine = final$injury_tspine | bar$region_3 %in% c("THORACIC/DORSAL VCI", "THORACIC/DORSAL SCI")
+		final$injury_tspine = final$injury_tspine | bar$region_3 %fin% c("THORACIC/DORSAL VCI", "THORACIC/DORSAL SCI")
 		
 		# Lumbar Spine Fracture
-		final$injury_lspine = final$injury_lspine | bar$region_3 %in% c("LUMBAR VCI", "LUMBAR SCI")
+		final$injury_lspine = final$injury_lspine | bar$region_3 %fin% c("LUMBAR VCI", "LUMBAR SCI")
 		
 		
 		# Solid Abdominal Organ Injury
-		final$injury_solid_abd = final$injury_solid_abd | temp %in% as.character(c( 86400:86699, #liver, spleen, kidneys
+		final$injury_solid_abd = final$injury_solid_abd | temp$icd %fin% as.character(c( 86400:86699, #liver, spleen, kidneys
 																																								86381:86384, #pancreas
 																																								86391:86394  #pancreas
 		))
 		
 		# Hollow Viscera Injury
-		final$injury_hollow_abd = final$injury_hollow_abd | temp %in% as.character(c( 86300:86380, #stomach, intestines
+		final$injury_hollow_abd = final$injury_hollow_abd | temp$icd %fin% as.character(c( 86300:86380, #stomach, intestines
 																																									86389, 86390, 86399, #other GI
 																																									86700:86799 #bladder, ureter, urethra
 		))
@@ -616,13 +659,13 @@ if(all.equal(as.integer64(final$key_ed), as.integer64(dx$key_ed))){
 		
 		
 		# Upper Extremity Fracture
-		final$injury_ue_fx = final$injury_ue_fx | bar$dx_type %in% "FRACTURES" & bar$region_2 %in% "UPPER EXTREMITY"
+		final$injury_ue_fx = final$injury_ue_fx | bar$dx_type %fin% "FRACTURES" & bar$region_2 %fin% "UPPER EXTREMITY"
 		
 		# Pelvis Fracture: 808
-		final$injury_pelvic_fx = final$injury_pelvic_fx | temp %in% as.character(80800:80899)
+		final$injury_pelvic_fx = final$injury_pelvic_fx | temp$icd %fin% as.character(80800:80899)
 		
 		# Lower Extremity Fracture
-		final$injury_le_fx = final$injury_le_fx | bar$dx_type %in% "FRACTURES" & bar$region_2 %in% "LOWER EXTREMITY"
+		final$injury_le_fx = final$injury_le_fx | bar$dx_type %fin% "FRACTURES" & bar$region_2 %fin% "LOWER EXTREMITY"
 		
 		gc()
 		
