@@ -16,117 +16,376 @@ editor_options:
   chunk_output_type: console
 ---
 
-```{r setup and import}
+```{r setup}
 knitr::opts_chunk$set(echo = TRUE,
-											results = "asis",
-											cache = TRUE)
+                      results = "asis")
 
 library(tidyverse)
-library(tidylog)
+suppressMessages(library(tidylog))
 library(data.table)
 library(fst)
-library(bit64)
-library(DiagrammeR)
+suppressMessages(library(bit64))
 library(weights)
+library(glmnet)
+library(mgcv)
+library(gammit)
 
 
 
-mdata = read_fst("Data/final/final combined dataset.fst")
-mdata$hosp_ed = as.factor(mdata$hosp_ed)
+```
+
+
+\
+\
+\
+
+# Distribution of total charges
+
+```{r estimate dist}
 
 
 
-med_iqi = function(x, w=mdata$discwt, na.rm=T, digits=0){
-	
-	digits = as.character(digits)
-	
-	fmt = paste0("%.", digits, "f [%.", digits, "f, %.", digits, "f]")
-	
-	if(is.null(w)){
-		sprintf(fmt,
-						quantile(x=x, probs = 0.5, na.rm = na.rm), 
-						quantile(x=x, probs = 0.25, na.rm = na.rm), 
-						quantile(x=x, probs = 0.75, na.rm = na.rm))
-	} else{
-		sprintf(fmt,
-						spatstat::weighted.quantile(x=x, w=w, probs = 0.5, na.rm = na.rm), 
-						spatstat::weighted.quantile(x=x, w=w, probs = 0.25, na.rm = na.rm), 
-						spatstat::weighted.quantile(x=x, w=w, probs = 0.75, na.rm = na.rm))
-	}
-	
-}
+mdata = read_fst("Data/final/final combined dataset with top 10.fst", 
+                 columns = c("totchg", "los_ip", "edevent", "discwt", "high_risk", "npr_ip")
+)
+
+
+mdata = mdata %>%
+  filter(high_risk == "High-risk") %>% 
+  select(-high_risk)
 
 
 
-my.weighted.mean = function(x, w = mdata$discwt, na.rm=T){
-	
-	weighted.mean(x=x, w = w, na.rm = na.rm)
-	
-	
-}
+summary(mdata$totchg)
 
+format(quantile(mdata$totchg, probs = seq(0, 1, 0.05)), big.mark = ",")
 
-cat_perc = function(df, x, w = "discwt"){
-	
-	df = as.data.frame(df)
-	x = df[, x]
-	w = df[, w]
-	rm(df)
-	
-	res = data.frame(var = unique(x))
-	res$n = NA_real_
-	res$perc = NA_real_
-	total = sum(w, na.rm = T)
-	
-	for(i in 1:nrow(res)){
-		res$n[i] = round( sum( w[x==res$var[i] ], na.rm = T ) )
-	}
-	
-	res$var = as.character(res$var)
-	res = res[!is.na(res$var), ]
-	res = rbind(res, c("Missing", round(sum(w[ is.na(x) ])), NA))
-	res$n = as.numeric(res$n)
-	res$perc = round((res$n/total)*100, 2)
-	
-	
-	res
-	
-}
+format(quantile(mdata$totchg, probs = seq(0.9, 1, 0.01)), big.mark = ",")
 
-cat_perc_by = function(df, groups, wt_var = "discwt"){
-	
-	plyr::count(df, groups, wt_var = wt_var) %>% 
-		dplyr::group_by_(groups[1]) %>% 
-		dplyr::mutate(perc = round((freq/sum(freq))*100, 2) ) %>% 
-		dplyr::ungroup() %>% 
-		dplyr::mutate(val = paste0(format(round(freq), big.mark = ","), " (", perc, "%)")) %>% 
-		dplyr::select(-freq, -perc) %>% 
-		tidyr::pivot_wider(names_from = groups[1], 
-											 values_from = val)
-	
-}
+format(quantile(mdata$totchg, probs = seq(0.99, 1, 0.001)), big.mark = ",")
+
+format(quantile(mdata$totchg, probs = seq(0.999, 1, 0.0001)), big.mark = ",")
 
 
 
 
-wilcox_weighted_p = function(y, x, w = mdata$discwt){
-	y = data.table::frank(y)
-	res = broom::glance(lm(y ~ x, weights = w))
-	res = res[1, "p.value"]
-	res = as.numeric(res)
-	
-	if(res < 0.0001){
-		res = "< 0.0001"
-	} else{
-		res = round(res, 4)
-	}
-	
-	res
-	
-}
+
+counts = mdata %>% count(totchg) %>% 
+  mutate(pct = n/sum(n), 
+         cumpct = cumsum(pct)) %>% 
+  mutate_if(is.numeric, round, 4)
+
+
+counts %>% 
+  ggplot(aes(x = totchg, y = n)) + 
+  geom_col() +
+  scale_x_binned(n.breaks = 50, labels = scales::comma) +
+  theme_bw() + 
+  theme(panel.grid.major.x = element_blank(),
+        axis.text.x = element_text(angle = -90))
 
 
 
+
+#Winsorize values greater than the 99th percentile
+cut = quantile(mdata$totchg, probs = 0.99)
+cut
+mdata$totchg_winsor = mdata$totchg
+mdata$totchg_winsor[mdata$totchg > cut] = cut+1
+
+
+
+mdata %>% count(totchg_winsor) %>% 
+  mutate(pct = n/sum(n), 
+         cumpct = cumsum(pct)) %>% 
+  mutate_if(is.numeric, round, 4) %>% 
+  ggplot(aes(x = totchg_winsor, y = n)) + 
+  geom_col() +
+  scale_x_binned(n.breaks = 50, labels = scales::comma) +
+  theme_bw() + 
+  theme(panel.grid.major.x = element_blank(),
+        axis.text.x = element_text(angle = -90))
+
+
+
+
+
+
+
+
+
+
+#look at Poisson, NB, and gamma
+
+#at the least, deviance residuals should be normally distributed
+#optimally, deviance residuals should not be heteroskedastic, but that's not a big real for now
+# because these models won't account for clustering
+
+
+mdata$los_ip[which(mdata$edevent != "Admitted as inpatient")] = 0
+
+mdata$npr_ip[which(mdata$edevent != "Admitted as inpatient")] = 0
+
+
+par(mfrow=c(1, 2))
+
+poismod = glm(totchg_winsor ~ edevent * los_ip + npr_ip, data = mdata,
+              family = poisson("log"), weights = mdata$discwt)
+ypred = predict(poismod, type = "link")
+d_resid = residuals(poismod, type = 'deviance')
+fam = poismod$family$family
+link = poismod$family$link
+hist(d_resid, breaks = 100, main = paste(fam, "with", link, "link"))
+smoothScatter(x=ypred, y=d_resid, main = paste(fam, "with", link, "link"), nbin=800)
+rm(ypred, d_resid, fam, link)
+
+
+
+nbmod = MASS::glm.nb(totchg_winsor ~ edevent * los_ip + npr_ip, data = mdata,
+                     weights = mdata$discwt)
+ypred = predict(nbmod, type = "link")
+d_resid = residuals(nbmod, type = 'deviance')
+fam = nbmod$family$family
+link = nbmod$family$link
+hist(d_resid, breaks = 100, main = paste(fam, "with", link, "link"))
+smoothScatter(x=ypred, y=d_resid, main = paste(fam, "with", link, "link"), nbin=800)
+rm(ypred, d_resid, fam, link)
+
+
+
+
+gammod = glm(totchg_winsor ~ edevent * los_ip + npr_ip, data = mdata,
+             family = Gamma("log"), weights = mdata$discwt)
+ypred = predict(gammod, type = "link")
+d_resid = residuals(gammod, type = 'deviance')
+fam = gammod$family$family
+link = gammod$family$link
+hist(d_resid, breaks = 100, main = paste(fam, "with", link, "link"))
+smoothScatter(x=ypred, y=d_resid, main = paste(fam, "with", link, "link"), nbin=800)
+rm(ypred, d_resid, fam, link)
+
+par(mfrow = c(1, 1))
+
+
+#Efron's Pseudo R-squared
+cor(poismod$fitted.values, poismod$y)^2
+cor(nbmod$fitted.values, nbmod$y)^2
+cor(gammod$fitted.values, gammod$y)^2
+
+
+
+
+rm(poismod, nbmod, gammod, counts)
+
+```
+
+
+\
+\
+
+
+
+
+# Preprocessing
+```{r preprocessing}
+
+
+mdata = read_fst("Data/final/final combined dataset with top 10.fst",
+                 columns = c("totchg",
+                             "discwt", 
+                             #demos
+                             "age", "age_group", 'female', 'zipinc_qrtl', 'pay1_recode', 'high_risk', 
+                             
+                             #outcomes
+                             'edevent', 'disp_ip_recode', 
+                             'los_ip', 'npr_ip', 
+                             
+                             #injuries
+                             'injury_brain', 'injury_skull_fx', 'injury_cspine', 
+                             'injury_rib_fx', 'injury_cardio_pulm', 'injury_tspine', 
+                             'injury_lspine', 'injury_solid_abd', 'injury_hollow_abd', 
+                             'injury_ue_fx', 'injury_pelvic_fx', 'injury_le_fx')
+)
+
+
+
+mdata = mdata %>% filter(high_risk == "High-risk") %>% select(-high_risk)
+
+
+
+
+
+#Winsorize values greater than the 99th percentile
+cut = quantile(mdata$totchg, probs = 0.99)
+cut
+mdata$totchg_winsor = mdata$totchg
+mdata$totchg_winsor[mdata$totchg > cut] = cut+1
+
+
+
+
+#if these are missing and pt was not admitted, set to zero
+mdata$los_ip[which(is.na(mdata$los_ip) & mdata$edevent != "Admitted as inpatient" )] = 0
+
+mdata$npr_ip[which(is.na(mdata$npr_ip) & mdata$edevent != "Admitted as inpatient")] = 0
+
+
+
+#separate everything out into matrices to reduce memory pressure
+Y = mdata$totchg_winsor
+
+W = mdata$discwt
+
+
+mdata = mdata %>% mutate_at(vars(starts_with("injury_")), as.integer)
+
+
+
+temp = poly(mdata$age, 3)
+mdata$age_L = temp[, 1]
+mdata$age_Q = temp[, 2]
+mdata$age_C = temp[, 3]
+rm(temp)
+
+
+# temp = poly(mdata$los_ip, 3)
+# mdata$los_ip_L = temp[, 1]
+# mdata$los_ip_Q = temp[, 2]
+# mdata$los_ip_C = temp[, 3]
+# rm(temp)
+# 
+# 
+# temp = poly(mdata$npr_ip, 3)
+# mdata$npr_ip_L = temp[, 1]
+# mdata$npr_ip_Q = temp[, 2]
+# mdata$npr_ip_C = temp[, 3]
+# rm(temp)
+
+
+
+
+#set reference levels for a few vars
+mdata$edevent = factor(mdata$edevent) %>% 
+  relevel(ref = "Treated and released")
+
+
+mdata$disp_ip_recode = factor(mdata$disp_ip_recode) %>% 
+  relevel(ref = "Not admitted as inpatient")
+
+mdata$zipinc_qrtl = factor(mdata$zipinc_qrtl, ordered = F)
+
+
+#everything except pDeath and elixhauser
+X = model.matrix( ~ 
+                    #demographics
+                    age_L + age_Q + age_C + age_group + female + zipinc_qrtl + pay1_recode + 
+                    #injuries
+                    injury_brain + injury_skull_fx + injury_cspine + 
+                    injury_rib_fx + injury_cardio_pulm + injury_tspine + 
+                    injury_lspine + injury_solid_abd + injury_hollow_abd + 
+                    injury_ue_fx + injury_pelvic_fx + injury_le_fx +
+                    
+                    #outcomes
+                    edevent + disp_ip_recode + 
+                    
+                    #including quadratic and cubic effects sucks up all the variance
+                    los_ip + #los_ip_Q + los_ip_C +
+                    npr_ip + #npr_ip_Q + #npr_ip_C 
+                    ,
+                  mdata
+)
+
+X = X[, -1] #remove the intercept
+
+
+
+
+
+
+
+
+
+
+#define training (80%) and testing (20%) samples
+set.seed(1234)
+train = rbinom(n = nrow(mdata), size = 1, prob = 0.8) %>% as.logical()
+
+
+
+rm(mdata)
+
+
+
+
+```
+
+
+\
+\
+
+
+
+# Variable Selection  
+
+```{r vs}
+
+#Since over-dispersion doesn't really matter until inference (calculating SEs), 
+#it's fine to use Poisson for variable selection.  Just need to run the final model with NB.
+
+#about 6 minutes
+invisible(gc())
+start = Sys.time()
+start
+cv_fit = cv.glmnet(y = Y[train], 
+                   x = X[train, ],
+                   weights = W[train],
+                   trace.it = 1, #print progress
+                   nfolds = 50,
+                   family = "poisson", 
+                   type.measure = "deviance", #use deviance as loss function
+                   alpha = 1  #LASSO
+                   
+)
+stop = Sys.time()
+stop - start
+beepr::beep()
+
+
+
+
+
+
+plot(cv_fit)
+
+
+
+
+# lambda.min is the value of lambda that gives minimum mean cross-validated error. 
+log(cv_fit$lambda.min)
+coef(cv_fit, s = "lambda.min") %>% as.matrix()
+#too many vars
+
+
+
+
+# lambda.1se is the most regularized model with loss that is within one standard error of model with the least loss.
+log(cv_fit$lambda.1se)
+coef(cv_fit, s = "lambda.1se") %>% as.matrix()
+#takes out except female, zipinc_qrtl, pay1_recode, 
+#injury_solid_abd, edevent, disp_ip_recode, los_ip, and npr_ip
+
+
+
+
+#final choice:
+coef(cv_fit, s = "lambda.1se") %>% as.matrix()
+
+coefs = coef(cv_fit, s = "lambda.1se")
+coefs = data.frame( var = rownames(coefs),  b = matrix(coefs)  )
+coefs = coefs[coefs$b != 0, ]
+coefs
+
+rm(cv_fit, X, Y, W, start, stop)
 
 
 ```
@@ -141,12 +400,147 @@ wilcox_weighted_p = function(y, x, w = mdata$discwt){
 \
 
 
-https://m-clark.github.io/posts/2019-10-20-big-mixed-models/#additive-models-as-mixed-models
+# Testing Model
+
+```{r testing model}
+
+mdata = read_fst("Data/final/final combined dataset with top 10.fst",
+                 columns = c(
+                   
+                   'totchg', 
+                   
+                   #vars for case mix adjustment and clustering
+                   'hosp_ed', "neds_stratum", 
+                   'year_whole',
+                   'discwt', 
+                   'high_risk',
+                   'pDeath', 'elixhauser',
+                   'hosp_trauma_level',
+                    'age', 'female',
+                   
+                   #vars selected by LASSO procedure
+                   "edevent", "disp_ip_recode", 
+                   "los_ip", "npr_ip",
+                   
+                   
+                   #ecodes
+                   'top_10_ecode_E8261', 'top_10_ecode_E8122', 'top_10_ecode_E8162',
+                   'top_10_ecode_E8210', 'top_10_ecode_E8136', 'top_10_ecode_E8192', 
+                   'top_10_ecode_E8182', 'top_10_ecode_E8853','top_10_ecode_E8152', 
+                   'top_10_ecode_E8851'
+                 )
+)
 
 
-```{r mixed model}
-library(mgcv)
-library(gammit)
+mdata = mdata %>% filter(high_risk == "High-risk") %>% select(-high_risk)
+
+
+test = mdata %>% filter(train != TRUE)
+nrow(test)
+sum(test$discwt)
+
+
+
+#Winsorize values greater than the 99th percentile
+cut = quantile(mdata$totchg, probs = 0.99)
+cut
+test$totchg_winsor = test$totchg
+test$totchg_winsor[test$totchg > cut] = cut+1
+test$totchg = NULL
+
+
+
+
+
+
+
+
+#set reference levels for a few vars
+test$edevent = factor(test$edevent) %>% 
+  relevel(ref = "Treated and released")
+
+test$disp_ip_recode = factor(test$disp_ip_recode) %>% 
+  relevel(ref = "Not admitted as inpatient")
+
+
+
+#if these are missing and pt was not admitted, set to zero
+test$los_ip[which(is.na(test$los_ip) & test$edevent != "Admitted as inpatient" )] = 0
+test$npr_ip[which(is.na(test$npr_ip) & test$edevent != "Admitted as inpatient")] = 0
+
+
+
+
+
+test$hosp_ed = as.factor(test$hosp_ed)
+
+test$hosp_trauma_level = factor(test$hosp_trauma_level,
+                                ordered = FALSE)
+
+
+test = test %>% mutate_if(is.logical, as.integer)
+
+
+test$pDeath = test$pDeath*100
+
+test$year_whole = factor(test$year_whole)
+
+
+rm(mdata)
+
+#~3 mins 
+start = Sys.time()
+start
+charge_mod = bam(totchg_winsor ~ 
+                   #level 1 fixed effects:
+                   edevent + disp_ip_recode + 
+                   poly(los_ip, 3, raw=T) + poly(npr_ip, 3, raw=T) +
+                   
+                   age + female + 
+                   
+                   top_10_ecode_E8261 + top_10_ecode_E8122 + top_10_ecode_E8162 + 
+                   top_10_ecode_E8210 + top_10_ecode_E8136 + top_10_ecode_E8192 + 
+                   top_10_ecode_E8182 + top_10_ecode_E8853 + top_10_ecode_E8152 + 
+                   top_10_ecode_E8851 +
+                   
+                   pDeath + elixhauser +
+                   
+                   #level 2 fixed effects:
+                   hosp_trauma_level + year_whole + 
+                   
+                   #random effects via smoothers:
+                   s(hosp_ed, bs='re') + s(neds_stratum, bs="re"),
+                 
+                 family = nb(link = "log"),  #estimates theta on its own
+                 weights = test$discwt,
+                 data = test,
+                 
+                 discrete = TRUE,
+                 control = list(nthreads = 3,
+                                trace = TRUE
+                 )
+                 
+)
+end = Sys.time()
+beepr::beep()
+
+end - start
+
+saveRDS(charge_mod, "Results/charge_mod.RDS")
+
+options(show.signif.stars = F)
+
+summary(charge_mod, re.test = F)
+
+fixed = extract_fixed(charge_mod, ci_level = 0.999, digits = 5) 
+fixed$OR = sprintf("%.2f", exp(fixed$value))
+fixed$CI = paste0( sprintf("%.2f", exp(fixed$lower_0.05)), ", ", 
+									 sprintf("%.2f", exp(fixed$upper_99.95)))
+fixed$pval = if_else(fixed$p < 0.0001, "< 0.0001", sprintf("%.3f", fixed$p))
+TCCD::my_print(fixed)
+
+
+
 
 ```
 
