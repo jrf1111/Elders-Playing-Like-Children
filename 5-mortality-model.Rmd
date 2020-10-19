@@ -18,7 +18,7 @@ editor_options:
 
 # Setup and import  
 
-```{r setup and import}
+```{r setup}
 knitr::opts_chunk$set(echo = TRUE,
 											results = "asis")
 
@@ -26,12 +26,27 @@ library(tidyverse)
 library(tidylog)
 library(data.table)
 library(fst)
-library(bit64)
+suppressMessages(library(bit64))
 library(weights)
 library(glmnet)
 library(mgcv)
 library(gammit)
 
+
+
+```
+
+
+
+\
+\
+\
+\
+
+
+
+# Preprocessing
+```{r preprocessing}
 
 
 mdata = read_fst("Data/final/final combined dataset with top 10.fst",
@@ -50,12 +65,7 @@ mdata = read_fst("Data/final/final combined dataset with top 10.fst",
 								 						'injury_cardio_pulm', 'injury_tspine',
 								 						'injury_lspine', 'injury_solid_abd',
 								 						'injury_hollow_abd', 'injury_ue_fx',
-								 						'injury_pelvic_fx', 'injury_le_fx',
-								 						'top_10_ecode_E8261', 'top_10_ecode_E8122', 
-								 						'top_10_ecode_E8162', 'top_10_ecode_E8210', 
-								 						'top_10_ecode_E8136', 'top_10_ecode_E8192',
-								 						'top_10_ecode_E8182', 'top_10_ecode_E8853', 
-								 						'top_10_ecode_E8152', 'top_10_ecode_E8851'
+								 						'injury_pelvic_fx', 'injury_le_fx'
 								 )
 )
 
@@ -65,31 +75,13 @@ mdata$hosp_ed = as.factor(mdata$hosp_ed)
 
 
 
-```
-
-
-
-\
-\
-\
-\
-
-
-
-# Preprocessing
-```{r}
-
 #select variables for consideration
 mdata = mdata %>% 
 	select(discwt, age, age_group, female, zipinc_qrtl, pay1_recode,
 				 pDeath, elixhauser, mortality, 
 				 injury_brain, injury_skull_fx, injury_cspine, injury_rib_fx,
 				 injury_cardio_pulm, injury_tspine, injury_lspine, injury_solid_abd,
-				 injury_hollow_abd, injury_ue_fx, injury_pelvic_fx, injury_le_fx, 
-				 top_10_ecode_E8261, top_10_ecode_E8122, top_10_ecode_E8162, 
-				 top_10_ecode_E8210, top_10_ecode_E8136, top_10_ecode_E8192, 
-				 top_10_ecode_E8182, top_10_ecode_E8853, top_10_ecode_E8152, 
-				 top_10_ecode_E8851)
+				 injury_hollow_abd, injury_ue_fx, injury_pelvic_fx, injury_le_fx)
 
 
 
@@ -102,9 +94,9 @@ Y = mdata$mortality
 W = mdata$discwt
 
 
-mdata = mdata %>% mutate_at(vars(starts_with("injury_"), starts_with("top_10_ecode")),
-														as.integer)
+mdata = mdata %>% mutate_at(vars(starts_with("injury_")), as.integer)
 
+mdata$zipinc_qrtl = factor(mdata$zipinc_qrtl, ordered = F)
 
 library(Matrix)
 
@@ -122,12 +114,7 @@ X = sparse.model.matrix( ~
 												 	injury_brain + injury_skull_fx + injury_cspine + 
 												 	injury_rib_fx + injury_cardio_pulm + injury_tspine + 
 												 	injury_lspine + injury_solid_abd + injury_hollow_abd + 
-												 	injury_ue_fx + injury_pelvic_fx + injury_le_fx +
-												 	#ecodes
-												 	top_10_ecode_E8261 + top_10_ecode_E8122 + top_10_ecode_E8162 + 
-												 	top_10_ecode_E8210 + top_10_ecode_E8136 + top_10_ecode_E8192 + 
-												 	top_10_ecode_E8182 + top_10_ecode_E8853 + top_10_ecode_E8152 + 
-												 	top_10_ecode_E8851,
+												 	injury_ue_fx + injury_pelvic_fx + injury_le_fx,
 												 mdata
 )
 X = X[, -1] #remove the intercept
@@ -141,11 +128,9 @@ X = X[, -1] #remove the intercept
 
 
 
-#define training and testing samples
+#define training (80%) and testing (20%) samples
 set.seed(1111)
-train = sample(c(FALSE, TRUE), size = nrow(mdata), replace = TRUE)
-
-
+train = rbinom(n = nrow(mdata), size = 1, prob = 0.8) %>% as.logical()
 
 
 
@@ -163,68 +148,57 @@ rm(mdata)
 
 ```{r vs}
 
-#about 9 minutes
+#about 7 minutes
 invisible(gc())
-set.seed(1111)
 start = Sys.time()
 start
 cv_fit = cv.glmnet(y = Y[train], 
 									 x = X[train, ],
 									 weights = W[train],
+
+									 # trace.it = 1, #print progress
+									 
 									 nfolds = 50,
 									 family = "binomial", 
-									 type.measure = "mse", #use mean squared error as loss function
+									 type.measure = "deviance", #use deviance as loss function
 									 
 									 #instead of default "Newton", which uses the exact hessian:
 									 type.logistic = "modified.Newton", 
 									 alpha = 1  #LASSO
-									 #trace.it = 1 #print progress
+									 
 )
 stop = Sys.time()
 stop - start
 beepr::beep()
 
 
+plot(cv_fit)
 
 
 # lambda.min is the value of lambda that gives minimum mean cross-validated error. 
-# lambda.1se is the most regularized model such that loss is within one standard error of the result from using lambda.min
-
-
-plot(cv_fit)
-
-#takes out cubic effect of zipinc_qrtl, age_group66-80,
-# pay1_recode missing/unknown, pay1_recode no charge, pay1_recode other,
-# pay1_recode Private insurance, injury_cspine, injury_rib_fx, 
-# injury_lspine, and top_10_ecode_E8210
-#still has 26 predictors... 
-
-cv_fit$lambda.min
 log(cv_fit$lambda.min)
 coef(cv_fit, s = "lambda.min") %>% as.matrix()
+# has too many predictors
 
 
 
-
-#takes everything out
-cv_fit$lambda.1se
+# lambda.1se is the most regularized model with loss that is within one standard error of model with the least loss.
 log(cv_fit$lambda.1se)
 coef(cv_fit, s = "lambda.1se") %>% as.matrix()
+#takes everything out except age, age^3, (age_group81+), female, 
+# injury_skull_fx, and injury_cardio_pulm
 
 
 
-coef(cv_fit, s = exp(-6)) %>% as.matrix()    #p=5; linear age, injury_cardio_pulm, ecode_E8261, E8122, & E8192
-coef(cv_fit, s = exp(-6.25)) %>% as.matrix() #p=9; adds cubic age, injury_skull_fx, ecode_E8136
-coef(cv_fit, s = exp(-6.5)) %>% as.matrix()  #p=11; adds female, injury_solid_abd, ecode_E8152
-coef(cv_fit, s = exp(-7)) %>% as.matrix()    #p=14; adds age_group81+, pay1_recodeSelf-pay, injury_pelvic_fx
-coef(cv_fit, s = exp(-7.25)) %>% as.matrix() #p=17; add injury_brain, injury_hollow_abd, ecode_E8853
-coef(cv_fit, s = exp(-7.5)) %>% as.matrix()  #p=19; adds linear and quad. zipinc_qrtl
+
+
+
 
 
 #final choice:
-coef(cv_fit, s = exp(-6.5)) %>% as.matrix()
+coef(cv_fit, s = "lambda.1se") %>% as.matrix()
 
-coefs = coef(cv_fit, s = exp(-6.5))
+coefs = coef(cv_fit, s = "lambda.1se")
 coefs = data.frame( var = rownames(coefs),  b = matrix(coefs)  )
 coefs = coefs[coefs$b != 0, ]
 coefs
@@ -240,30 +214,37 @@ rm(cv_fit, X, Y, W, start, stop)
 
 
 
-## Testing Model
+# Testing Model
 
 https://m-clark.github.io/posts/2019-10-20-big-mixed-models/#additive-models-as-mixed-models
 
 
-```{r }
+```{r testing model}
 
 mdata = read_fst("Data/final/final combined dataset with top 10.fst",
-								 columns = c('hosp_ed', "neds_stratum", 
-								 						'year_whole',
-								 						'discwt', 
-								 						'high_risk',
-								 						'age', 
-								 						'female', 
-								 						'pDeath', 'elixhauser',
-								 						'mortality', 
-								 						'hosp_trauma_level',
-								 						'injury_skull_fx',
-								 						'injury_cardio_pulm', 
-								 						'injury_solid_abd',
-								 						'top_10_ecode_E8261', 'top_10_ecode_E8122',
-								 						'top_10_ecode_E8136',  'top_10_ecode_E8192',
-								 						'top_10_ecode_E8152'
-								 )
+								 columns = c(
+								 	#outcome
+								 	'mortality', 
+								 	
+								 	#vars for case mix adjustment and clustering
+								 	'hosp_ed', "neds_stratum", 
+								 	'year_whole',
+								 	'discwt', 
+								 	'high_risk',
+								 	'pDeath', 'elixhauser',
+								 	'hosp_trauma_level',
+								 	
+								 	#exploratory vars
+								 	'top_10_ecode_E8261', 'top_10_ecode_E8122', 
+								 	'top_10_ecode_E8162', 'top_10_ecode_E8210', 
+								 	'top_10_ecode_E8136', 'top_10_ecode_E8192',
+								 	'top_10_ecode_E8182', 'top_10_ecode_E8853', 
+								 	'top_10_ecode_E8152', 'top_10_ecode_E8851',
+								 	
+								 	#vars selected by LASSO procedure
+								 	'age', 'female', 
+								 	"injury_skull_fx", 
+								 	"injury_cardio_pulm")
 )
 
 
@@ -271,6 +252,11 @@ mdata = mdata %>% filter(high_risk == "High-risk") %>% select(-high_risk)
 
 
 test = mdata %>% filter(train != TRUE)
+format(nrow(test), big.mark = ",")
+format(round(sum(test$discwt)), big.mark = ",")
+
+
+
 
 test$hosp_ed = as.factor(test$hosp_ed)
 
@@ -280,9 +266,12 @@ test$hosp_trauma_level = factor(test$hosp_trauma_level,
 
 test = test %>% mutate_if(is.logical, as.integer)
 
-rm(mdata, train)
+rm(mdata)
 
 test$pDeath = test$pDeath*100
+
+test$year_whole = factor(test$year_whole)
+
 
 #~11 mins 
 start = Sys.time()
@@ -290,10 +279,14 @@ start
 mort_mod = bam(mortality ~ 
 							 	#level 1 fixed effects:
 							 	poly(age, 3, raw = T) + female + 
-							 	injury_skull_fx + injury_cardio_pulm + injury_solid_abd +
-							 	top_10_ecode_E8261 + top_10_ecode_E8122 + 
-							 	top_10_ecode_E8136 + top_10_ecode_E8192 + 
-							 	top_10_ecode_E8152 +
+							 	
+							 	injury_skull_fx + injury_cardio_pulm + 
+							 	
+							 	top_10_ecode_E8261 + top_10_ecode_E8122 + top_10_ecode_E8162 + 
+							 	top_10_ecode_E8210 + top_10_ecode_E8136 + top_10_ecode_E8192 + 
+							 	top_10_ecode_E8182 + top_10_ecode_E8853 + top_10_ecode_E8152 + 
+							 	top_10_ecode_E8851 +
+							 	
 							 	pDeath + elixhauser +
 							 	
 							 	#level 2 fixed effects:
@@ -305,11 +298,9 @@ mort_mod = bam(mortality ~
 							 family = binomial("logit"),
 							 weights = test$discwt,
 							 data = test,
-
+							 
 							 discrete = TRUE,
-							 control = list(nthreads = 3,
-							 							 trace = TRUE
-							 )
+							 control = list(nthreads = 3, trace = TRUE)
 							 
 )
 end = Sys.time()
@@ -319,15 +310,80 @@ end - start
 
 saveRDS(mort_mod, "Results/mort_mod.RDS")
 
+options(show.signif.stars = F)
 
-mod_sum = summary(mort_mod, re.test = F)
-mod_sum
+summary(mort_mod, re.test = F)
 
 
-fixef = extract_fixed(mort_mod, ci_level = 0.999, digits = 5)
-fixef
-ranef = extract_ranef(mort_mod, ci_level = 0.999, digits = 5)
-ranef
+fixed = extract_fixed(mort_mod, ci_level = 0.999, digits = 5) 
+fixed$OR = sprintf("%.2f", exp(fixed$value))
+fixed$CI = paste0( sprintf("%.2f", exp(fixed$lower_0.05)), ", ", 
+									 sprintf("%.2f", exp(fixed$upper_99.95)))
+fixed$pval = if_else(fixed$p < 0.0001, "< 0.0001", sprintf("%.3f", fixed$p))
+TCCD::my_print(fixed)
+
+
+
+
+
+#another model without the super-low mortality ecodes (E818.2: Other non-collision motor vehicle traffic event injuring motorcyclist; E885.3: Fall from skis; and E885.1: Fall from roller skates)
+
+
+
+#~11 mins 
+start = Sys.time()
+start
+mort_mod2 = bam(mortality ~ 
+									#level 1 fixed effects:
+									poly(age, 3, raw = T) + female + 
+									
+									injury_skull_fx + injury_cardio_pulm + 
+									
+									top_10_ecode_E8261 + top_10_ecode_E8122 + top_10_ecode_E8162 + 
+									top_10_ecode_E8210 + top_10_ecode_E8136 + top_10_ecode_E8192 + 
+									#top_10_ecode_E8182 + 
+									#top_10_ecode_E8853 + 
+									top_10_ecode_E8152 + 
+									#top_10_ecode_E8851 +
+									
+									pDeath + elixhauser +
+									
+									#level 2 fixed effects:
+									hosp_trauma_level + year_whole + 
+									
+									#random effects via smoothers:
+									s(hosp_ed, bs='re') + s(neds_stratum, bs="re"),
+								
+								family = binomial("logit"),
+								weights = test$discwt,
+								data = test,
+								
+								discrete = TRUE,
+								control = list(nthreads = 3, trace = TRUE)
+								
+)
+end = Sys.time()
+beepr::beep()
+
+end - start
+
+saveRDS(mort_mod2, "Results/mort_mod2.RDS")
+
+
+summary(mort_mod2, re.test = F)
+
+fixed = extract_fixed(mort_mod2, ci_level = 0.999, digits = 5) 
+fixed$OR = sprintf("%.2f", exp(fixed$value))
+fixed$CI = paste0( sprintf("%.2f", exp(fixed$lower_0.05)), ", ", 
+									 sprintf("%.2f", exp(fixed$upper_99.95)))
+fixed$pval = if_else(fixed$p < 0.0001, "< 0.0001", sprintf("%.3f", fixed$p))
+TCCD::my_print(fixed)
+
+
+
+
+
+
 
 ```
 
