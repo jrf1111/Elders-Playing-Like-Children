@@ -231,6 +231,9 @@ mdata$npr_ip[which(is.na(mdata$npr_ip) & mdata$edevent != "Admitted as inpatient
 
 
 
+
+
+
 #separate everything out into matrices to reduce memory pressure
 Y = mdata$totchg_winsor
 
@@ -290,7 +293,7 @@ X = model.matrix( ~
                     
                     #including quadratic and cubic effects sucks up all the variance
                     los_ip + #los_ip_Q + los_ip_C +
-                    npr_ip + #npr_ip_Q + #npr_ip_C 
+                    npr_ip #+ npr_ip_Q + #npr_ip_C 
                     ,
                   mdata
 )
@@ -351,7 +354,7 @@ stop - start
 beepr::beep()
 
 
-
+saveRDS(cv_fit, "Results/charge_cv_fit.RDS")
 
 
 
@@ -362,16 +365,16 @@ plot(cv_fit)
 
 # lambda.min is the value of lambda that gives minimum mean cross-validated error. 
 log(cv_fit$lambda.min)
-coef(cv_fit, s = "lambda.min") %>% as.matrix()
-#too many vars
+coef(cv_fit, s = "lambda.min") %>% as.matrix() %>% data.frame()
+#way too many vars
 
 
 
 
 # lambda.1se is the most regularized model with loss that is within one standard error of model with the least loss.
 log(cv_fit$lambda.1se)
-coef(cv_fit, s = "lambda.1se") %>% as.matrix()
-#takes out except female, zipinc_qrtl, pay1_recode, 
+coef(cv_fit, s = "lambda.1se") %>% as.matrix() %>% data.frame()
+#takes out everything except female, zipinc_qrtl, pay1_recode, 
 #injury_solid_abd, edevent, disp_ip_recode, los_ip, and npr_ip
 
 
@@ -416,9 +419,11 @@ mdata = read_fst("Data/final/final combined dataset with top 10.fst",
                    'high_risk',
                    'pDeath', 'elixhauser',
                    'hosp_trauma_level',
-                    'age', 'female',
+                   'age', 
                    
                    #vars selected by LASSO procedure
+                   'female', "zipinc_qrtl", "pay1_recode",
+                   "injury_solid_abd",
                    "edevent", "disp_ip_recode", 
                    "los_ip", "npr_ip",
                    
@@ -436,8 +441,8 @@ mdata = mdata %>% filter(high_risk == "High-risk") %>% select(-high_risk)
 
 
 test = mdata %>% filter(train != TRUE)
-nrow(test)
-sum(test$discwt)
+format(nrow(test), big.mark = ",")
+format(round(sum(test$discwt)), big.mark = ",")
 
 
 
@@ -457,7 +462,7 @@ test$totchg = NULL
 
 #set reference levels for a few vars
 test$edevent = factor(test$edevent) %>% 
-  relevel(ref = "Treated and released")
+  relevel(ref = "Admitted as inpatient")  #was "Treated and released"
 
 test$disp_ip_recode = factor(test$disp_ip_recode) %>% 
   relevel(ref = "Not admitted as inpatient")
@@ -477,6 +482,9 @@ test$hosp_ed = as.factor(test$hosp_ed)
 test$hosp_trauma_level = factor(test$hosp_trauma_level,
                                 ordered = FALSE)
 
+test$zipinc_qrtl = factor(test$zipinc_qrtl,
+                                ordered = FALSE)
+
 
 test = test %>% mutate_if(is.logical, as.integer)
 
@@ -485,18 +493,20 @@ test$pDeath = test$pDeath*100
 
 test$year_whole = factor(test$year_whole)
 
-
 rm(mdata)
 
-#~3 mins 
+
+#~3 mins if using `discrete = TRUE`
 start = Sys.time()
 start
 charge_mod = bam(totchg_winsor ~ 
                    #level 1 fixed effects:
-                   edevent + disp_ip_recode + 
-                   poly(los_ip, 3, raw=T) + poly(npr_ip, 3, raw=T) +
-                   
-                   age + female + 
+                   age + female + zipinc_qrtl + pay1_recode +
+                   #excluding edevent since it really doesn't tell us anything los_ip doesnt
+                   #plus, it leads to issues estimating disp_ip_recode since they are semi-orthogonal
+                   #edevent +  
+                   disp_ip_recode + 
+                   los_ip + npr_ip + injury_solid_abd +
                    
                    top_10_ecode_E8261 + top_10_ecode_E8122 + top_10_ecode_E8162 + 
                    top_10_ecode_E8210 + top_10_ecode_E8136 + top_10_ecode_E8192 + 
@@ -511,14 +521,12 @@ charge_mod = bam(totchg_winsor ~
                    #random effects via smoothers:
                    s(hosp_ed, bs='re') + s(neds_stratum, bs="re"),
                  
-                 family = nb(link = "log"),  #estimates theta on its own
+                 family = nb(link = "log"),  #estimates theta on its own :)
                  weights = test$discwt,
                  data = test,
                  
                  discrete = TRUE,
-                 control = list(nthreads = 3,
-                                trace = TRUE
-                 )
+                 control = list(nthreads = 4, trace = TRUE)
                  
 )
 end = Sys.time()
@@ -530,14 +538,22 @@ saveRDS(charge_mod, "Results/charge_mod.RDS")
 
 options(show.signif.stars = F)
 
-summary(charge_mod, re.test = F)
+
+mod_sum = summary(charge_mod, re.test = F)
+mod_sum$r.sq
+mod_sum$dev.expl
+
 
 fixed = extract_fixed(charge_mod, ci_level = 0.999, digits = 5) 
-fixed$OR = sprintf("%.2f", exp(fixed$value))
+fixed$RR = sprintf("%.2f", exp(fixed$value))
 fixed$CI = paste0( sprintf("%.2f", exp(fixed$lower_0.05)), ", ", 
 									 sprintf("%.2f", exp(fixed$upper_99.95)))
 fixed$pval = if_else(fixed$p < 0.0001, "< 0.0001", sprintf("%.3f", fixed$p))
 TCCD::my_print(fixed)
+
+
+
+
 
 
 
