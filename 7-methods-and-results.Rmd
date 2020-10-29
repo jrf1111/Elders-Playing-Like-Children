@@ -1,0 +1,238 @@
+---
+title: "EPLC Methods and Results"
+author: "Jacob W. Roden-Foreman"
+date: "`r Sys.time()`"
+output:
+  html_document:
+    pandoc_args: "--dpi=150"
+    fig_height: 3
+    fig_width: 5
+    df_print: kable
+    toc: true
+    toc_depth: 3
+    toc_float: true
+editor_options: 
+  chunk_output_type: console
+bibliography: references.bib
+csl: ama.csl
+---
+
+```{r setup, echo=FALSE}
+knitr::opts_chunk$set(echo = FALSE, results = "asis")
+
+suppressMessages(library(tidyverse))
+suppressMessages(library(rlang))
+suppressMessages(library(mgcv))
+suppressMessages(library(gammit))
+
+
+
+med_iqi = function(x, w=mdata$discwt, na.rm=T, digits=0){
+	
+	digits = as.character(digits)
+	
+	fmt = paste0("%.", digits, "f [%.", digits, "f - %.", digits, "f]")
+	
+	if(is.null(w)){
+		res = sprintf(fmt,
+						quantile(x=x, probs = 0.5, na.rm = na.rm), 
+						quantile(x=x, probs = 0.25, na.rm = na.rm), 
+						quantile(x=x, probs = 0.75, na.rm = na.rm))
+	} else{
+		res = sprintf(fmt,
+						spatstat::weighted.quantile(x=x, w=w, probs = 0.5, na.rm = na.rm), 
+						spatstat::weighted.quantile(x=x, w=w, probs = 0.25, na.rm = na.rm), 
+						spatstat::weighted.quantile(x=x, w=w, probs = 0.75, na.rm = na.rm))
+	}
+	
+	#add thousand marks
+	res = str_replace_all(res,
+												"(\\d{1,})(\\d{3})",
+												"\\1,\\2"
+												)
+	
+	res
+	
+	
+}
+
+
+cnt_perc = function(data, var, w = discwt){
+  res = data %>% 
+    count({{var}}, wt = {{w}}) %>% 
+    mutate(pct = n/sum(n)) %>% 
+    filter( .[[1]] == TRUE)
+  n = format(round(res$n), big.mark = ",")
+  pct = sprintf("%.2f", round(res$pct*100, 2))
+  paste0(n, " (", pct, "%)")
+}
+
+
+
+mdata = fst::read_fst("Data/final/final combined dataset with top 10.fst")
+
+mdata$pDeath = mdata$pDeath*100
+
+
+
+```
+
+
+
+
+
+\
+
+
+# Patients and Methods  
+
+## Study Design, Setting, and Population  
+
+
+This retrospective, observational, cross-sectional study examined emergency department (ED) visits and hospital admissions from 2010 through 2016 using discharge data from the Nationwide Emergency Department Sample (NEDS), which is part of the Healthcare Cost and Utilization Project (HCUP) by the Agency for Healthcare Research and Quality.^@NEDS^ With 212,294,778 unweighted encounters (955,407,476 weighted encounters) from 2010 to 2016, the NEDS dataset is the largest ED dataset in the United States, and its sampling weights allow the data to be used to produce national estimates of ED encounters.
+
+
+
+After back-mapping International Classification of Diseases, 10th Revision (ICD-10) codes to Ninth Revision codes (ICD-9), encounters were included for analysis if they had a principal diagnosis of trauma (ICD-9 codes 800.00 through 999.99) and age 50 years or older.  Exclusion criteria included principal diagnosis codes or principal external cause of injury codes (e-codes) for burns (ICD-9 codes 940-949, E890-E899, E990, E924, E958.1, E958.2, E958.7, E961, E968.0, E968.3, E988.1, E988.2, E988.7), bites/stings (E905, E906), overexertion (E927), poisoning (905-909, 960-979, 980-989, E850-E858, E860-E869, E950-E952, E962, E972, E980-E982), or misadventures of medical/surgical care (E870-E876, E878-E879, E930-E949). Encounters missing principal diagnosis codes or principal e-codes were also excluded. This resulted in a sample of 9,858,395 unweighted encounters. 
+
+
+From this, an additional 1,413,632 unweighted encounters (`r scales::percent(1413632/9858395, 0.1)`) were excluded for missing outcome variables (mortality and total charges), and a further 442,046 unweighted encounters (`r scales::percent(442046/8444763, 0.1)`) were excluded for missing covariates (sex, ZIP code income quartile, total ED charges, and primary payer).  This resulted in a final sample size of 8,002,696 (`r scales::percent(8002696/9858395, 0.1)`) unweighted encounters (36,299,907 weighted encounters).
+
+
+Encounters were then classified as having injuries sustained while participating in high risk recreational activities based on principal e-codes. <span style="background: yellow;">High risk recreational activities were defined ...</span> A complete listing of the e-codes used to define high risk recreational activities <span style="background: yellow;"> can be found at ... </span>
+
+
+
+## Variables  
+
+The outcomes for this study were all-cause ED or in-hospital mortality and total charges (ED charges plus inpatient charges).  Due to the presence of outliers for total charges, outliers beyond the 99th percentile were winsorized (i.e., outliers were set equal to the 99th percentile, $228,631).
+
+In addition to the variables supplied in the NEDS data, we calculated the Elixhauser comorbidity index ^@elix^ and the Trauma Mortality Prediction Model's probability of death (TMPM $p(Death)$).^@glance2009tmpm^ Both the Elixhauser comorbidity index and TMPM $p(Death)$ were calculated after back-mapping ICD-10 diagnosis codes to ICD-9 codes. 
+
+
+## Data Analysis  
+
+To examine associations with mortality among the high-risk cohort, explanatory variables were sorted into three categories.  The first category of variables were selected *a priori* as important for case-mix adjustment and to account for clustering (age, Elixhauser comorbidity index, TMPM $p(Death)$, admission year, hospital identifier code, hospital trauma center level, and NEDS sampling stratum).  The second category included the ten most common high risk e-codes, which were included in the model *a priori* — although it was impossible to know *a priori* which specific e-codes were the ten most common.  The third and final category of variables included potential variables for case-mix adjustment. These variables included sex, quadratic and cubic effects of age, ZIP code median income quartile, primary payer, and injury flags (brain injury, skull fracture, cervical spinal cord injury/vertebral column injury [SCI/VCI], rib or sternum fracture, cardiac or pulmonary injury, thoracic SCI/VCI, lumbar SCI/VCI, solid abdominal organ injury, hollow viscera injury, upper extremity fracture, pelvis fracture, and lower extremity fracture).
+
+
+The same approach was taken when examining associations with total charges among the high-risk cohort. The only exception was that the potential variables for case-mix adjustment additionally included ED discharge disposition, hospital discharge disposition, inpatient length of stay, and the number of inpatient procedures performed. 
+
+
+The potential variables for case-mix adjustment were selected via least absolute squares shrinkage operator (LASSO) regressions for each outcome. The penalty/shrinkage parameters for the LASSO regressions were selected as the ones that produced the least complex model with predictive accuracy that was within one standard error of the model with the best predictive accuracy in a cross-validated 50-fold set.  This procedure was performed in an 80% training sample. The final models with the *a priori* explanatory variables and the variables selected by the LASSO procedure in a 20% testing sample. 
+
+
+For the LASSO models and the final model, associations with mortality were modeled with binomial regressions with logit links and associations with total charges were modeled with negative binomial regressions with log links. The final models were fit via generalized additive mixed models (GAMMs) with random intercepts for hospital identifier code and NEDS sampling stratum.^@gamms2004^  Significance was assessed at p <0.001. Accordingly, 99.9% confidence intervals (CIs) are reported.
+
+Analyses were performed with `R` (version 4.0.2).^@R^  Packages essential to the analysis included: `comorbidity`^@comorbidity^ for calculating the Elixhauser comorbidity index; `spatstat`^@spatstat^ and `weights`^@weights^ for calculating weighted descriptive statistics and weighted chi-square tests; `glmnet`^@glmnet^ for performing LASSO variable selection; and `mgcv`^@mgcv^ for fitting the GAMMs. 
+
+
+
+# Results  
+
+## Description of Sample
+
+The sample of `r format(round(sum(mdata$discwt)), big.mark = ",")` weighted encounters were at `r format(n_distinct(mdata$hosp_ed), big.mark=",")` hospitals between January 2010 and December 2016.  Most encounters occured at non-trauma centers (`r round(weighted.mean(mdata$hosp_trauma_level == "All Other Hospitals", w = mdata$discwt)*100, 2)`%), with approximately 10% of encounters occurring at each of level I, level II, and level III trauma centers.  The sample was majority female (`r round(weighted.mean(mdata$female, w = mdata$discwt)*100, 2)`%) with a median [interquartile interval] age of `r med_iqi(mdata$age)` years, `r med_iqi(mdata$elixhauser)` Elixhauser comorbidities, TMPM $p(Death)$ of `r med_iqi(mdata$pDeath, digits = 2)`, and an observed mortality rate of `r round(weighted.mean(mdata$mortality, w = mdata$discwt)*100, 2)`% .  Most injuries were from blunt mechanisms (`r round(weighted.mean(mdata$trauma_type=="Blunt", w = mdata$discwt)*100, 2)`%), with few penetrating injuries (`r round(weighted.mean(mdata$trauma_type=="Penetrating", w = mdata$discwt)*100, 2)`%). Of the `r cnt_perc(mdata, edevent == "Admitted as inpatient")` encounters that were admitted, median length of stay was `r with(mdata[mdata$edevent == "Admitted as inpatient",], med_iqi(x=los_ip, w = discwt))` days.  Median total charges were `r med_iqi(mdata$totchg)` US dollars.
+
+
+```{r, echo=FALSE}
+hr = mdata %>% filter(high_risk == "High-risk")
+```
+
+
+Only `r cnt_perc(mdata, high_risk == "High-risk")` encounters were classified as injured in high-risk recreational activities.  Within this subset, the ten most common e-codes were E826.1: Pedal cycle collision injuring pedal cyclist (n = `r format(round(sum(hr$discwt[hr$top_10_ecode_E8261])), big.mark = ",")`, `r round(weighted.mean(hr$top_10_ecode_E8261, w = hr$discwt)*100, 2)`%); E812.2: Other motor vehicle traffic collision involving collision with motor vehicle injuring motorcyclist (n = `r format(round(sum(hr$discwt[hr$top_10_ecode_E8122])), big.mark = ",")`, `r round(weighted.mean(hr$top_10_ecode_E8122, w = hr$discwt)*100, 2)`%); E816.2: Motor vehicle traffic collision due to loss of control, without collision on the highway, injuring motorcyclist (n = `r format(round(sum(hr$discwt[hr$top_10_ecode_E8162])), big.mark = ",")`, `r round(weighted.mean(hr$top_10_ecode_E8162, w = hr$discwt)*100, 2)`%); E821.0: Nontraffic collision involving other off-road motor vehicle injuring driver of motor vehicle other than motorcycle (n = `r format(round(sum(hr$discwt[hr$top_10_ecode_E8210])), big.mark = ",")`, `r round(weighted.mean(hr$top_10_ecode_E8210, w = hr$discwt)*100, 2)`%); E813.6: Motor vehicle traffic collision involving collision with other vehicle injuring pedal cyclist (n = `r format(round(sum(hr$discwt[hr$top_10_ecode_E8136])), big.mark = ",")`, `r round(weighted.mean(hr$top_10_ecode_E8136, w = hr$discwt)*100, 2)`%); E819.2: Motor vehicle traffic collision of unspecified nature injuring motorcyclist (n = `r format(round(sum(hr$discwt[hr$top_10_ecode_E8192])), big.mark = ",")`, `r round(weighted.mean(hr$top_10_ecode_E8192, w = hr$discwt)*100, 2)`%); E818.2: Other non-collision motor vehicle traffic event injuring motorcyclist (n = `r format(round(sum(hr$discwt[hr$top_10_ecode_E8182])), big.mark = ",")`, `r round(weighted.mean(hr$top_10_ecode_E8182, w = hr$discwt)*100, 2)`%); E885.3: Fall from skis (n = `r format(round(sum(hr$discwt[hr$top_10_ecode_E8853])), big.mark = ",")`, `r round(weighted.mean(hr$top_10_ecode_E8853, w = hr$discwt)*100, 2)`%); E815.2: Other motor vehicle traffic collision involving collision on the highway injuring motorcyclist (n = `r format(round(sum(hr$discwt[hr$top_10_ecode_E8152])), big.mark = ",")`, `r round(weighted.mean(hr$top_10_ecode_E8152, w = hr$discwt)*100, 2)`%); and E885.1: Fall from roller skates (n = `r format(round(sum(hr$discwt[hr$top_10_ecode_E8851])), big.mark = ",")`, `r round(weighted.mean(hr$top_10_ecode_E8851, w = hr$discwt)*100, 2)`%).
+
+
+## Associations with Mortality  
+
+
+```{r mort mod, cache=TRUE}
+
+mort_mod = readRDS("Results/mort_mod2.RDS")
+
+mort_fixed = extract_fixed(mort_mod, ci_level = 0.999, digits = 5) 
+mort_fixed$OR = sprintf("%.2f", exp(mort_fixed$value))
+mort_fixed$CI = paste0( sprintf("%.2f", exp(mort_fixed$lower_0.05)), " - ", 
+									 sprintf("%.2f", exp(mort_fixed$upper_99.95)))
+mort_fixed$pval = if_else(mort_fixed$p < 0.0001, "< 0.0001", sprintf("%.3f", mort_fixed$p))
+
+mort_fixed$report = paste0("OR = ", mort_fixed$OR, ", 99.9% CI = ", mort_fixed$CI)
+
+
+```
+
+
+
+
+
+Based on the LASSO variable selection procedure, the final model to examine associations with mortality included fixed effects for: linear, quadratic, and cubic effects of age; sex; the ten most common e-codes; diagnosis of skull fracture; diagnosis of cardiac or pulmonary injury; TMPM $p(Death)$; Elixhauser comorbidity score; trauma center level; and admission year. However, due to the presence of fewer than 10 weighted mortalities in the 20% testing sample for encounters with e-codes of E818.2:  Other non-collision motor vehicle traffic event injuring motorcyclist, E885.3: Fall from skis, and E885.1: Fall from roller skates, these e-codes were removed from the testing model.  
+
+
+The final model is shown in <span style="background: yellow;">table ##</span>.  The model showed that after controlling for age, sex, specific injuries, TMPM $p(Death)$, Elixhauser comorbidity score, and hospital effects, the ten most common high-risk e-codes that were associated with injuries to motorcyclists and that were significant in the model were associated with increases in the odds of mortality between 251% and 293% (E812.2: Other motor vehicle traffic collision involving collision with motor vehicle injuring motorcyclist, `r mort_fixed$report[mort_fixed$term == "top_10_ecode_E8122"]`; E815.2: Other motor vehicle traffic collision involving collision on the highway injuring motorcyclist, `r mort_fixed$report[mort_fixed$term == "top_10_ecode_E8152"]`; and E819.2: Motor vehicle traffic collision of unspecified nature injuring motorcyclist, `r mort_fixed$report[mort_fixed$term == "top_10_ecode_E8192"]`).  The model also showed that the ten most common high-risk e-codes that were not associated with injuries to motorcyclists tended to be associated with large decreases in the odds of mortality (E826.1: Pedal cycle collision injuring pedal cyclist, `r mort_fixed$report[mort_fixed$term == "top_10_ecode_E8261"]`; and E821.0: Nontraffic collision involving other off-road motor vehicle injuring driver of motor vehicle other than motorcycle, `r mort_fixed$report[mort_fixed$term == "top_10_ecode_E8210"]`).  Encounters with primary e-codes for E813.6: Motor vehicle traffic collision involving collision with other vehicle injuring pedal cyclist (`r mort_fixed$report[mort_fixed$term == "top_10_ecode_E8136"]`) or E816.2: Motor vehicle traffic collision due to loss of control, without collision on the highway, injuring motorcyclist (`r mort_fixed$report[mort_fixed$term == "top_10_ecode_E8162"]`) did not experience reliable differences in their odds of mortality. 
+
+
+The model also showed non-significant differences in the odds of mortality between level II vs. level I trauma centers (`r mort_fixed$report[mort_fixed$term == "hosp_trauma_levelTrauma center level II"]`), but significantly lower odds of mortality at level III trauma centers (`r mort_fixed$report[mort_fixed$term == "hosp_trauma_levelTrauma center level III"]`) and non-trauma centers (`r mort_fixed$report[mort_fixed$term == "hosp_trauma_levelAll Other Hospitals"]`) than level I trauma centers.  There was also a general trend for decreasing mortality rates over the observed data period. 
+
+
+\
+\
+\
+
+
+
+## Associations with Total Charges  
+
+```{r charge mod, cache=TRUE}
+
+charge_mod = readRDS("Results/charge_mod.RDS")
+
+charge_fixed = extract_fixed(charge_mod, ci_level = 0.999, digits = 5) 
+charge_fixed$RR = sprintf("%.2f", exp(charge_fixed$value)) %>% as.numeric()
+charge_fixed$CI = paste0( sprintf("%.2f", exp(charge_fixed$lower_0.05)), " - ", 
+									 sprintf("%.2f", exp(charge_fixed$upper_99.95)))
+charge_fixed$pval = if_else(charge_fixed$p < 0.0001, "< 0.0001", sprintf("%.3f", charge_fixed$p))
+
+charge_fixed$report = paste0("RR = ", charge_fixed$RR, ", 99.9% CI = ", charge_fixed$CI)
+
+# 
+# ggplot(charge_mod$model, aes(x = age, y = totchg_winsor)) + geom_smooth()
+# 
+# 
+# ggplot(charge_mod$model, aes(x = zipinc_qrtl, y = totchg_winsor)) +
+# 	ggbeeswarm::geom_quasirandom() +
+# 	scale_y_continuous(trans = "log")
+# 
+# 
+# ggplot(charge_mod$model, aes(x = hosp_trauma_level, y = totchg_winsor)) +
+# 	geom_boxplot() +
+# 	scale_y_continuous(trans = "log")
+
+
+```
+
+
+
+
+
+As shown in  <span style="background: yellow;"> table ## </span>; the final model to examine associations with total charges included fixed effects for: age; sex; ZIP code income quartile; primary payer; hospital discharge disposition; inpatient length of stay; number of inpatient procedures performed; diagnosis of solid abdominal organ injury; the ten most common e-codes; TMPM $p(Death)$; Elixhauser comorbidity score; trauma center level; and admission year.
+
+
+Notable findings from the model included that a small, positive association with age such that each year of age was associated with a 0.3% increase in total charges (p `r charge_fixed$pval[charge_fixed$term == "age"]`).  Total charges were approximately `r (1-charge_fixed$RR[charge_fixed$term == "female"])*100`% lower for females than males (`r charge_fixed$report[charge_fixed$term == "female"]`).  Non-Medicare/non-Medicaid encounters experienced total charges that were roughly 10% to 13% higher than were Medicare/Medicaid encounters. The model also showed a general trend for there to be a negative association between trauma center level and total charges with charges being approximately 28% lower at non-trauma centers than at level I trauma centers.  There was also a clear tend for increases in total charges from 2010 to 2016. 
+
+
+For the ten most common high-risk e-codes, encounters for mechanisms that were not associated with motor vehicle use (i.e., E885.1: Fall from roller skates, E885.3: Fall from skis, and E826.1: Pedal cycle collision injuring pedal cyclist) experienced charges that were between 5% and 28% less than the other encounters for high-risk recreational activities.  In contrast, the remaining seven of the ten most common high-risk e-codes were all associated with motor vehicle use and all were associated with increases in total charges between 7% and 51%.
+
+
+
+
+
+
+\
+\
+\
+\
+
+
+
+# References
+
+<div id="refs"></div>
