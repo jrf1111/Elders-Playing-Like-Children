@@ -286,9 +286,9 @@ final$mech1[final$mech1=="" | is.na(final$mech1)] = "UNSPECIFIED"
 
 
 final$age_group = case_when(
-	final$age %in% 50:65 ~ "50-65",
-	final$age %in% 66:80 ~ "66-80",
-	final$age >80 ~ "81+",
+	final$age %in% 55:64 ~ "55-64",
+	final$age %in% 65:84 ~ "65-84",
+	final$age >84 ~ "85+",
 	TRUE ~ "Missing/Unknown"
 ) %>% as.factor()
 
@@ -536,6 +536,9 @@ dx = read_fst("Data/final/dx_final.fst")
 source("icd9_to_Barell.R")
 
 
+final = final %>% arrange(key_ed)
+dx = dx %>% arrange(key_ed)
+
 
 if(all.equal(as.integer64(final$key_ed), as.integer64(dx$key_ed))){
 	
@@ -730,6 +733,13 @@ cat("N_obs removing missing mortality, total charges = ",
 		append = TRUE)
 
 
+n = sum(final$discwt)
+n = as.integer(n)
+cat("N_wt removing missing mortality, total charges = ", 
+		format(n, big.mark=","), "\n", file = "nobs log.txt", 
+		append = TRUE)
+
+
 
 
 
@@ -761,6 +771,11 @@ cat("N_obs removing missing covariates = ",
 		append = TRUE)
 
 
+n = sum(final$discwt)
+n = as.integer(n)
+cat("N_wt removing missing covariates = ", 
+		format(n, big.mark=","), "\n", file = "nobs log.txt", 
+		append = TRUE)
 
 
 

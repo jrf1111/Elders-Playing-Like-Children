@@ -198,11 +198,6 @@ dbGetQuery(neds, "SELECT year, COUNT(*) FROM dx GROUP BY year")
 
 
 
-file.remove("nobs log.txt")
-n = dbGetQuery(neds, "SELECT COUNT(key_ed) FROM dx")
-n = as.integer(n)
-cat("Initial N_obs = ", format(n, big.mark=","), "\n", file = "nobs log.txt")
-
 
 
 
@@ -248,6 +243,18 @@ dbColumnInfo(query)
 rm(query)
 gc()
 
+
+
+
+file.remove("nobs log.txt")
+n = dbGetQuery(neds, "SELECT COUNT(key_ed) FROM demos")
+n = as.integer(n)
+cat("Initial N_obs = ", format(n, big.mark=","), "\n", file = "nobs log.txt")
+
+
+n = dbGetQuery(neds, "SELECT SUM(discwt) FROM demos")
+n = as.integer(n)
+cat("Initial N_wt = ", format(n, big.mark=","), "\n", file = "nobs log.txt", append = TRUE)
 
 
 
@@ -504,10 +511,14 @@ dbGetQuery(neds, "SELECT year, COUNT(*) FROM dx GROUP BY year")
 
 
 
-n = dbGetQuery(neds, "SELECT COUNT(key_ed) FROM dx")
+n = dbGetQuery(neds, "SELECT COUNT(key_ed) FROM demos")
 n = as.integer(n)
-cat("N_obs after filtering on injury dx = ", format(n, big.mark=","), "\n", file="nobs log.txt", append=T)
+cat("N_obs after filtering on injury dx = ", format(n, big.mark=","), "\n", file = "nobs log.txt", append=T)
 
+
+n = dbGetQuery(neds, "SELECT SUM(discwt) FROM demos")
+n = as.integer(n)
+cat("N_wt after filtering on injury dx = ", format(n, big.mark=","), "\n", file = "nobs log.txt", append=T)
 
 
 
@@ -519,7 +530,7 @@ cat("N_obs after filtering on injury dx = ", format(n, big.mark=","), "\n", file
 # ~ age filter ----
 dbSendQuery(neds, 
 						"DELETE FROM demos
-										WHERE age < 50 OR age IS NULL")
+										WHERE age < 55 OR age IS NULL")
 
 dbExecute(neds, "VACUUM ANALYZE demos")
 
@@ -564,24 +575,30 @@ dbExecute(neds, "REINDEX INDEX index_key_ed_outcomes")
 
 dbGetQuery(neds, "SELECT year, COUNT(*) FROM dx GROUP BY year")
 # 			year   count
-# 1     2010 1691726
-# 2     2011 1704286
-# 3     2012 1811691
-# 4     2013 1791377
-# 5     2014 1889341
-# 6 2015Q1Q3 1213637
-# 7   2015Q4  388882
-# 8     2016 2186191
+# 1     2010 1349179
+# 2     2011 1366673
+# 3     2012 1453750
+# 4     2013 1448254
+# 5     2014 1534275
+# 6 2015Q1Q3  973486
+# 7   2015Q4  316538
+# 8     2016 1831172
 
 
 
 
 
-n = dbGetQuery(neds, "SELECT COUNT(key_ed) FROM dx")
+n = dbGetQuery(neds, "SELECT COUNT(key_ed) FROM demos")
 n = as.integer(n)
-cat("N_obs after filtering on age = ", format(n, big.mark=","), "\n", file="nobs log.txt", append=T)
+cat("N_obs after filtering on age = ", format(n, big.mark=","), "\n", file = "nobs log.txt", append=T)
 
 
+n = dbGetQuery(neds, "SELECT SUM(discwt) FROM demos")
+n = as.integer(n)
+cat("N_wt after filtering on age = ", format(n, big.mark=","), "\n", file = "nobs log.txt", append=T)
+
+
+beepr::beep()
 
 
 
@@ -764,26 +781,31 @@ dbExecute(neds, "REINDEX INDEX index_key_ed_outcomes")
 
 dbGetQuery(neds, "SELECT year, COUNT(*) FROM dx GROUP BY year")
 #       year   count
-# 1     2010 1303082
-# 2     2011 1320346
-# 3     2012 1447247
-# 4     2013 1421954
-# 5     2014 1506330
-# 6 2015Q1Q3  972570
-# 7   2015Q4  327819
-# 8     2016 1559047
+# 1     2010 1049760
+# 2     2011 1068026
+# 3     2012 1171782
+# 4     2013 1158166
+# 5     2014 1232408
+# 6 2015Q1Q3  787617
+# 7   2015Q4  267150
+# 8     2016 1290640
 
 
 
 
-n = dbGetQuery(neds, "SELECT COUNT(key_ed) FROM dx")
+
+n = dbGetQuery(neds, "SELECT COUNT(key_ed) FROM demos")
 n = as.integer(n)
-cat("N_obs after filtering on ecodes = ", format(n, big.mark=","), "\n", file="nobs log.txt", append=T)
+cat("N_obs after filtering on ecodes = ", format(n, big.mark=","), "\n", file = "nobs log.txt", append=T)
+
+
+n = dbGetQuery(neds, "SELECT SUM(discwt) FROM demos")
+n = as.integer(n)
+cat("N_wt after filtering on ecodes = ", format(n, big.mark=","), "\n", file = "nobs log.txt", append=T)
 
 
 
-
-
+beepr::beep()
 
 
 
@@ -950,20 +972,21 @@ dbExecute(neds, "VACUUM ANALYZE join_res")
 
 dbGetQuery(neds, "SELECT year, COUNT(*) FROM join_res GROUP BY year")
 # 			year   count
-# 1     2010 1303082
-# 2     2011 1320346
-# 3     2012 1447247
-# 4     2013 1421954
-# 5     2014 1506330
-# 6 2015Q1Q3  972570
-# 7   2015Q4  327819
-# 8     2016 1559047
+# 1     2010 1049760
+# 2     2011 1068026
+# 3     2012 1171782
+# 4     2013 1158166
+# 5     2014 1232408
+# 6 2015Q1Q3  787617
+# 7   2015Q4  267150
+# 8     2016 1290640
 
 
 dbGetQuery(neds,
 					 'SELECT COUNT(*), key_ed FROM join_res
 					 GROUP BY key_ed
 					 ORDER BY COUNT(*) DESC LIMIT 10')
+
 
 
 
@@ -1100,265 +1123,265 @@ ICs$lexi = NULL
 dx = dx %>% mutate_at(vars(starts_with("dx")), factor, levels = ICs$index)
 
 
-tmpm2 = function(Pdat){
-	xBeta <- NULL
-	
-	MortModel <- function(marc1, marc2, marc3, marc4, marc5, S_Region, Interaction) {
-		xBeta <- (1.406958 * marc1) + (1.409992 * marc2) + 
-			(0.5205343 * marc3) + (0.4150946 * marc4) + 
-			(0.8883929 * marc5) + (-0.0890527 * S_Region) - 
-			(0.7782696 * Interaction) - 2.217565
-		return(xBeta)
-	}
-	
-	app <- function(x){
-		marclist <- ICs[match(x[-1], ICs$index), ]
-		marclist <- marclist[order(marclist$marc, decreasing = T), ]
-		TCs <- marclist[1:5, ]
-		TCs$marc[is.na(TCs$marc)] = 0
-		
-		RegionCheck <- function(TCs) {
-			if (TCs$marc[1] != 0 & TCs$marc[2] != 0 & TCs$bodyregion[1] == TCs$bodyregion[2]) {
-				sr <- 1
-			}
-			else {
-				sr <- 0
-			}
-			return(sr)
-		}
-		
-		same_region <- RegionCheck(TCs)
-		Imarc <- TCs$marc[1] * TCs$marc[2]
-		Model_Calc <- MortModel(TCs$marc[1], TCs$marc[2], 
-														TCs$marc[3], TCs$marc[4], TCs$marc[5], same_region, Imarc)
-		probDeath <- pnorm(Model_Calc)
-		return(probDeath)
-	}
-	
-	
-	pDeath <- apply(Pdat, 1, app)
-	
-	return(data.frame(pDeath = pDeath))
-	
-	
-	
-}
-
-
-tmpm3 = function(Pdat){
-	
-	
-	# MortModel <- function(marc1, marc2, marc3, marc4, marc5, S_Region, Interaction) {
-	# 	xBeta <- (1.406958 * marc1) + (1.409992 * marc2) + 
-	# 		(0.5205343 * marc3) + (0.4150946 * marc4) + 
-	# 		(0.8883929 * marc5) + (-0.0890527 * S_Region) - 
-	# 		(0.7782696 * Interaction) - 2.217565
-	# 	return(xBeta)
-	# }
-	
-	app <- function(x){
-		marclist <- ICs[match(x[-1], ICs$index), ]
-		marclist <- marclist[order(marclist$marc, decreasing = T), ]
-		TCs <- marclist[1:5, ]
-		TCs$marc[is.na(TCs$marc)] = 0
-		
-		# RegionCheck <- function(TCs) {
-		# 	if (TCs$marc[1] != 0 & TCs$marc[2] != 0 & TCs$bodyregion[1] == TCs$bodyregion[2]) {
-		# 		sr <- 1
-		# 	}
-		# 	else {
-		# 		sr <- 0
-		# 	}
-		# 	return(sr)
-		# }
-		
-		
-		if (TCs$marc[1] != 0 & TCs$marc[2] != 0 & TCs$bodyregion[1] == TCs$bodyregion[2]) {
-			same_region = 1
-		} else same_region = 0
-		
-		
-		Imarc <- TCs$marc[1] * TCs$marc[2]
-		
-		# Model_Calc <- MortModel(TCs$marc[1], TCs$marc[2], 
-		# 												TCs$marc[3], TCs$marc[4], TCs$marc[5], same_region, Imarc)
-		
-		Model_Calc = {1.406958 * TCs$marc[1]} + {1.409992 * TCs$marc[2]} + 
-			{0.5205343 * TCs$marc[3]} + {0.4150946 * TCs$marc[4]} + 
-			{0.8883929 * TCs$marc[5]} + {-0.0890527 * same_region} - 
-			{0.7782696 * Imarc} - 2.217565
-		
-		
-		
-		probDeath <- pnorm(Model_Calc)
-		probDeath
-	}
-	
-	
-	pDeath <- apply(Pdat, 1, app)
-	
-	return(data.frame(pDeath = pDeath))
-	
-}
-
-
-tmpm4 = function(Pdat){
-	
-	
-	get_marcs = function(x){
-		marclist <- ICs[match(x[-1], ICs$index), ]
-		marclist <- marclist[order(marclist$marc, decreasing = T), ]
-		marclist <- marclist[1:5, ]
-		marclist$marc[is.na(marclist$marc)] = 0
-		
-		marclist$index = NULL
-		
-		if (marclist$marc[1] != 0 & marclist$marc[2] != 0 & marclist$bodyregion[1] == marclist$bodyregion[2]) {
-			same_region = 1
-		} else same_region = 0
-		
-		marclist = c(marclist$marc, same_region)
-		names(marclist) = c(paste0("marc", 1:5), "same_region")
-		
-		marclist
-	}
-	
-	
-	# marcs = matrix(NA, nrow = nrow(Pdat), ncol = 6)
-	# colnames(marcs) = c("marc1", "marc2", "marc3", "marc4", "marc5", "same_region")
-	# marcs = as_tibble(marcs)
-	
-	# for(i in 1:nrow(Pdat)){
-	# 	marcs[i, ] = get_marcs(Pdat[i, ])
-	# }
-	
-	
-	marcs = apply(Pdat, 1, get_marcs)
-	marcs = as_tibble(t(marcs)) #transposing takes a little bit...
-	
-	
-	
-	marcs$Imarc = marcs$marc1 * marcs$marc2
-	
-	
-	Model_Calc = 
-		{1.406958 * marcs$marc1} + 
-		{1.409992 * marcs$marc2} + 
-		{0.5205343 * marcs$marc3} +
-		{0.4150946 * marcs$marc4} + 
-		{0.8883929 * marcs$marc5} + 
-		{-0.0890527 * marcs$same_region} - 
-		{0.7782696 * marcs$Imarc} - 2.217565
-	
-	
-	pnorm(Model_Calc)
-	
-	
-	
-	
-}
-
-
-
-
-#parallel version of tmpm4, not really any faster
-tmpm4p = function(Pdat, cores = 6, max_combine = max(c(ceiling(nrow(Pdat)*0.1), 100))){
-	
-	
-	get_marcs = function(x){
-		marclist <- ICs[match(x[-1], ICs$index), ]
-		marclist <- marclist[order(marclist$marc, decreasing = T), ]
-		marclist <- marclist[1:5, ]
-		marclist$marc[is.na(marclist$marc)] = 0
-		
-		marclist$index = NULL
-		
-		if (marclist$marc[1] != 0 & marclist$marc[2] != 0 & marclist$bodyregion[1] == marclist$bodyregion[2]) {
-			same_region = 1
-		} else same_region = 0
-		
-		marclist = c(marclist$marc, same_region)
-		names(marclist) = c(paste0("marc", 1:5), "same_region")
-		
-		marclist
-	}
-	
-	
-	library(foreach)
-	library(doParallel)
-	
-	doParallel::registerDoParallel(cores = cores)
-	marcs = foreach::foreach(i = 1:nrow(Pdat), .combine=dplyr::bind_rows, 
-													 .multicombine = T, .maxcombine = max_combine) %dopar% {
-													 	get_marcs(Pdat[i, ])
-													 }
-	doParallel::stopImplicitCluster()
-	
-	marcs = as.data.frame(marcs)
-	marcs$Imarc = marcs$marc1 * marcs$marc2
-	
-	
-	Model_Calc = 
-		{1.406958 * marcs$marc1} + 
-		{1.409992 * marcs$marc2} + 
-		{0.5205343 * marcs$marc3} +
-		{0.4150946 * marcs$marc4} + 
-		{0.8883929 * marcs$marc5} + 
-		{-0.0890527 * marcs$same_region} - 
-		{0.7782696 * marcs$Imarc} - 2.217565
-	
-	
-	pnorm(Model_Calc)
-	
-	
-}
-
-
-tmpm5 = function(Pdat){
-	
-	
-	get_marcs = function(x){
-		marclist <- ICs[match(x[-1], ICs$index), ]
-		marclist <- marclist[order(marclist$marc, decreasing = T), ]
-		marclist <- marclist[1:5, ]
-		marclist$marc[is.na(marclist$marc)] = 0
-		
-		marclist$index = NULL
-		
-		if (marclist$marc[1] != 0 & marclist$marc[2] != 0 & marclist$bodyregion[1] == marclist$bodyregion[2]) {
-			same_region = 1
-		} else same_region = 0
-		
-		Imarc = marclist$marc[1]*marclist$marc[2]
-		
-		marclist = c(marclist$marc, same_region, Imarc)
-		names(marclist) = c(paste0("marc", 1:5), "same_region", "Imarc")
-		
-		marclist
-	}
-	
-	
-	marcs = apply(Pdat, 1, get_marcs) 
-	
-	betas = c(1.406958,      #marc1
-						1.409992,      #marc2
-						0.5205343,     #marc3
-						0.4150946,     #marc4
-						0.8883929,     #marc5
-						-0.0890527,    #same_region
-						-0.7782696     #Imarc
-	)
-	
-	
-	Model_Calc = {betas %*% marcs} - 2.217565
-	
-	
-	Model_Calc = pnorm(Model_Calc)
-	
-	c(Model_Calc)
-	
-	
-}
+# tmpm2 = function(Pdat){
+# 	xBeta <- NULL
+# 	
+# 	MortModel <- function(marc1, marc2, marc3, marc4, marc5, S_Region, Interaction) {
+# 		xBeta <- (1.406958 * marc1) + (1.409992 * marc2) + 
+# 			(0.5205343 * marc3) + (0.4150946 * marc4) + 
+# 			(0.8883929 * marc5) + (-0.0890527 * S_Region) - 
+# 			(0.7782696 * Interaction) - 2.217565
+# 		return(xBeta)
+# 	}
+# 	
+# 	app <- function(x){
+# 		marclist <- ICs[match(x[-1], ICs$index), ]
+# 		marclist <- marclist[order(marclist$marc, decreasing = T), ]
+# 		TCs <- marclist[1:5, ]
+# 		TCs$marc[is.na(TCs$marc)] = 0
+# 		
+# 		RegionCheck <- function(TCs) {
+# 			if (TCs$marc[1] != 0 & TCs$marc[2] != 0 & TCs$bodyregion[1] == TCs$bodyregion[2]) {
+# 				sr <- 1
+# 			}
+# 			else {
+# 				sr <- 0
+# 			}
+# 			return(sr)
+# 		}
+# 		
+# 		same_region <- RegionCheck(TCs)
+# 		Imarc <- TCs$marc[1] * TCs$marc[2]
+# 		Model_Calc <- MortModel(TCs$marc[1], TCs$marc[2], 
+# 														TCs$marc[3], TCs$marc[4], TCs$marc[5], same_region, Imarc)
+# 		probDeath <- pnorm(Model_Calc)
+# 		return(probDeath)
+# 	}
+# 	
+# 	
+# 	pDeath <- apply(Pdat, 1, app)
+# 	
+# 	return(data.frame(pDeath = pDeath))
+# 	
+# 	
+# 	
+# }
+# 
+# 
+# tmpm3 = function(Pdat){
+# 	
+# 	
+# 	# MortModel <- function(marc1, marc2, marc3, marc4, marc5, S_Region, Interaction) {
+# 	# 	xBeta <- (1.406958 * marc1) + (1.409992 * marc2) + 
+# 	# 		(0.5205343 * marc3) + (0.4150946 * marc4) + 
+# 	# 		(0.8883929 * marc5) + (-0.0890527 * S_Region) - 
+# 	# 		(0.7782696 * Interaction) - 2.217565
+# 	# 	return(xBeta)
+# 	# }
+# 	
+# 	app <- function(x){
+# 		marclist <- ICs[match(x[-1], ICs$index), ]
+# 		marclist <- marclist[order(marclist$marc, decreasing = T), ]
+# 		TCs <- marclist[1:5, ]
+# 		TCs$marc[is.na(TCs$marc)] = 0
+# 		
+# 		# RegionCheck <- function(TCs) {
+# 		# 	if (TCs$marc[1] != 0 & TCs$marc[2] != 0 & TCs$bodyregion[1] == TCs$bodyregion[2]) {
+# 		# 		sr <- 1
+# 		# 	}
+# 		# 	else {
+# 		# 		sr <- 0
+# 		# 	}
+# 		# 	return(sr)
+# 		# }
+# 		
+# 		
+# 		if (TCs$marc[1] != 0 & TCs$marc[2] != 0 & TCs$bodyregion[1] == TCs$bodyregion[2]) {
+# 			same_region = 1
+# 		} else same_region = 0
+# 		
+# 		
+# 		Imarc <- TCs$marc[1] * TCs$marc[2]
+# 		
+# 		# Model_Calc <- MortModel(TCs$marc[1], TCs$marc[2], 
+# 		# 												TCs$marc[3], TCs$marc[4], TCs$marc[5], same_region, Imarc)
+# 		
+# 		Model_Calc = {1.406958 * TCs$marc[1]} + {1.409992 * TCs$marc[2]} + 
+# 			{0.5205343 * TCs$marc[3]} + {0.4150946 * TCs$marc[4]} + 
+# 			{0.8883929 * TCs$marc[5]} + {-0.0890527 * same_region} - 
+# 			{0.7782696 * Imarc} - 2.217565
+# 		
+# 		
+# 		
+# 		probDeath <- pnorm(Model_Calc)
+# 		probDeath
+# 	}
+# 	
+# 	
+# 	pDeath <- apply(Pdat, 1, app)
+# 	
+# 	return(data.frame(pDeath = pDeath))
+# 	
+# }
+# 
+# 
+# tmpm4 = function(Pdat){
+# 	
+# 	
+# 	get_marcs = function(x){
+# 		marclist <- ICs[match(x[-1], ICs$index), ]
+# 		marclist <- marclist[order(marclist$marc, decreasing = T), ]
+# 		marclist <- marclist[1:5, ]
+# 		marclist$marc[is.na(marclist$marc)] = 0
+# 		
+# 		marclist$index = NULL
+# 		
+# 		if (marclist$marc[1] != 0 & marclist$marc[2] != 0 & marclist$bodyregion[1] == marclist$bodyregion[2]) {
+# 			same_region = 1
+# 		} else same_region = 0
+# 		
+# 		marclist = c(marclist$marc, same_region)
+# 		names(marclist) = c(paste0("marc", 1:5), "same_region")
+# 		
+# 		marclist
+# 	}
+# 	
+# 	
+# 	# marcs = matrix(NA, nrow = nrow(Pdat), ncol = 6)
+# 	# colnames(marcs) = c("marc1", "marc2", "marc3", "marc4", "marc5", "same_region")
+# 	# marcs = as_tibble(marcs)
+# 	
+# 	# for(i in 1:nrow(Pdat)){
+# 	# 	marcs[i, ] = get_marcs(Pdat[i, ])
+# 	# }
+# 	
+# 	
+# 	marcs = apply(Pdat, 1, get_marcs)
+# 	marcs = as_tibble(t(marcs)) #transposing takes a little bit...
+# 	
+# 	
+# 	
+# 	marcs$Imarc = marcs$marc1 * marcs$marc2
+# 	
+# 	
+# 	Model_Calc = 
+# 		{1.406958 * marcs$marc1} + 
+# 		{1.409992 * marcs$marc2} + 
+# 		{0.5205343 * marcs$marc3} +
+# 		{0.4150946 * marcs$marc4} + 
+# 		{0.8883929 * marcs$marc5} + 
+# 		{-0.0890527 * marcs$same_region} - 
+# 		{0.7782696 * marcs$Imarc} - 2.217565
+# 	
+# 	
+# 	pnorm(Model_Calc)
+# 	
+# 	
+# 	
+# 	
+# }
+# 
+# 
+# 
+# 
+# #parallel version of tmpm4, not really any faster
+# tmpm4p = function(Pdat, cores = 6, max_combine = max(c(ceiling(nrow(Pdat)*0.1), 100))){
+# 	
+# 	
+# 	get_marcs = function(x){
+# 		marclist <- ICs[match(x[-1], ICs$index), ]
+# 		marclist <- marclist[order(marclist$marc, decreasing = T), ]
+# 		marclist <- marclist[1:5, ]
+# 		marclist$marc[is.na(marclist$marc)] = 0
+# 		
+# 		marclist$index = NULL
+# 		
+# 		if (marclist$marc[1] != 0 & marclist$marc[2] != 0 & marclist$bodyregion[1] == marclist$bodyregion[2]) {
+# 			same_region = 1
+# 		} else same_region = 0
+# 		
+# 		marclist = c(marclist$marc, same_region)
+# 		names(marclist) = c(paste0("marc", 1:5), "same_region")
+# 		
+# 		marclist
+# 	}
+# 	
+# 	
+# 	library(foreach)
+# 	library(doParallel)
+# 	
+# 	doParallel::registerDoParallel(cores = cores)
+# 	marcs = foreach::foreach(i = 1:nrow(Pdat), .combine=dplyr::bind_rows, 
+# 													 .multicombine = T, .maxcombine = max_combine) %dopar% {
+# 													 	get_marcs(Pdat[i, ])
+# 													 }
+# 	doParallel::stopImplicitCluster()
+# 	
+# 	marcs = as.data.frame(marcs)
+# 	marcs$Imarc = marcs$marc1 * marcs$marc2
+# 	
+# 	
+# 	Model_Calc = 
+# 		{1.406958 * marcs$marc1} + 
+# 		{1.409992 * marcs$marc2} + 
+# 		{0.5205343 * marcs$marc3} +
+# 		{0.4150946 * marcs$marc4} + 
+# 		{0.8883929 * marcs$marc5} + 
+# 		{-0.0890527 * marcs$same_region} - 
+# 		{0.7782696 * marcs$Imarc} - 2.217565
+# 	
+# 	
+# 	pnorm(Model_Calc)
+# 	
+# 	
+# }
+# 
+# 
+# tmpm5 = function(Pdat){
+# 	
+# 	
+# 	get_marcs = function(x){
+# 		marclist <- ICs[match(x[-1], ICs$index), ]
+# 		marclist <- marclist[order(marclist$marc, decreasing = T), ]
+# 		marclist <- marclist[1:5, ]
+# 		marclist$marc[is.na(marclist$marc)] = 0
+# 		
+# 		marclist$index = NULL
+# 		
+# 		if (marclist$marc[1] != 0 & marclist$marc[2] != 0 & marclist$bodyregion[1] == marclist$bodyregion[2]) {
+# 			same_region = 1
+# 		} else same_region = 0
+# 		
+# 		Imarc = marclist$marc[1]*marclist$marc[2]
+# 		
+# 		marclist = c(marclist$marc, same_region, Imarc)
+# 		names(marclist) = c(paste0("marc", 1:5), "same_region", "Imarc")
+# 		
+# 		marclist
+# 	}
+# 	
+# 	
+# 	marcs = apply(Pdat, 1, get_marcs) 
+# 	
+# 	betas = c(1.406958,      #marc1
+# 						1.409992,      #marc2
+# 						0.5205343,     #marc3
+# 						0.4150946,     #marc4
+# 						0.8883929,     #marc5
+# 						-0.0890527,    #same_region
+# 						-0.7782696     #Imarc
+# 	)
+# 	
+# 	
+# 	Model_Calc = {betas %*% marcs} - 2.217565
+# 	
+# 	
+# 	Model_Calc = pnorm(Model_Calc)
+# 	
+# 	c(Model_Calc)
+# 	
+# 	
+# }
 
 
 tmpm5_old = function(Pdat){
@@ -1408,220 +1431,220 @@ tmpm5_old = function(Pdat){
 	
 }
 
-#parallel version of tmpm5, not really any faster
-tmpm5p = function(Pdat, cores = 6, max_combine = max(c(ceiling(nrow(Pdat)*0.1), 100))){
-	
-	get_marcs = function(x){
-		marclist <- ICs[match(x[-1], ICs$index), ]
-		marclist <- marclist[order(marclist$marc, decreasing = T), ]
-		marclist <- marclist[1:5, ]
-		marclist$marc[is.na(marclist$marc)] = 0
-		
-		marclist$index = NULL
-		
-		if (marclist$marc[1] != 0 & marclist$marc[2] != 0 & marclist$bodyregion[1] == marclist$bodyregion[2]) {
-			same_region = 1
-		} else same_region = 0
-		
-		Imarc = marclist$marc[1]*marclist$marc[2]
-		
-		marclist = c(marclist$marc, same_region, Imarc)
-		names(marclist) = c(paste0("marc", 1:5), "same_region", "Imarc")
-		
-		marclist
-	}
-	
-	
-	library(foreach)
-	library(doParallel)
-	doParallel::registerDoParallel(cores = cores)
-	marcs = foreach::foreach(i = 1:nrow(Pdat), .combine=dplyr::bind_rows, 
-													 .multicombine = T, .maxcombine = max_combine) %dopar% {
-													 	get_marcs(Pdat[i, ])
-													 }
-	doParallel::stopImplicitCluster()
-	
-	marcs = as.matrix(marcs)
-	
-	betas = c(1.406958,      #marc1
-						1.409992,      #marc2
-						0.5205343,     #marc3
-						0.4150946,     #marc4
-						0.8883929,     #marc5
-						-0.0890527,    #same_region
-						-0.7782696     #Imarc
-	)
-	
-	betas = matrix(betas, ncol = 1)
-	
-	Model_Calc = {marcs %*% betas} - 2.217565
-	
-	Model_Calc = pnorm(Model_Calc)
-	
-	c(Model_Calc)
-}
-
-
-
-reps = 100
-n = 1000
-
-mb = data.frame(
-	# tmpm = rep(NA_real_, reps),
-	tmpm2 = rep(NA_real_, reps),
-	tmpm3 = rep(NA_real_, reps),
-	tmpm4 = rep(NA_real_, reps),
-	# tmpm4p_10p = rep(NA_real_, reps),
-	# tmpm4p_500 = rep(NA_real_, reps),
-	# tmpm4p_1000 = rep(NA_real_, reps),
-	tmpm5 = rep(NA_real_, reps),
-	# tmpm5p_10p = rep(NA_real_, reps),
-	# tmpm5p_500 = rep(NA_real_, reps),
-	# tmpm5p_1000 = rep(NA_real_, reps),
-	tmpm5_old = rep(NA_real_, reps)
-)
-
-gc()
-set.seed(11)
-for(i in 1:reps){
-	temp = slice_sample(dx, n = n)
-	
-	# mb$tmpm[i] = unname(system.time({tmpm(temp, ILex = 9)})["elapsed"])
-	mb$tmpm2[i] = unname(system.time({tmpm2(temp)})["elapsed"])
-	mb$tmpm3[i] = unname(system.time({tmpm3(temp)})["elapsed"])
-	mb$tmpm4[i] = unname(system.time({tmpm4(temp)})["elapsed"])
-	# mb$tmpm4p_10p[i] = unname(system.time({tmpm4p(temp)})["elapsed"])
-	# mb$tmpm4p_500[i] = unname(system.time({tmpm4p(temp, max_combine = 500)})["elapsed"])
-	# mb$tmpm4p_1000[i] = unname(system.time({tmpm4p(temp, max_combine = 1000)})["elapsed"])
-	mb$tmpm5[i] = unname(system.time({tmpm5(temp)})["elapsed"])
-	# mb$tmpm5p_10p[i] = unname(system.time({tmpm5p(temp)})["elapsed"])
-	# mb$tmpm5p_500[i] = unname(system.time({tmpm5p(temp, max_combine = 500)})["elapsed"])
-	# mb$tmpm5p_1000[i] = unname(system.time({tmpm5p(temp, max_combine = 1000)})["elapsed"])
-	mb$tmpm5_old[i] = unname(system.time({tmpm5_old(temp)})["elapsed"])
-	cat(i, "\n")
-}
-
-rm(temp)
-
-summary(mb)
-
-mb %>%
-	pivot_longer(cols = colnames(mb)) %>% 
-	ggplot(aes(x = name, y=value)) + 
-	geom_violin() + 
-	geom_boxplot(alpha=0) +
-	coord_flip() + scale_y_log10() +
-	labs(title = paste(reps, "Replicates. N =", n))
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-reps = 20
-n = 20000
-
-mb2 = data.frame(
-	# tmpm = rep(NA_real_, reps),
-	tmpm2 = rep(NA_real_, reps),
-	tmpm3 = rep(NA_real_, reps),
-	tmpm4 = rep(NA_real_, reps),
-	# tmpm4p_10p = rep(NA_real_, reps),
-	# tmpm4p_500 = rep(NA_real_, reps),
-	# tmpm4p_1000 = rep(NA_real_, reps),
-	tmpm5 = rep(NA_real_, reps),
-	# tmpm5p_10p = rep(NA_real_, reps),
-	# tmpm5p_500 = rep(NA_real_, reps),
-	# tmpm5p_1000 = rep(NA_real_, reps),
-	tmpm5_old = rep(NA_real_, reps)
-)
-
-gc()
-set.seed(11)
-for(i in 1:reps){
-	temp = slice_sample(dx, n = n)
-	
-	# mb2$tmpm[i] = unname(system.time({tmpm(temp, ILex = 9)})["elapsed"])
-	mb2$tmpm2[i] = unname(system.time({tmpm2(temp)})["elapsed"])
-	mb2$tmpm3[i] = unname(system.time({tmpm3(temp)})["elapsed"])
-	mb2$tmpm4[i] = unname(system.time({tmpm4(temp)})["elapsed"])
-	# mb2$tmpm4p_10p[i] = unname(system.time({tmpm4p(temp)})["elapsed"])
-	# mb2$tmpm4p_500[i] = unname(system.time({tmpm4p(temp, max_combine = 500)})["elapsed"])
-	# mb2$tmpm4p_1000[i] = unname(system.time({tmpm4p(temp, max_combine = 1000)})["elapsed"])
-	mb2$tmpm5[i] = unname(system.time({tmpm5(temp)})["elapsed"])
-	# mb2$tmpm5p_10p[i] = unname(system.time({tmpm5p(temp)})["elapsed"])
-	# mb2$tmpm5p_500[i] = unname(system.time({tmpm5p(temp, max_combine = 500)})["elapsed"])
-	# mb2$tmpm5p_1000[i] = unname(system.time({tmpm5p(temp, max_combine = 1000)})["elapsed"])
-	mb2$tmpm5_old[i] = unname(system.time({tmpm5_old(temp)})["elapsed"])
-	cat(i, "\n")
-}
-
-rm(temp)
-
-summary(mb2)
-
-mb2 %>%
-	pivot_longer(cols = colnames(mb2)) %>% 
-	ggplot(aes(x = name, y=value)) + 
-	geom_violin() + 
-	geom_boxplot(alpha=0) +
-	coord_flip() +
-	labs(title = paste(reps, "Replicates. N =", n))
-
-
-
-
-
-
-# mb =  microbenchmark::microbenchmark(
-# 	#{tmpm(dx[1:1000, ], ILex = 9)},
-# 	{tmpm2(dx[1:1000, ])},
-# 	{tmpm3(dx[1:1000, ])},
-# 	{tmpm4(dx[1:1000, ])},
-# 	{tmpm4p(dx[1:1000, ])},
-# 	{tmpm4p(dx[1:1000, ], max_combine = 1000)},
-# 	{tmpm4p(dx[1:1000, ], max_combine = 500)},
-# 	{tmpm5(dx[1:1000, ])},
-# 	{tmpm5p(dx[1:1000, ])},
-# 	{tmpm5p(dx[1:1000, ], max_combine = 1000)},
-# 	{tmpm5p(dx[1:1000, ], max_combine = 500)},
-# 	{tmpm5_old(dx[1:1000, ])},
-# 	times = 2,
-# 	control = list(warmup = 2))
+# #parallel version of tmpm5, not really any faster
+# tmpm5p = function(Pdat, cores = 6, max_combine = max(c(ceiling(nrow(Pdat)*0.1), 100))){
+# 	
+# 	get_marcs = function(x){
+# 		marclist <- ICs[match(x[-1], ICs$index), ]
+# 		marclist <- marclist[order(marclist$marc, decreasing = T), ]
+# 		marclist <- marclist[1:5, ]
+# 		marclist$marc[is.na(marclist$marc)] = 0
+# 		
+# 		marclist$index = NULL
+# 		
+# 		if (marclist$marc[1] != 0 & marclist$marc[2] != 0 & marclist$bodyregion[1] == marclist$bodyregion[2]) {
+# 			same_region = 1
+# 		} else same_region = 0
+# 		
+# 		Imarc = marclist$marc[1]*marclist$marc[2]
+# 		
+# 		marclist = c(marclist$marc, same_region, Imarc)
+# 		names(marclist) = c(paste0("marc", 1:5), "same_region", "Imarc")
+# 		
+# 		marclist
+# 	}
+# 	
+# 	
+# 	library(foreach)
+# 	library(doParallel)
+# 	doParallel::registerDoParallel(cores = cores)
+# 	marcs = foreach::foreach(i = 1:nrow(Pdat), .combine=dplyr::bind_rows, 
+# 													 .multicombine = T, .maxcombine = max_combine) %dopar% {
+# 													 	get_marcs(Pdat[i, ])
+# 													 }
+# 	doParallel::stopImplicitCluster()
+# 	
+# 	marcs = as.matrix(marcs)
+# 	
+# 	betas = c(1.406958,      #marc1
+# 						1.409992,      #marc2
+# 						0.5205343,     #marc3
+# 						0.4150946,     #marc4
+# 						0.8883929,     #marc5
+# 						-0.0890527,    #same_region
+# 						-0.7782696     #Imarc
+# 	)
+# 	
+# 	betas = matrix(betas, ncol = 1)
+# 	
+# 	Model_Calc = {marcs %*% betas} - 2.217565
+# 	
+# 	Model_Calc = pnorm(Model_Calc)
+# 	
+# 	c(Model_Calc)
+# }
+# 
+# 
+# 
+# reps = 100
+# n = 1000
+# 
+# mb = data.frame(
+# 	# tmpm = rep(NA_real_, reps),
+# 	tmpm2 = rep(NA_real_, reps),
+# 	tmpm3 = rep(NA_real_, reps),
+# 	tmpm4 = rep(NA_real_, reps),
+# 	# tmpm4p_10p = rep(NA_real_, reps),
+# 	# tmpm4p_500 = rep(NA_real_, reps),
+# 	# tmpm4p_1000 = rep(NA_real_, reps),
+# 	tmpm5 = rep(NA_real_, reps),
+# 	# tmpm5p_10p = rep(NA_real_, reps),
+# 	# tmpm5p_500 = rep(NA_real_, reps),
+# 	# tmpm5p_1000 = rep(NA_real_, reps),
+# 	tmpm5_old = rep(NA_real_, reps)
+# )
+# 
 # gc()
+# set.seed(11)
+# for(i in 1:reps){
+# 	temp = slice_sample(dx, n = n)
+# 	
+# 	# mb$tmpm[i] = unname(system.time({tmpm(temp, ILex = 9)})["elapsed"])
+# 	mb$tmpm2[i] = unname(system.time({tmpm2(temp)})["elapsed"])
+# 	mb$tmpm3[i] = unname(system.time({tmpm3(temp)})["elapsed"])
+# 	mb$tmpm4[i] = unname(system.time({tmpm4(temp)})["elapsed"])
+# 	# mb$tmpm4p_10p[i] = unname(system.time({tmpm4p(temp)})["elapsed"])
+# 	# mb$tmpm4p_500[i] = unname(system.time({tmpm4p(temp, max_combine = 500)})["elapsed"])
+# 	# mb$tmpm4p_1000[i] = unname(system.time({tmpm4p(temp, max_combine = 1000)})["elapsed"])
+# 	mb$tmpm5[i] = unname(system.time({tmpm5(temp)})["elapsed"])
+# 	# mb$tmpm5p_10p[i] = unname(system.time({tmpm5p(temp)})["elapsed"])
+# 	# mb$tmpm5p_500[i] = unname(system.time({tmpm5p(temp, max_combine = 500)})["elapsed"])
+# 	# mb$tmpm5p_1000[i] = unname(system.time({tmpm5p(temp, max_combine = 1000)})["elapsed"])
+# 	mb$tmpm5_old[i] = unname(system.time({tmpm5_old(temp)})["elapsed"])
+# 	cat(i, "\n")
+# }
+# 
+# rm(temp)
+# 
+# summary(mb)
+# 
+# mb %>%
+# 	pivot_longer(cols = colnames(mb)) %>% 
+# 	ggplot(aes(x = name, y=value)) + 
+# 	geom_violin() + 
+# 	geom_boxplot(alpha=0) +
+# 	coord_flip() + scale_y_log10() +
+# 	labs(title = paste(reps, "Replicates. N =", n))
 # 
 # 
-# mb
-# ggplot2::autoplot(mb)
-
-
-
-
-
-
-
-
-
-temp = tmpm(dx[1:1000, ], ILex = 9)$pDeath
-all.equal(temp, tmpm2(dx[1:1000, ])$pDeath )  #same results
-all.equal(temp, tmpm3(dx[1:1000, ])$pDeath )  #same results
-all.equal(temp, tmpm4(dx[1:1000, ]) )  #same results
-all.equal(temp, tmpm4p(dx[1:1000, ]) )  #same results
-all.equal(temp, tmpm5(dx[1:1000, ]) )  #same results
-all.equal(temp, tmpm5p(dx[1:1000, ]) )  #same results
-all.equal(temp, tmpm5_old(dx[1:1000, ]) )  #same results
-
-
-
-rm(temp, mb, mb2, i, n, reps, tmpm2, tmpm3, tmpm4, tmpm4p, tmpm5, tmpm5p)
+# 
+# 
+# 
+# 
+# 
+# 
+# 
+# 
+# 
+# 
+# 
+# 
+# reps = 20
+# n = 20000
+# 
+# mb2 = data.frame(
+# 	# tmpm = rep(NA_real_, reps),
+# 	tmpm2 = rep(NA_real_, reps),
+# 	tmpm3 = rep(NA_real_, reps),
+# 	tmpm4 = rep(NA_real_, reps),
+# 	# tmpm4p_10p = rep(NA_real_, reps),
+# 	# tmpm4p_500 = rep(NA_real_, reps),
+# 	# tmpm4p_1000 = rep(NA_real_, reps),
+# 	tmpm5 = rep(NA_real_, reps),
+# 	# tmpm5p_10p = rep(NA_real_, reps),
+# 	# tmpm5p_500 = rep(NA_real_, reps),
+# 	# tmpm5p_1000 = rep(NA_real_, reps),
+# 	tmpm5_old = rep(NA_real_, reps)
+# )
+# 
+# gc()
+# set.seed(11)
+# for(i in 1:reps){
+# 	temp = slice_sample(dx, n = n)
+# 	
+# 	# mb2$tmpm[i] = unname(system.time({tmpm(temp, ILex = 9)})["elapsed"])
+# 	mb2$tmpm2[i] = unname(system.time({tmpm2(temp)})["elapsed"])
+# 	mb2$tmpm3[i] = unname(system.time({tmpm3(temp)})["elapsed"])
+# 	mb2$tmpm4[i] = unname(system.time({tmpm4(temp)})["elapsed"])
+# 	# mb2$tmpm4p_10p[i] = unname(system.time({tmpm4p(temp)})["elapsed"])
+# 	# mb2$tmpm4p_500[i] = unname(system.time({tmpm4p(temp, max_combine = 500)})["elapsed"])
+# 	# mb2$tmpm4p_1000[i] = unname(system.time({tmpm4p(temp, max_combine = 1000)})["elapsed"])
+# 	mb2$tmpm5[i] = unname(system.time({tmpm5(temp)})["elapsed"])
+# 	# mb2$tmpm5p_10p[i] = unname(system.time({tmpm5p(temp)})["elapsed"])
+# 	# mb2$tmpm5p_500[i] = unname(system.time({tmpm5p(temp, max_combine = 500)})["elapsed"])
+# 	# mb2$tmpm5p_1000[i] = unname(system.time({tmpm5p(temp, max_combine = 1000)})["elapsed"])
+# 	mb2$tmpm5_old[i] = unname(system.time({tmpm5_old(temp)})["elapsed"])
+# 	cat(i, "\n")
+# }
+# 
+# rm(temp)
+# 
+# summary(mb2)
+# 
+# mb2 %>%
+# 	pivot_longer(cols = colnames(mb2)) %>% 
+# 	ggplot(aes(x = name, y=value)) + 
+# 	geom_violin() + 
+# 	geom_boxplot(alpha=0) +
+# 	coord_flip() +
+# 	labs(title = paste(reps, "Replicates. N =", n))
+# 
+# 
+# 
+# 
+# 
+# 
+# # mb =  microbenchmark::microbenchmark(
+# # 	#{tmpm(dx[1:1000, ], ILex = 9)},
+# # 	{tmpm2(dx[1:1000, ])},
+# # 	{tmpm3(dx[1:1000, ])},
+# # 	{tmpm4(dx[1:1000, ])},
+# # 	{tmpm4p(dx[1:1000, ])},
+# # 	{tmpm4p(dx[1:1000, ], max_combine = 1000)},
+# # 	{tmpm4p(dx[1:1000, ], max_combine = 500)},
+# # 	{tmpm5(dx[1:1000, ])},
+# # 	{tmpm5p(dx[1:1000, ])},
+# # 	{tmpm5p(dx[1:1000, ], max_combine = 1000)},
+# # 	{tmpm5p(dx[1:1000, ], max_combine = 500)},
+# # 	{tmpm5_old(dx[1:1000, ])},
+# # 	times = 2,
+# # 	control = list(warmup = 2))
+# # gc()
+# # 
+# # 
+# # mb
+# # ggplot2::autoplot(mb)
+# 
+# 
+# 
+# 
+# 
+# 
+# 
+# 
+# 
+# temp = tmpm(dx[1:1000, ], ILex = 9)$pDeath
+# all.equal(temp, tmpm2(dx[1:1000, ])$pDeath )  #same results
+# all.equal(temp, tmpm3(dx[1:1000, ])$pDeath )  #same results
+# all.equal(temp, tmpm4(dx[1:1000, ]) )  #same results
+# all.equal(temp, tmpm4p(dx[1:1000, ]) )  #same results
+# all.equal(temp, tmpm5(dx[1:1000, ]) )  #same results
+# all.equal(temp, tmpm5p(dx[1:1000, ]) )  #same results
+# all.equal(temp, tmpm5_old(dx[1:1000, ]) )  #same results
+# 
+# 
+# 
+# rm(temp, mb, mb2, i, n, reps, tmpm2, tmpm3, tmpm4, tmpm4p, tmpm5, tmpm5p)
 
 
 
@@ -1696,7 +1719,7 @@ rm(dx, ICs)
 gc()
 
 
-
+beepr::beep()
 
 
 
@@ -1778,7 +1801,7 @@ write_fst(res, "Data/final/comorbids.fst")
 file.remove("Data/final/comorbids.csv")
 rm(res)
 
-
+beepr::beep()
 
 
 
@@ -1904,6 +1927,9 @@ ecodes = ecodes[!is.na(ecodes$key_ed), ]
 write_fst(ecodes, "Data/final/ecodes_final.fst")
 
 rm(ecodes, icd_map, dx_recode)
+
+beepr::beep()
+
 
 # disconnect from DB ------------------------------------------------------
 
