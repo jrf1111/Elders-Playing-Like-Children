@@ -38,6 +38,10 @@ rm(conf_file)
 
 system("pg_ctl -D /usr/local/var/postgres start") #start PostgreSQL server in daemon (-D) mode
 
+#delete the database if it exists
+system("dropdb --username 'jr-f' --no-password  --host 'localhost'  --port 5432 --echo neds")
+
+#make the empty database
 system("createdb --username 'jr-f' --no-password  --host 'localhost'  --port 5432  neds")
 
 
@@ -244,7 +248,7 @@ rm(query)
 gc()
 
 
-
+beepr::beep()
 
 file.remove("nobs log.txt")
 n = dbGetQuery(neds, "SELECT COUNT(key_ed) FROM demos")
@@ -256,7 +260,7 @@ n = dbGetQuery(neds, "SELECT SUM(discwt) FROM demos")
 n = as.integer(n)
 cat("Initial N_wt = ", format(n, big.mark=","), "\n", file = "nobs log.txt", append = TRUE)
 
-
+beepr::beep()
 
 
 
@@ -294,7 +298,7 @@ dbColumnInfo(query)
 rm(query)
 gc()
 
-
+beepr::beep()
 
 
 
@@ -331,7 +335,7 @@ rm(query)
 gc()
 
 
-
+beepr::beep()
 
 
 
@@ -371,6 +375,8 @@ rm(query)
 gc()
 
 
+beepr::beep()
+
 
 # ~ hospital ----
 files = list.files("Data/", pattern = "Hospital.fst", full.names = T)
@@ -406,6 +412,7 @@ rm(query)
 gc()
 
 
+beepr::beep()
 
 
 
@@ -522,6 +529,23 @@ cat("N_wt after filtering on injury dx = ", format(n, big.mark=","), "\n", file 
 
 
 
+
+# make a backup of the database ------------------------
+
+dbDisconnect(neds)
+rm(neds)
+
+system("createdb -O 'jr-f' -T neds neds_injury_only")
+
+
+
+
+neds = dbConnect(dbDriver("PostgreSQL"), 
+								 user="jr-f", 
+								 password="",
+								 host="localhost",
+								 port=5432,
+								 dbname="neds")
 
 
 

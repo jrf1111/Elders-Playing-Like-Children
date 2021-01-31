@@ -404,19 +404,27 @@ final$totchg_ip_recode[final$totchg_ip_recode<0] = NA
 
 
 #add definition for high risk vs. not -----
-high_risk_codes = readxl::read_excel("high-risk_ecodes.xlsx",
+high_risk_codes = readxl::read_excel("high-risk ecode groups.xlsx",
 																		 sheet = "ICD-9"
 )
 
-#remove periods
-high_risk_codes$ecode = str_remove_all(high_risk_codes$ecode, 
-																			 fixed("."))
+
+high_risk_codes = high_risk_codes %>% select(ecode, group)
+
+high_risk_codes = high_risk_codes %>% rename("hr_group" = "group")
 
 
 final$high_risk = final$ecode1 %in% high_risk_codes$ecode
 
 final$high_risk[final$high_risk == TRUE] = "High-risk"
 final$high_risk[final$high_risk == "FALSE"] = "Non-high-risk"
+
+
+final = left_join(final, 
+									high_risk_codes,
+									by = c("ecode1" = "ecode")
+									)
+
 
 rm(high_risk_codes)
 
