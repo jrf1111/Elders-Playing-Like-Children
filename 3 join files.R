@@ -429,6 +429,13 @@ final = left_join(final,
 rm(high_risk_codes)
 
 
+#reassign some groups
+final$high_risk[which(final$hr_group == "Exclude")] = "Non-high-risk"
+final$hr_group[which(final$hr_group=="Exclude")] = NA
+
+
+
+
 #add ecode descriptions and groups -----
 
 
