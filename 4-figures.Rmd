@@ -1,0 +1,344 @@
+---
+title: "EPLC Descriptives"
+author: "Jacob W. Roden-Foreman"
+date: "`r Sys.time()`"
+output:
+  html_document:
+    pandoc_args: "--dpi=150"
+    fig_height: 3
+    fig_width: 5
+    code_folding: show
+    df_print: kable
+    toc: true
+    toc_depth: 3
+    toc_float: true
+editor_options: 
+  chunk_output_type: console
+---
+
+
+```{r setup and import}
+knitr::opts_chunk$set(echo = TRUE,
+											results = "asis")
+
+library(tidyverse)
+library(tidylog)
+library(data.table)
+library(fst)
+library(bit64)
+
+
+mdata = read_fst("Data/final/final combined dataset.fst")
+mdata$hosp_ed = as.factor(mdata$hosp_ed)
+
+
+
+
+```
+
+
+
+
+# Figures  
+
+## Mortality rates by year
+
+```{r}
+
+library(patchwork)
+library(cowplot)
+
+
+#want mortality rates overall, all high risk, and by high risk group
+#all by age group as well
+
+
+mort_sum = 
+	bind_rows(
+		#overall
+		mdata %>% 
+			group_by(year_whole, age_group, mortality) %>% 
+			summarise(
+				n = sum(discwt),
+				group = "Overall Sample"
+			) %>% 
+			group_by(year_whole, age_group) %>% 
+			mutate(pct = n/sum(n)) %>% 
+			ungroup(),
+		
+		
+		#all high risk
+		mdata %>% 
+			filter(high_risk == "High-risk") %>% 
+			group_by(year_whole, age_group, mortality) %>% 
+			summarise(
+				n = sum(discwt),
+				group = "High-Risk Sample"
+			) %>% 
+			group_by(year_whole, age_group) %>% 
+			mutate(pct = n/sum(n)) %>% 
+			ungroup(),
+		
+		
+		
+		#all non-high risk
+		mdata %>% 
+			filter(high_risk == "Non-high-risk") %>% 
+			group_by(year_whole, age_group, mortality) %>% 
+			summarise(
+				n = sum(discwt),
+				group = "Non-High Risk Sample"
+			) %>% 
+			group_by(year_whole, age_group) %>% 
+			mutate(pct = n/sum(n)) %>% 
+			ungroup(),
+		
+		
+		
+		
+		#by high risk group
+			mdata %>% 
+			filter(high_risk == "High-risk") %>% 
+			rename("group" = "hr_group") %>% 
+			mutate(group = as.character(group)) %>% 
+			group_by(year_whole, age_group, mortality, group) %>% 
+			summarise(
+				n = sum(discwt)
+			) %>% 
+			group_by(year_whole, age_group, group) %>% 
+			mutate(pct = n/sum(n)) %>% 
+			ungroup() %>% 
+			complete(year_whole, age_group, mortality, group, 
+             fill = list(pct=0, n=0))
+	) %>% 
+	filter(mortality==1) %>% 
+	select(group, year_whole, age_group, pct, n) 
+
+
+
+
+mort_sum$group = str_to_title(mort_sum$group)
+
+mort_sum$group = recode(mort_sum$group, 
+												"Ice And Snow Sports" = "Ice & Snow Sports"
+												)
+
+
+
+
+mort_sum %>% distinct(group) %>% pull() %>% cat(., sep = '", "')
+
+mort_sum$group = factor(mort_sum$group,
+												levels = c("Overall Sample", "High-Risk Sample", 
+																	 "Non-High Risk Sample",
+																	 "Aerobics & Cardiorespiratory Exercise", 
+																	 "Climbing, Jumping, & Diving", 
+																	 "Fighting & Contact Sports", 
+																	 "High-Speed Transport/Movement On Non-Motor Vehicle", 
+																	 "Ice & Snow Sports", "Motorcycle Related", 
+																	 "Off-Road Vehicle", "Pedal Cycle Related", 
+																	 "Watercraft Related")
+												)
+
+
+theme_set(theme_bw())
+
+
+
+p = ggplot(mort_sum, 
+			 aes(x = year_whole, y = pct, group = age_group)) +
+	geom_smooth(aes(color = age_group, linetype = age_group), 
+							ymin = 0, ymax = 1, se=F,
+							size = 0.75
+							) +
+	scale_y_continuous(
+		labels = scales::percent_format(accuracy = 1.0),
+		expand = c(0.005, 0.0)
+	) + 
+	scale_x_continuous(breaks = 2010:2016, labels = 2010:2016) +
+	coord_cartesian(ylim = c(0, 0.25)) +
+	facet_wrap(~group, labeller = label_wrap_gen(width=30)) +
+	labs(
+		color = "Age Group",
+		linetype = "Age Group",
+		y = "Mortality Rate",
+		x = "\nYear"
+	) +
+	theme(
+		legend.position = "bottom",
+		strip.text.x = element_text(size = 6),
+		axis.text.x = element_text(angle = -90, vjust = 0.5, size = 7),
+		axis.text.y = element_text(size = 7),
+		panel.grid.minor = element_blank()
+	)
+
+
+
+p
+
+ggsave("Results/fig mort rate by year, age group, and risk group.pdf",
+			plot = p,
+			device = "pdf",
+			width = 7,
+			height = 5
+			)
+
+
+
+
+
+
+
+
+
+
+
+#stopped here.  Need to make log10 work ------------------------------
+
+p = ggplot(mort_sum, 
+			 aes(x = year_whole, y = pct + .Machine$double.eps , group = age_group)) +
+	geom_smooth(aes(color = age_group, linetype = age_group), 
+							ymin = .Machine$double.eps, se=F,
+							size = 0.75
+							) +
+	scale_y_log10(
+		labels = scales::percent_format(),
+		expand = c(0.005, 0.0)
+	) + 
+	scale_x_continuous(breaks = 2010:2016, labels = 2010:2016) +
+	# coord_cartesian(ylim = c(0, 0.25)) +
+	facet_wrap(~group, labeller = label_wrap_gen(width=30)) +
+	labs(
+		color = "Age Group",
+		linetype = "Age Group",
+		y = "Mortality Rate",
+		x = "\nYear"
+	) +
+	theme(
+		legend.position = "bottom",
+		strip.text.x = element_text(size = 6),
+		axis.text.x = element_text(angle = -90, vjust = 0.5, size = 7),
+		axis.text.y = element_text(size = 7),
+		panel.grid.minor = element_blank()
+	)
+
+
+
+p
+
+
+ggsave("Results/fig mort rate logged by year, age group, and risk group.pdf",
+			plot = p,
+			device = "pdf",
+			width = 7,
+			height = 5
+			)
+
+
+
+
+
+
+
+
+
+a = 
+	mort_sum %>% filter(group == "Overall Sample") %>% 
+	ggplot( 
+			 aes(x = year_whole, y = pct, group = age_group, color = age_group)) +
+	geom_smooth(ymin = 0, ymax = 1, se=F) +
+	scale_y_continuous(
+		name = "Mortality Rate",
+		limits = c(0, NA), 
+		labels = scales::percent_format()
+	) + 
+	scale_x_continuous(
+		name = "Year of Admission",
+		limits = c(2010, 2016),
+		breaks = 2010:2016
+	) +
+	labs(
+		color = "Age Group",
+		title = "Overall Sample"
+			 )
+
+
+
+
+
+b = 
+	mort_sum %>% filter(group == "High-Risk Sample") %>% 
+	ggplot( 
+			 aes(x = year_whole, y = pct, group = age_group, color = age_group)) +
+	geom_smooth(ymin = 0, ymax = 1, se=F) +
+	scale_y_continuous(
+		name = "Mortality Rate",
+		limits = c(0, NA), 
+		labels = scales::percent_format()
+	) + 
+	scale_x_continuous(
+		name = "Year of Admission",
+		limits = c(2010, 2016),
+		breaks = 2010:2016
+	) +
+	labs(
+		color = "Age Group",
+		title = "High-Risk Sample"
+	)
+
+
+
+
+
+
+c = 
+	mort_sum %>% filter(group == "High-Risk Sample") %>% 
+	ggplot( 
+			 aes(x = year_whole, y = pct, group = age_group, color = age_group)) +
+	geom_smooth(ymin = 0, ymax = 1, se=F) +
+	scale_y_continuous(
+		name = "Mortality Rate",
+		limits = c(0, NA), 
+		labels = scales::percent_format()
+	) + 
+	scale_x_continuous(
+		name = "Year of Admission",
+		limits = c(2010, 2016),
+		breaks = 2010:2016
+	) +
+	labs(
+		color = "Age Group",
+		title = "High-Risk Sample"
+	)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+```
+
+
+\
+\
+
+
+## Case counts by year
+
+```{r}
+
+
+
+
+
+```
+
