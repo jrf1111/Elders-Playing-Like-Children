@@ -34,6 +34,29 @@ library(gammit)
 
 
 
+extract_fixed = function(model, ci_level = 0.95, digits = 3){
+	fe <- data.frame(summary(model, re.test=FALSE)$p.table)
+	colnames(fe) = c("value", "se", "t", "p")
+	if (ci_level > 0) {
+		lower <- (1 - ci_level)/2
+		upper <- 1 - lower
+		nu <- model$df.residual
+		mult <- stats::qt(upper, nu)
+		ci <- data.frame(lower = fe$value - mult * fe$se, upper = fe$value + 
+			mult * fe$se)
+		colnames(ci) <- paste0(c("lower_", "upper_"), c(lower, 
+			upper) * 100)
+		fe <- data.frame(fe, ci)
+	}
+	fe <- fe %>% dplyr::mutate_all(round, digits = digits) %>% 
+		dplyr::mutate(term = gsub(rownames(fe), pattern = "[\\(,\\)]", 
+			replacement = "")) %>% dplyr::select(term, dplyr::everything()) %>% 
+		dplyr::as_tibble()
+	fe
+}
+
+
+
 ```
 
 
@@ -144,7 +167,7 @@ X = sparse.model.matrix( ~
 												 ,
 												 mdata
 )
-X = X[, -1] #remove the intercept
+X = X[, colnames(X) != "(Intercept)"] #remove the intercept
 
 
 
@@ -155,9 +178,9 @@ X = X[, -1] #remove the intercept
 
 
 
-#define training (80%) and testing (20%) samples
+#define training (70%) and testing (30%) samples
 set.seed(1111)
-train = rbinom(n = nrow(mdata), size = 1, prob = 0.8) %>% as.logical()
+train = rbinom(n = nrow(mdata), size = 1, prob = 0.7) %>% as.logical()
 
 
 
@@ -203,20 +226,23 @@ plot(cv_fit)
 
 # lambda.min is the value of lambda that gives minimum mean cross-validated error. 
 log(cv_fit$lambda.min)
-coef(cv_fit, s = "lambda.min") %>% as.matrix()
+coef(cv_fit, s = "lambda.min") %>% as.matrix() %>% 
+	data.frame() %>%  rownames_to_column() %>% 
+	filter(X1 != 0) %>% arrange(rowname)
 # has too many predictors
 
 
 
 # lambda.1se is the most regularized model with loss that is within one standard error of model with the least loss.
 log(cv_fit$lambda.1se)
-coef(cv_fit, s = "lambda.1se") %>% as.matrix()
+coef(cv_fit, s = "lambda.1se") %>% as.matrix() %>% 
+	data.frame() %>%  rownames_to_column() %>% 
+	filter(X1 != 0) %>% arrange(rowname)
 #takes everything out except age, age^2, age_group85+, 
-# female, pay1_recodeSelf-pay, pDeath_logit, 
-# injury_skull_fx, injury_cspine, 
-# injury_cardio_pulm, injury_hollow_abd,
-# injury_ue_fx, injury_pelvic_fx
-
+# injury_cardio_pulm,
+# injury_cspine, injury_hollow_abd, 
+# injury_skull_fx, injury_ue_fx, 
+# pDeath_logit, year_whole
 
 
 
@@ -247,10 +273,10 @@ rm(cv_fit, X, Y, W, start, stop)
 
 https://m-clark.github.io/posts/2019-10-20-big-mixed-models/#additive-models-as-mixed-models
 
+## Model with HRRAs as random effects  
 
-```{r testing model}
 
-
+```{r testing-model-rand}
 test = mdata %>% filter(train != TRUE)
 format(nrow(test), big.mark = ",")
 format(round(sum(test$discwt)), big.mark = ",")
@@ -273,15 +299,14 @@ start = Sys.time()
 start
 mort_mod = bam(mortality ~ 
 							 	#level 1 fixed effects:
-							 	poly(age, 3, raw = T) + female + 
+							 	poly(age, 3, raw = T) +  #keeping age^3 since LASSO included age, age^2, and age_group85+
 							 	
-							 	pay1_recode + 
+							 	injury_skull_fx + injury_cspine +
+							 	injury_cardio_pulm + injury_hollow_abd +
+							 	injury_ue_fx + 
 							 	
-							 	injury_skull_fx + injury_cspine + 
-							 	injury_cardio_pulm + injury_hollow_abd + 
-							 	injury_ue_fx + injury_pelvic_fx + 
 							 	
-							 	pDeath_logit + elixhauser +
+							 	pDeath_logit + elixhauser +  #keeping these two regardless of LASSO
 							 	
 							 	#level 2 fixed effects:
 							 	hosp_trauma_level + year_whole + 
@@ -304,7 +329,7 @@ beepr::beep()
 
 end - start
 
-saveRDS(mort_mod, "Results/mort_mod.RDS")
+saveRDS(mort_mod, "Results/mort_mod_some_groups_randef.DRS")
 
 options(show.signif.stars = F)
 
@@ -312,9 +337,10 @@ summary(mort_mod, re.test = F)
 
 
 fixed = extract_fixed(mort_mod, ci_level = 1-0.005, digits = 5) 
+colnames(fixed) = c("term", "value", "se", "t", "p", "lower_ci", "upper_ci")
 fixed$OR = sprintf("%.2f", exp(fixed$value))
-fixed$CI = paste0( sprintf("%.2f", exp(fixed$lower_0.05)), ", ", 
-									 sprintf("%.2f", exp(fixed$upper_99.95)))
+fixed$CI = paste0( sprintf("%.2f", exp(fixed$lower_ci)), ", ", 
+									 sprintf("%.2f", exp(fixed$upper_ci)))
 fixed$pval = if_else(fixed$p < 0.0001, "< 0.0001", sprintf("%.3f", fixed$p))
 TCCD::my_print(fixed)
 
@@ -323,26 +349,37 @@ TCCD::my_print(fixed)
 
 
 ranef = extract_ranef(mort_mod, re = "hr_group", ci_level = 1-0.005, digits = 5) 
+colnames(ranef) = c("group_var", "effect", "group", "value", "se", "lower_ci", "upper_ci")
 ranef$OR = sprintf("%.2f", exp(ranef$value))
-ranef$CI = paste0( sprintf("%.2f", exp(ranef$lower_0.25)), ", ", 
-									 sprintf("%.2f", exp(ranef$upper_99.75)))
+ranef$CI = paste0( sprintf("%.2f", exp(ranef$lower_ci)), ", ", 
+									 sprintf("%.2f", exp(ranef$upper_ci)))
 ranef$pval = pnorm(abs(ranef$value/ranef$se) , lower.tail = F)*2
 ranef$pval = if_else(ranef$pval < 0.0001, "< 0.0001", sprintf("%.3f", ranef$pval))
 TCCD::my_print(ranef)
 
+rm(mort_mod)
+```
 
 
 
 
 
+\
+\
 
 
+## Model with HRRAs as fixed effects  
 
 
+```{r testing-model-fixed}
+#adjust names for multiple comparisons later
+test$hr_group = str_replace_all(test$hr_group, " ", "_")
+test$hr_group = str_replace_all(test$hr_group, "-", "_")
 
 
-
-
+#set Pedal Cycle Related as reference group (largest)
+test$hr_group = factor(test$hr_group)
+test$hr_group = relevel(test$hr_group, "Pedal_Cycle_Related")
 
 
 #~8 mins 
@@ -350,17 +387,17 @@ start = Sys.time()
 start
 mort_mod2 = bam(mortality ~ 
 									#level 1 fixed effects:
-									poly(age, 3, raw = T) + female + 
-									
-									pay1_recode + 
-									
-									injury_skull_fx + injury_cspine + 
-									injury_cardio_pulm + injury_hollow_abd + 
-									injury_ue_fx + injury_pelvic_fx + 
-									
-									pDeath_logit + elixhauser +
 									
 									hr_group +
+									
+									poly(age, 3, raw = T) +  #keeping age^3 since LASSO included age, age^2, and age_group85+
+									
+									injury_skull_fx + injury_cspine +
+									injury_cardio_pulm + injury_hollow_abd +
+									injury_ue_fx + 
+									
+									pDeath_logit + elixhauser +  #keeping these two regardless of LASSO
+									
 									
 									#level 2 fixed effects:
 									hosp_trauma_level + year_whole + 
@@ -383,21 +420,527 @@ beepr::beep()
 end - start
 
 
+saveRDS(mort_mod2, "Results/mort_mod_some_groups_fixed.DRS")
+
+
 summary(mort_mod2, re.test = F)
 
 
 
 
+fixed = extract_fixed(mort_mod2, ci_level = 1-0.005, digits = 5) 
+colnames(fixed) = c("term", "value", "se", "t", "p", "lower_ci", "upper_ci")
+fixed$OR = sprintf("%.2f", exp(fixed$value))
+fixed$CI = paste0( sprintf("%.2f", exp(fixed$lower_ci)), ", ", 
+									 sprintf("%.2f", exp(fixed$upper_ci)))
+fixed$pval = if_else(fixed$p < 0.0001, "< 0.0001", sprintf("%.3f", fixed$p))
+TCCD::my_print(fixed)
+
+
+
+
+
+
 #need pairwise comparisons.  
-# This doesn't work: multcomp::glht(mort_mod2, linfct = multcomp::mcp(hr_group = "Tukey"))
+# multcomp's function to automatically make contrasts (mcp) doesn't work with models from bam().
+# solution from https://stats.stackexchange.com/questions/376237/correcting-for-multiple-pairwise-comparisons-with-gam-objects-mgcv-in-r
 
 
+library(multcomp)
+
+
+
+
+#comparisons
+#Pedal_Cycle_Related is the ref. group in the model
+pairs = test %>% distinct(hr_group) %>% pull() %>% 
+	sort() %>% as.character() %>% 
+	combn(2) %>% t() %>% data.frame()
+
+library(glue)
+
+
+#all comparisons against Pedal_Cycle_Related
+comps = pairs %>% 
+	filter(X1 == "Pedal_Cycle_Related") %>% 
+	glue_data("hr_group{X2} = 0")
+
+
+
+#all other comparisons
+pairs = pairs %>% 
+	filter(X1 != "Pedal_Cycle_Related") %>% 
+	filter(X2 != "Pedal_Cycle_Related")
+
+
+comps = c(comps, 
+					pairs %>% glue_data("hr_group{X1} - hr_group{X2} = 0")
+)
+
+
+pw_comps = glht(mort_mod2, 
+								linfct = comps
+								)
+
+
+
+summary(pw_comps, test = adjusted("holm") )
+
+
+res = confint(pw_comps, level = 1-0.005, calpha = univariate_calpha())$confint
+
+res = res %>% as.data.frame() %>% rownames_to_column()
+
+res$ps = summary(pw_comps, test = adjusted("holm") )$test$pvalues
+
+res$OR = scales::comma(exp(res$Estimate), accuracy = 0.01)
+res$ci_l = scales::comma(exp(res$lwr), accuracy = 0.01)
+res$ci_u = scales::comma(exp(res$upr), accuracy = 0.01)
+
+res$OR_CI = paste0(res$OR, " (", res$ci_l, " - ", res$ci_u, ")")
+
+res$pval = scales::pvalue(res$ps, accuracy = 0.0001)
+
+
+res %>% dplyr::select(rowname, OR:pval) %>% TCCD::my_print()
+
+rm(mort_mod2)
+
+rm(coefs, fixed, pairs, pw_comps, ranef, res, test)
+
+```
+
+
+
+
+\
+\
+\
+
+
+# Re-do with all high risk groups included
+
+\
+
+## Pre-process again  
+
+```{r preprocessing2}
+
+
+mdata = read_fst("Data/final/final combined dataset.fst",
+								 columns = c('hosp_ed', 'year_whole',
+								 						'discwt', 'neds_stratum', 
+								 						'age',
+								 						'age_group',
+								 						'female', 'zipinc_qrtl',
+								 						'pay1_recode', 
+								 						'pDeath', 'elixhauser',
+								 						'mortality', 
+								 						'high_risk', "hr_group", 
+								 						'hosp_trauma_level',
+								 						'injury_brain', 'injury_skull_fx',
+								 						'injury_cspine', 'injury_rib_fx',
+								 						'injury_cardio_pulm', 'injury_tspine',
+								 						'injury_lspine', 'injury_solid_abd',
+								 						'injury_hollow_abd', 'injury_ue_fx',
+								 						'injury_pelvic_fx', 'injury_le_fx'
+								 )
+)
+
+mdata = mdata %>% filter(high_risk == "High-risk")
+
+mdata$hosp_ed = as.factor(mdata$hosp_ed)
+
+
+
+
+
+
+
+#separate everything out into (sparse) matrices to reduce memory pressure
+Y = mdata$mortality
+
+W = mdata$discwt
+
+
+mdata = mdata %>% mutate_at(vars(starts_with("injury_")), as.integer)
+
+mdata$zipinc_qrtl = factor(mdata$zipinc_qrtl, ordered = F)
+
+library(Matrix)
+
+temp = poly(mdata$age, 3)
+mdata$age_L = temp[, 1]
+mdata$age_Q = temp[, 2]
+mdata$age_C = temp[, 3]
+rm(temp)
+
+
+mdata$pDeath_logit = arm::logit(mdata$pDeath)
+
+
+
+X = sparse.model.matrix( ~ 
+												 	#demographics
+												 	age_L + age_Q + age_C + age_group + female + zipinc_qrtl + pay1_recode + 
+												 	
+												 	#case mix vars
+												 	pDeath_logit + elixhauser +
+												 	
+												 	#high risk groups
+												 	hr_group + 
+												 	
+												 	#injuries
+												 	injury_brain + injury_skull_fx + injury_cspine + 
+												 	injury_rib_fx + injury_cardio_pulm + injury_tspine + 
+												 	injury_lspine + injury_solid_abd + injury_hollow_abd + 
+												 	injury_ue_fx + injury_pelvic_fx + injury_le_fx + 
+												 	
+												 	#level 2 fixed effects
+												 	hosp_trauma_level + year_whole
+												 ,
+												 mdata
+)
+X = X[, -1] #remove the intercept
+
+
+
+
+
+
+
+
+
+
+#define training (70%) and testing (30%) samples
+set.seed(1111)
+train = rbinom(n = nrow(mdata), size = 1, prob = 0.7) %>% as.logical()
 
 
 
 
 
 ```
+
+
+## Variable Selection again  
+
+```{r vs2}
+
+#about 10 minutes
+invisible(gc())
+start = Sys.time()
+start
+cv_fit = cv.glmnet(y = Y[train], 
+									 x = X[train, ],
+									 weights = W[train],
+
+									 trace.it = interactive(), #print progress
+									 
+									 nfolds = 50,
+									 family = "binomial", 
+									 type.measure = "deviance", #use deviance as loss function
+									 
+									 #instead of default "Newton", which uses the exact hessian:
+									 type.logistic = "modified.Newton", 
+									 alpha = 1  #LASSO
+									 
+)
+stop = Sys.time()
+stop - start
+beepr::beep()
+
+
+plot(cv_fit)
+
+
+# lambda.min is the value of lambda that gives minimum mean cross-validated error. 
+log(cv_fit$lambda.min)
+coef(cv_fit, s = "lambda.min") %>% as.matrix() %>% 
+	data.frame() %>%  rownames_to_column() %>% 
+	filter(X1 != 0) %>% arrange(rowname)
+# has too many predictors
+
+
+
+# lambda.1se is the most regularized model with loss that is within one standard error of model with the least loss.
+log(cv_fit$lambda.1se)
+coef(cv_fit, s = "lambda.1se") %>% as.matrix() %>% 
+	data.frame() %>%  rownames_to_column() %>% 
+	filter(X1 != 0) %>% arrange(rowname)
+#takes everything out except age, age^2, age_group85+, 
+# elixhauser, female, 
+# injury_cspine, injury_hollow_abd, 
+# injury_skull_fx, injury_ue_fx, 
+# pay1_recodeSelf-pay, pDeath_logit, year_whole
+
+
+
+
+
+
+
+
+#final choice:
+coef(cv_fit, s = "lambda.1se") %>% as.matrix()
+
+coefs = coef(cv_fit, s = "lambda.1se")
+coefs = data.frame( var = rownames(coefs),  b = matrix(coefs)  )
+coefs = coefs[coefs$b != 0, ]
+coefs
+
+rm(cv_fit, X, Y, W, start, stop)
+
+
+```
+
+
+\
+\
+
+## Testing Model 2
+
+### Model with HRRAs as random effects  
+
+```{r testing-model2-rand}
+test = mdata %>% filter(train != TRUE)
+format(nrow(test), big.mark = ",")
+format(round(sum(test$discwt)), big.mark = ",")
+
+
+
+test$hosp_trauma_level = factor(test$hosp_trauma_level,
+																ordered = FALSE)
+
+test$year_whole = factor(test$year_whole)
+
+test = test %>% mutate_if(is.logical, as.integer)
+
+
+
+
+
+#~8 mins 
+start = Sys.time()
+start
+mort_mod = bam(mortality ~ 
+							 	#level 1 fixed effects:
+							 	poly(age, 3, raw = T) +  #keeping age^3 since LASSO included age, age^2, and age_group85+
+							 	
+							 	female + 
+							 	
+							 	pay1_recode + 
+							 	
+							 	injury_skull_fx + injury_cspine +
+							 	injury_hollow_abd + injury_ue_fx + 
+							 	
+							 	pDeath_logit + elixhauser + #these two stay in a priori
+							 	
+							 	#level 2 fixed effects:
+							 	hosp_trauma_level + year_whole + 
+							 	
+							 	#random effects via smoothers:
+							 	s(hr_group, bs = "re") +
+							 	s(hosp_ed, bs = "re") + 
+							 	s(neds_stratum, bs = "re"),
+							 
+							 family = binomial("logit"),
+							 weights = test$discwt,
+							 data = test,
+							 
+							 discrete = TRUE,
+							 control = list(nthreads = 3, trace = TRUE)
+							 
+)
+end = Sys.time()
+beepr::beep()
+
+end - start
+
+saveRDS(mort_mod, "Results/mort_mod_all_groups_ranef.RDS")
+
+options(show.signif.stars = F)
+
+summary(mort_mod, re.test = F)
+
+
+fixed = extract_fixed(mort_mod, ci_level = 1-0.005, digits = 5) 
+colnames(fixed) = c("term", "value", "se", "t", "p", "lower_ci", "upper_ci")
+fixed$OR = sprintf("%.2f", exp(fixed$value))
+fixed$CI = paste0( sprintf("%.2f", exp(fixed$lower_ci)), ", ", 
+									 sprintf("%.2f", exp(fixed$upper_ci)))
+fixed$pval = if_else(fixed$p < 0.0001, "< 0.0001", sprintf("%.3f", fixed$p))
+TCCD::my_print(fixed)
+
+
+
+
+
+ranef = extract_ranef(mort_mod, re = "hr_group", ci_level = 1-0.005, digits = 5) 
+colnames(ranef) = c("group_var", "effect", "group", "value", "se", "lower_ci", "upper_ci")
+ranef$OR = sprintf("%.2f", exp(ranef$value))
+ranef$CI = paste0( sprintf("%.2f", exp(ranef$lower_ci)), ", ", 
+									 sprintf("%.2f", exp(ranef$upper_ci)))
+ranef$pval = pnorm(abs(ranef$value/ranef$se) , lower.tail = F)*2
+ranef$pval = if_else(ranef$pval < 0.0001, "< 0.0001", sprintf("%.3f", ranef$pval))
+TCCD::my_print(ranef)
+```
+
+
+\
+\
+
+### Model with HRRAs as fixed effects  
+
+
+```{r testing-model2-fixed}
+
+#adjust names for multiple comparisons later
+test$hr_group = str_replace_all(test$hr_group, " ", "_")
+test$hr_group = str_replace_all(test$hr_group, "-", "_")
+test$hr_group = str_replace_all(test$hr_group, ",", "")
+test$hr_group = str_replace_all(test$hr_group, "_&_", "_")
+test$hr_group = str_replace_all(test$hr_group, "/", "_")
+
+
+
+#set Pedal Cycle Related as reference group (largest)
+test$hr_group = factor(test$hr_group)
+test$hr_group = relevel(test$hr_group, "Pedal_Cycle_Related")
+
+
+
+#~8 mins 
+start = Sys.time()
+start
+mort_mod2 = bam(mortality ~ 
+									#level 1 fixed effects:
+									hr_group +
+									
+									poly(age, 3, raw = T) +  #keeping age^3 since LASSO included age, age^2, and age_group85+
+									
+									female + 
+									
+									pay1_recode + 
+									
+									injury_skull_fx + injury_cspine +
+									injury_hollow_abd + injury_ue_fx + 
+									
+									pDeath_logit + elixhauser + #these two stay in a priori
+									
+									
+									#level 2 fixed effects:
+									hosp_trauma_level + year_whole + 
+									
+									#random effects via smoothers:
+									s(hosp_ed, bs = "re") + 
+									s(neds_stratum, bs = "re"),
+								
+								family = binomial("logit"),
+								weights = test$discwt,
+								data = test,
+								
+								discrete = TRUE,
+								control = list(nthreads = 3, trace = TRUE)
+								
+)
+end = Sys.time()
+beepr::beep()
+
+end - start
+
+
+saveRDS(mort_mod2, "Results/mort_mod_all_groups_fixed.RDS")
+
+
+summary(mort_mod2, re.test = F)
+
+
+
+
+fixed = extract_fixed(mort_mod2, ci_level = 1-0.005, digits = 5) 
+colnames(fixed) = c("term", "value", "se", "t", "p", "lower_ci", "upper_ci")
+fixed$OR = sprintf("%.2f", exp(fixed$value))
+fixed$CI = paste0( sprintf("%.2f", exp(fixed$lower_ci)), ", ", 
+									 sprintf("%.2f", exp(fixed$upper_ci)))
+fixed$pval = if_else(fixed$p < 0.0001, "< 0.0001", sprintf("%.3f", fixed$p))
+TCCD::my_print(fixed)
+
+
+
+
+
+
+#need pairwise comparisons.  
+# multcomp's function to automatically make contrasts (mcp) doesn't work with models from bam().
+# solution from https://stats.stackexchange.com/questions/376237/correcting-for-multiple-pairwise-comparisons-with-gam-objects-mgcv-in-r
+
+
+library(multcomp)
+
+
+#comparisons
+#Pedal_Cycle_Related is the ref. group in the model
+pairs = test %>% distinct(hr_group) %>% pull() %>% 
+	sort() %>% as.character() %>% 
+	combn(2) %>% t() %>% data.frame()
+
+library(glue)
+
+
+#all comparisons against Pedal_Cycle_Related
+comps = pairs %>% 
+	filter(X1 == "Pedal_Cycle_Related") %>% 
+	glue_data("hr_group{X2} = 0")
+
+
+
+#all other comparisons
+pairs = pairs %>% 
+	filter(X1 != "Pedal_Cycle_Related") %>% 
+	filter(X2 != "Pedal_Cycle_Related")
+
+
+comps = c(comps, 
+					pairs %>% glue_data("hr_group{X1} - hr_group{X2} = 0")
+)
+
+
+
+
+pw_comps = glht(mort_mod2, 
+								linfct = comps
+								)
+
+
+
+summary(pw_comps, test = adjusted("holm") )
+
+#throws error: 
+# Error in get_quant_loclin(pfct, p, interval = interval, link = link, ptol = ptol,  : 
+#   Covariance matrix not positive semidefinite
+res = confint(pw_comps, level = 1-0.005, calpha = univariate_calpha())$confint
+
+res = res %>% as.data.frame() %>% rownames_to_column()
+
+res$ps = summary(pw_comps, test = adjusted("holm") )$test$pvalues
+
+res$OR = scales::comma(exp(res$Estimate), accuracy = 0.01)
+res$ci_l = scales::comma(exp(res$lwr), accuracy = 0.01)
+res$ci_u = scales::comma(exp(res$upr), accuracy = 0.01)
+
+res$OR_CI = paste0(res$OR, " (", res$ci_l, " - ", res$ci_u, ")")
+
+res$pval = scales::pvalue(res$ps, accuracy = 0.0001)
+
+
+res %>% dplyr::select(rowname, OR:pval) %>% TCCD::my_print()
+
+rm(mort_mod, mort_mod2)
+
+```
+
+
 
 
 \
