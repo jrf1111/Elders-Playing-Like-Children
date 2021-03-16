@@ -916,14 +916,13 @@ pw_comps = glht(mort_mod2,
 
 summary(pw_comps, test = adjusted("holm") )
 
-#throws error: 
-# Error in get_quant_loclin(pfct, p, interval = interval, link = link, ptol = ptol,  : 
-#   Covariance matrix not positive semidefinite
+
 res = confint(pw_comps, level = 1-0.005, calpha = univariate_calpha())$confint
 
 res = res %>% as.data.frame() %>% rownames_to_column()
 
-res$ps = summary(pw_comps, test = adjusted("holm") )$test$pvalues
+res$ps = summary(pw_comps, test = adjusted("none") )$test$pvalues
+res$ps_adj = summary(pw_comps, test = adjusted("holm") )$test$pvalues
 
 res$OR = scales::comma(exp(res$Estimate), accuracy = 0.01)
 res$ci_l = scales::comma(exp(res$lwr), accuracy = 0.01)
@@ -931,10 +930,11 @@ res$ci_u = scales::comma(exp(res$upr), accuracy = 0.01)
 
 res$OR_CI = paste0(res$OR, " (", res$ci_l, " - ", res$ci_u, ")")
 
-res$pval = scales::pvalue(res$ps, accuracy = 0.0001)
+res$ps = scales::pvalue(res$ps, accuracy = 0.0001)
+res$ps_adj = scales::pvalue(res$ps_adj, accuracy = 0.0001)
 
 
-res %>% dplyr::select(rowname, OR:pval) %>% TCCD::my_print()
+res %>% dplyr::select(rowname, OR:OR_CI, ps, ps_adj) %>% TCCD::my_print()
 
 rm(mort_mod, mort_mod2)
 

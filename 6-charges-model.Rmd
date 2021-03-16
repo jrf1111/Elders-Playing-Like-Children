@@ -31,6 +31,28 @@ library(mgcv)
 library(gammit)
 
 
+extract_fixed = function(model, ci_level = 0.95, digits = 3){
+	fe <- data.frame(summary(model, re.test=FALSE)$p.table)
+	colnames(fe) = c("value", "se", "t", "p")
+	if (ci_level > 0) {
+		lower <- (1 - ci_level)/2
+		upper <- 1 - lower
+		nu <- model$df.residual
+		mult <- stats::qt(upper, nu)
+		ci <- data.frame(lower = fe$value - mult * fe$se, upper = fe$value + 
+			mult * fe$se)
+		colnames(ci) <- paste0(c("lower_", "upper_"), c(lower, 
+			upper) * 100)
+		fe <- data.frame(fe, ci)
+	}
+	fe <- fe %>% dplyr::mutate_all(round, digits = digits) %>% 
+		dplyr::mutate(term = gsub(rownames(fe), pattern = "[\\(,\\)]", 
+			replacement = "")) %>% dplyr::select(term, dplyr::everything()) %>% 
+		dplyr::as_tibble()
+	fe
+}
+
+
 
 ```
 
@@ -45,7 +67,7 @@ library(gammit)
 
 
 
-mdata = read_fst("Data/final/final combined dataset with top 10.fst", 
+mdata = read_fst("Data/final/final combined dataset.fst", 
                  columns = c("totchg", "los_ip", "edevent", "discwt", "high_risk", "npr_ip")
 )
 
@@ -167,10 +189,7 @@ rm(ypred, d_resid, fam, link)
 par(mfrow = c(1, 1))
 
 
-#Efron's Pseudo R-squared
-cor(poismod$fitted.values, poismod$y)^2
-cor(nbmod$fitted.values, nbmod$y)^2
-cor(gammod$fitted.values, gammod$y)^2
+
 
 
 
@@ -190,21 +209,30 @@ rm(poismod, nbmod, gammod, counts)
 ```{r preprocessing}
 
 
-mdata = read_fst("Data/final/final combined dataset with top 10.fst",
+mdata = read_fst("Data/final/final combined dataset.fst",
                  columns = c("totchg",
-                             "discwt", 
+                            
+                 						'hosp_ed', 'year_whole',
+								 						'discwt', 'neds_stratum',  
+								 						'hosp_trauma_level',
+                 						
                              #demos
-                             "age", "age_group", 'female', 'zipinc_qrtl', 'pay1_recode', 'high_risk', 
-                             
+                             "age", "age_group", 'female', 'zipinc_qrtl', 'pay1_recode', 
+								 						'high_risk', "hr_group",
+                            
+								 						'pDeath', 'elixhauser', 
+								 						
                              #outcomes
                              'edevent', 'disp_ip_recode', 
                              'los_ip', 'npr_ip', 
                              
                              #injuries
-                             'injury_brain', 'injury_skull_fx', 'injury_cspine', 
-                             'injury_rib_fx', 'injury_cardio_pulm', 'injury_tspine', 
-                             'injury_lspine', 'injury_solid_abd', 'injury_hollow_abd', 
-                             'injury_ue_fx', 'injury_pelvic_fx', 'injury_le_fx')
+                             'injury_brain', 'injury_skull_fx',
+								 						'injury_cspine', 'injury_rib_fx',
+								 						'injury_cardio_pulm', 'injury_tspine',
+								 						'injury_lspine', 'injury_solid_abd',
+								 						'injury_hollow_abd', 'injury_ue_fx',
+								 						'injury_pelvic_fx', 'injury_le_fx')
 )
 
 
@@ -278,10 +306,17 @@ mdata$disp_ip_recode = factor(mdata$disp_ip_recode) %>%
 mdata$zipinc_qrtl = factor(mdata$zipinc_qrtl, ordered = F)
 
 
-#everything except pDeath and elixhauser
+
 X = model.matrix( ~ 
                     #demographics
                     age_L + age_Q + age_C + age_group + female + zipinc_qrtl + pay1_recode + 
+										
+										#case mix vars
+										pDeath + elixhauser +
+										
+										#high risk groups
+										hr_group + 
+										
                     #injuries
                     injury_brain + injury_skull_fx + injury_cspine + 
                     injury_rib_fx + injury_cardio_pulm + injury_tspine + 
@@ -293,12 +328,18 @@ X = model.matrix( ~
                     
                     #including quadratic and cubic effects sucks up all the variance
                     los_ip + #los_ip_Q + los_ip_C +
-                    npr_ip #+ npr_ip_Q + #npr_ip_C 
+                    npr_ip + #npr_ip_Q + #npr_ip_C 
+										
+										
+										
+										#clustering vars
+										hosp_trauma_level + year_whole
+										
                     ,
                   mdata
 )
 
-X = X[, -1] #remove the intercept
+X = X[, colnames(X) != "(Intercept)"] #remove the intercept
 
 
 
@@ -309,9 +350,9 @@ X = X[, -1] #remove the intercept
 
 
 
-#define training (80%) and testing (20%) samples
+#define training (70%) and testing (30%) samples
 set.seed(1234)
-train = rbinom(n = nrow(mdata), size = 1, prob = 0.8) %>% as.logical()
+train = rbinom(n = nrow(mdata), size = 1, prob = 0.7) %>% as.logical()
 
 
 
@@ -335,14 +376,14 @@ rm(mdata)
 #Since over-dispersion doesn't really matter until inference (calculating SEs), 
 #it's fine to use Poisson for variable selection.  Just need to run the final model with NB.
 
-#about 6 minutes
+#about 8 minutes
 invisible(gc())
 start = Sys.time()
 start
 cv_fit = cv.glmnet(y = Y[train], 
                    x = X[train, ],
                    weights = W[train],
-                   trace.it = 1, #print progress
+                   trace.it = interactive(), #print progress
                    nfolds = 50,
                    family = "poisson", 
                    type.measure = "deviance", #use deviance as loss function
@@ -365,7 +406,9 @@ plot(cv_fit)
 
 # lambda.min is the value of lambda that gives minimum mean cross-validated error. 
 log(cv_fit$lambda.min)
-coef(cv_fit, s = "lambda.min") %>% as.matrix() %>% data.frame()
+coef(cv_fit, s = "lambda.min") %>% as.matrix() %>% 
+	data.frame() %>%  rownames_to_column() %>% 
+	filter(X1 != 0) %>% arrange(rowname)
 #way too many vars
 
 
@@ -373,10 +416,17 @@ coef(cv_fit, s = "lambda.min") %>% as.matrix() %>% data.frame()
 
 # lambda.1se is the most regularized model with loss that is within one standard error of model with the least loss.
 log(cv_fit$lambda.1se)
-coef(cv_fit, s = "lambda.1se") %>% as.matrix() %>% data.frame()
-#takes out everything except female, zipinc_qrtl, pay1_recode, 
-#injury_solid_abd, edevent, disp_ip_recode, los_ip, and npr_ip
+coef(cv_fit, s = "lambda.1se") %>% as.matrix() %>% 
+	data.frame() %>%  rownames_to_column() %>% 
+	filter(X1 != 0) %>% arrange(rowname)
+#takes out everything except disp_ip_recode, edevent, 
+# elixhauser, female, hosp_trauma_level, hr_group, 
+# injury_brain, injury_cspine, injury_hollow_abd, injury_le_fx, 
+# injury_lspine, injury_pelvic_fx, injury_rib_fx, injury_skull_fx, 
+# injury_solid_abd, injury_tspine, injury_ue_fx, 
+# los_ip, npr_ip, pDeath, year_whole, zipinc_qrtl
 
+#takes out all ages, age_group, injury_cardio_pulm, and pay1_recode
 
 
 
@@ -407,7 +457,7 @@ rm(cv_fit, X, Y, W, start, stop)
 
 ```{r testing model}
 
-mdata = read_fst("Data/final/final combined dataset with top 10.fst",
+mdata = read_fst("Data/final/final combined dataset.fst",
                  columns = c(
                    
                    'totchg', 
@@ -416,23 +466,21 @@ mdata = read_fst("Data/final/final combined dataset with top 10.fst",
                    'hosp_ed', "neds_stratum", 
                    'year_whole',
                    'discwt', 
-                   'high_risk',
+                   'high_risk', "hr_group",
                    'pDeath', 'elixhauser',
                    'hosp_trauma_level',
                    'age', 
                    
                    #vars selected by LASSO procedure
-                   'female', "zipinc_qrtl", "pay1_recode",
-                   "injury_solid_abd",
-                   "edevent", "disp_ip_recode", 
-                   "los_ip", "npr_ip",
+                   "disp_ip_recode", "edevent", 
+                   'female', "los_ip", "npr_ip",
+                   "zipinc_qrtl",
                    
+                   "injury_brain", "injury_cspine", "injury_hollow_abd",
+                   "injury_le_fx", "injury_lspine", "injury_pelvic_fx",
+                   "injury_rib_fx", "injury_skull_fx", "injury_solid_abd",
+                   "injury_tspine", "injury_ue_fx"
                    
-                   #ecodes
-                   'top_10_ecode_E8261', 'top_10_ecode_E8122', 'top_10_ecode_E8162',
-                   'top_10_ecode_E8210', 'top_10_ecode_E8136', 'top_10_ecode_E8192', 
-                   'top_10_ecode_E8182', 'top_10_ecode_E8853','top_10_ecode_E8152', 
-                   'top_10_ecode_E8851'
                  )
 )
 
@@ -493,41 +541,65 @@ test$pDeath = test$pDeath*100
 
 test$year_whole = factor(test$year_whole)
 
+
+
+
+#adjust names for multiple comparisons later
+test$hr_group = str_replace_all(test$hr_group, " ", "_")
+test$hr_group = str_replace_all(test$hr_group, "-", "_")
+test$hr_group = str_replace_all(test$hr_group, ",", "")
+test$hr_group = str_replace_all(test$hr_group, "_&_", "_")
+test$hr_group = str_replace_all(test$hr_group, "/", "_")
+
+
+
+#set Pedal Cycle Related as reference group (largest)
+test$hr_group = factor(test$hr_group)
+test$hr_group = relevel(test$hr_group, "Pedal_Cycle_Related")
+
+
+
+
+
+
 rm(mdata)
 
 
-#~3 mins if using `discrete = TRUE`
+#~4 mins if using `discrete = TRUE`
 start = Sys.time()
 start
 charge_mod = bam(totchg_winsor ~ 
-                   #level 1 fixed effects:
-                   age + female + zipinc_qrtl + pay1_recode +
-                   #excluding edevent since it really doesn't tell us anything los_ip doesnt
-                   #plus, it leads to issues estimating disp_ip_recode since they are semi-orthogonal
-                   #edevent +  
-                   disp_ip_recode + 
-                   los_ip + npr_ip + injury_solid_abd +
-                   
-                   top_10_ecode_E8261 + top_10_ecode_E8122 + top_10_ecode_E8162 + 
-                   top_10_ecode_E8210 + top_10_ecode_E8136 + top_10_ecode_E8192 + 
-                   top_10_ecode_E8182 + top_10_ecode_E8853 + top_10_ecode_E8152 + 
-                   top_10_ecode_E8851 +
-                   
-                   pDeath + elixhauser +
-                   
-                   #level 2 fixed effects:
-                   hosp_trauma_level + year_whole + 
-                   
-                   #random effects via smoothers:
-                   s(hosp_ed, bs='re') + s(neds_stratum, bs="re"),
-                 
-                 family = nb(link = "log"),  #estimates theta on its own :)
-                 weights = test$discwt,
-                 data = test,
-                 
-                 discrete = TRUE,
-                 control = list(nthreads = 4, trace = TRUE)
-                 
+								 	#level 1 fixed effects:
+								 	hr_group +
+								 	
+								 	age + female + zipinc_qrtl + 
+								 	
+								 	#excluding edevent since it really doesn't tell us anything los_ip doesnt
+								 	#plus, it leads to issues estimating disp_ip_recode since they are semi-orthogonal
+								 	#edevent +  
+								 	disp_ip_recode + 
+								 	los_ip + npr_ip + 
+								 	
+								 	injury_brain + injury_cspine + injury_hollow_abd +
+								 	injury_le_fx + injury_lspine + injury_pelvic_fx +
+								 	injury_rib_fx + injury_skull_fx + injury_solid_abd +
+								 	injury_tspine + injury_ue_fx +
+								 	
+								 	pDeath + elixhauser +
+								 	
+								 	#level 2 fixed effects:
+								 	hosp_trauma_level + year_whole + 
+								 	
+								 	#random effects via smoothers:
+								 	s(hosp_ed, bs='re') + s(neds_stratum, bs="re"),
+								 
+								 family = nb(link = "log"),  #estimates theta on its own :)
+								 weights = test$discwt,
+								 data = test,
+								 
+								 discrete = TRUE,
+								 control = list(nthreads = 4, trace = TRUE)
+								 
 )
 end = Sys.time()
 beepr::beep()
@@ -544,14 +616,95 @@ mod_sum$r.sq
 mod_sum$dev.expl
 
 
-fixed = extract_fixed(charge_mod, ci_level = 0.999, digits = 5) 
+
+#check residuals
+ypred = predict(charge_mod, type = "link")
+d_resid = residuals(charge_mod, type = 'deviance')
+par(mfrow=c(1, 2))
+hist(d_resid, breaks = 100)
+smoothScatter(x=ypred, y=d_resid, nbin=800)
+par(mfrow=c(1, 1))
+rm(ypred, d_resid)
+
+
+
+fixed = extract_fixed(charge_mod, ci_level = 1-0.005, digits = 5) 
+colnames(fixed) = c("term", "value", "se", "t", "p", "lower_ci", "upper_ci")
 fixed$RR = sprintf("%.2f", exp(fixed$value))
-fixed$CI = paste0( sprintf("%.2f", exp(fixed$lower_0.05)), ", ", 
-									 sprintf("%.2f", exp(fixed$upper_99.95)))
+fixed$CI = paste0( sprintf("%.2f", exp(fixed$lower_ci)), ", ", 
+									 sprintf("%.2f", exp(fixed$upper_ci)))
 fixed$pval = if_else(fixed$p < 0.0001, "< 0.0001", sprintf("%.3f", fixed$p))
 TCCD::my_print(fixed)
 
 
+
+
+
+
+#pairwise comparisons
+# multcomp's function to automatically make contrasts (mcp) doesn't work with models from bam().
+# solution from https://stats.stackexchange.com/questions/376237/correcting-for-multiple-pairwise-comparisons-with-gam-objects-mgcv-in-r
+
+
+library(multcomp)
+
+
+#comparisons
+#Pedal_Cycle_Related is the ref. group in the model
+pairs = test %>% distinct(hr_group) %>% pull() %>% 
+	sort() %>% as.character() %>% 
+	combn(2) %>% t() %>% data.frame()
+
+library(glue)
+
+
+#all comparisons against Pedal_Cycle_Related
+comps = pairs %>% 
+	filter(X1 == "Pedal_Cycle_Related") %>% 
+	glue_data("hr_group{X2} = 0")
+
+
+
+#all other comparisons
+pairs = pairs %>% 
+	filter(X1 != "Pedal_Cycle_Related") %>% 
+	filter(X2 != "Pedal_Cycle_Related")
+
+
+comps = c(comps, 
+					pairs %>% glue_data("hr_group{X1} - hr_group{X2} = 0")
+)
+
+
+
+
+pw_comps = glht(charge_mod, 
+								linfct = comps
+								)
+
+
+
+summary(pw_comps, test = adjusted("holm") )
+
+
+res = confint(pw_comps, level = 1-0.005, calpha = univariate_calpha())$confint
+
+res = res %>% as.data.frame() %>% rownames_to_column()
+
+res$ps = summary(pw_comps, test = adjusted("none") )$test$pvalues
+res$ps_adj = summary(pw_comps, test = adjusted("holm") )$test$pvalues
+
+res$RR = scales::comma(exp(res$Estimate), accuracy = 0.01)
+res$ci_l = scales::comma(exp(res$lwr), accuracy = 0.01)
+res$ci_u = scales::comma(exp(res$upr), accuracy = 0.01)
+
+res$RR_CI = paste0(res$RR, " (", res$ci_l, " - ", res$ci_u, ")")
+
+res$ps = scales::pvalue(res$ps, accuracy = 0.0001)
+res$ps_adj = scales::pvalue(res$ps_adj, accuracy = 0.0001)
+
+
+res %>% dplyr::select(rowname, RR:RR_CI, ps, ps_adj) %>% TCCD::my_print()
 
 
 
