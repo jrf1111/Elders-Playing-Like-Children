@@ -270,12 +270,12 @@ W = mdata$discwt
 
 mdata = mdata %>% mutate_at(vars(starts_with("injury_")), as.integer)
 
+mdata$age_capped = if_else(mdata$age > 89, 90L, mdata$age)
 
-
-temp = poly(mdata$age, 3)
-mdata$age_L = temp[, 1]
-mdata$age_Q = temp[, 2]
-mdata$age_C = temp[, 3]
+temp = poly(mdata$age_capped, 3)
+mdata$age_capped_L = temp[, 1]
+mdata$age_capped_Q = temp[, 2]
+mdata$age_capped_C = temp[, 3]
 rm(temp)
 
 
@@ -309,7 +309,8 @@ mdata$zipinc_qrtl = factor(mdata$zipinc_qrtl, ordered = F)
 
 X = model.matrix( ~ 
                     #demographics
-                    age_L + age_Q + age_C + age_group + female + zipinc_qrtl + pay1_recode + 
+                    age_capped_L + age_capped_Q + age_capped_C + 
+										age_group + female + zipinc_qrtl + pay1_recode + 
 										
 										#case mix vars
 										pDeath + elixhauser +
@@ -503,7 +504,7 @@ test$totchg = NULL
 
 
 
-
+test$age_capped = if_else(test$age > 89, 90L, test$age)
 
 
 
@@ -572,7 +573,7 @@ charge_mod = bam(totchg_winsor ~
 								 	#level 1 fixed effects:
 								 	hr_group +
 								 	
-								 	age + female + zipinc_qrtl + 
+								 	age_capped + female + zipinc_qrtl + 
 								 	
 								 	#excluding edevent since it really doesn't tell us anything los_ip doesnt
 								 	#plus, it leads to issues estimating disp_ip_recode since they are semi-orthogonal
@@ -598,7 +599,7 @@ charge_mod = bam(totchg_winsor ~
 								 data = test,
 								 
 								 discrete = TRUE,
-								 control = list(nthreads = 4, trace = TRUE)
+								 control = list(nthreads = 4, trace = interactive())
 								 
 )
 end = Sys.time()

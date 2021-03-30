@@ -69,7 +69,7 @@ extract_fixed = function(model, ci_level = 0.95, digits = 3){
 
 
 # Preprocessing
-```{r preprocessing}
+```{r preprocessing, eval=FALSE}
 
 
 
@@ -195,7 +195,7 @@ train = rbinom(n = nrow(mdata), size = 1, prob = 0.7) %>% as.logical()
 
 # Variable Selection  
 
-```{r vs}
+```{r vs, eval=FALSE}
 
 #about 8 minutes
 invisible(gc())
@@ -276,7 +276,7 @@ https://m-clark.github.io/posts/2019-10-20-big-mixed-models/#additive-models-as-
 ## Model with HRRAs as random effects  
 
 
-```{r testing-model-rand}
+```{r testing-model-rand, eval=FALSE}
 test = mdata %>% filter(train != TRUE)
 format(nrow(test), big.mark = ",")
 format(round(sum(test$discwt)), big.mark = ",")
@@ -329,7 +329,7 @@ beepr::beep()
 
 end - start
 
-saveRDS(mort_mod, "Results/mort_mod_some_groups_randef.DRS")
+saveRDS(mort_mod, "Results/mort_mod_some_groups_randef.RDS")
 
 options(show.signif.stars = F)
 
@@ -371,7 +371,7 @@ rm(mort_mod)
 ## Model with HRRAs as fixed effects  
 
 
-```{r testing-model-fixed}
+```{r testing-model-fixed, eval=FALSE}
 #adjust names for multiple comparisons later
 test$hr_group = str_replace_all(test$hr_group, " ", "_")
 test$hr_group = str_replace_all(test$hr_group, "-", "_")
@@ -420,7 +420,7 @@ beepr::beep()
 end - start
 
 
-saveRDS(mort_mod2, "Results/mort_mod_some_groups_fixed.DRS")
+saveRDS(mort_mod2, "Results/mort_mod_some_groups_fixed.RDS")
 
 
 summary(mort_mod2, re.test = F)
@@ -567,22 +567,28 @@ mdata = mdata %>% mutate_at(vars(starts_with("injury_")), as.integer)
 
 mdata$zipinc_qrtl = factor(mdata$zipinc_qrtl, ordered = F)
 
-library(Matrix)
 
-temp = poly(mdata$age, 3)
-mdata$age_L = temp[, 1]
-mdata$age_Q = temp[, 2]
-mdata$age_C = temp[, 3]
+mdata$age_capped = if_else(mdata$age > 89, 90L, mdata$age)
+
+
+temp = poly(mdata$age_capped, 3)
+mdata$age_capped_L = temp[, 1]
+mdata$age_capped_Q = temp[, 2]
+mdata$age_capped_C = temp[, 3]
 rm(temp)
+
 
 
 mdata$pDeath_logit = arm::logit(mdata$pDeath)
 
 
 
+
+library(Matrix)
+
 X = sparse.model.matrix( ~ 
 												 	#demographics
-												 	age_L + age_Q + age_C + age_group + female + zipinc_qrtl + pay1_recode + 
+												 	age_capped_L + age_capped_Q + age_capped_C + age_group + female + zipinc_qrtl + pay1_recode + 
 												 	
 												 	#case mix vars
 												 	pDeath_logit + elixhauser +
@@ -700,9 +706,8 @@ rm(cv_fit, X, Y, W, start, stop)
 
 ## Testing Model 2
 
-### Model with HRRAs as random effects  
+```{r}
 
-```{r testing-model2-rand}
 test = mdata %>% filter(train != TRUE)
 format(nrow(test), big.mark = ",")
 format(round(sum(test$discwt)), big.mark = ",")
@@ -718,6 +723,13 @@ test = test %>% mutate_if(is.logical, as.integer)
 
 
 
+```
+
+
+
+### Model with HRRAs as random effects  
+
+```{r testing-model2-rand, eval=FALSE}
 
 
 #~8 mins 
@@ -725,7 +737,7 @@ start = Sys.time()
 start
 mort_mod = bam(mortality ~ 
 							 	#level 1 fixed effects:
-							 	poly(age, 3, raw = T) +  #keeping age^3 since LASSO included age, age^2, and age_group85+
+							 	age_L + age_Q + age_C +  #keeping age^3 since LASSO included age, age^2, and age_group85+
 							 	
 							 	female + 
 							 	
@@ -810,6 +822,11 @@ test$hr_group = relevel(test$hr_group, "Pedal_Cycle_Related")
 
 
 
+#center age_capped for linear interpretation
+test$age_capped_cent70 = test$age_capped - 70
+
+
+
 #~8 mins 
 start = Sys.time()
 start
@@ -817,11 +834,11 @@ mort_mod2 = bam(mortality ~
 									#level 1 fixed effects:
 									hr_group +
 									
-									poly(age, 3, raw = T) +  #keeping age^3 since LASSO included age, age^2, and age_group85+
+									age_capped_cent70 + I(age_capped_cent70^2) + #I(age^3) +  #keeping age^3 since LASSO included age, age^2, and age_group85+
 									
 									female + 
 									
-									pay1_recode + 
+									# pay1_recode + 
 									
 									injury_skull_fx + injury_cspine +
 									injury_hollow_abd + injury_ue_fx + 
@@ -869,6 +886,42 @@ TCCD::my_print(fixed)
 
 
 
+
+
+
+#look into age association some
+
+temp = test %>% 
+	group_by(age_capped) %>% 
+	summarise(
+		n = sum(discwt), 
+		mort = sum(discwt*mortality)/n
+	)
+
+plot(temp$age_capped, temp$mort, type = "b"); abline(h = 0, col = "red")
+
+p = sjPlot::plot_model(mort_mod2, type = "pred", term = "age_capped_cent70", ci.lvl = NA)
+
+p = p + 
+	scale_y_continuous(
+		limits = c(0, NA), 
+		labels = scales::percent_format(0.01),
+		expand = expansion(c(0, 0.05)),
+		name = "Predicted mortality rate"
+	) +
+	scale_x_continuous(
+		breaks = seq(-15, 20, 5),
+		labels = seq(55, 90, 5),
+		name = "Age"
+	) +
+	theme_bw() +
+	labs(title = NULL)
+
+p
+
+
+ggsave("Results/model predicted mortality by age.pdf", device = "pdf", 
+			 height = 4, width = 5)
 
 
 #need pairwise comparisons.  
