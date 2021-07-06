@@ -858,7 +858,8 @@ mort_mod2 = bam(mortality ~
 								data = test,
 								
 								discrete = TRUE,
-								control = list(nthreads = 3, trace = TRUE)
+								control = list(nthreads = 3, trace = TRUE),
+								drop.unused.levels = FALSE  #for predicting later
 								
 )
 end = Sys.time()
@@ -873,6 +874,29 @@ saveRDS(mort_mod2, "Results/mort_mod_all_groups_fixed.RDS")
 summary(mort_mod2, re.test = F)
 
 
+
+
+
+extract_fixed = function(model, ci_level = 0.95, digits = 3){
+	fe <- data.frame(summary(model, re.test=FALSE)$p.table)
+	colnames(fe) = c("value", "se", "t", "p")
+	if (ci_level > 0) {
+		lower <- (1 - ci_level)/2
+		upper <- 1 - lower
+		nu <- model$df.residual
+		mult <- stats::qt(upper, nu)
+		ci <- data.frame(lower = fe$value - mult * fe$se, upper = fe$value + 
+			mult * fe$se)
+		colnames(ci) <- paste0(c("lower_", "upper_"), c(lower, 
+			upper) * 100)
+		fe <- data.frame(fe, ci)
+	}
+	fe <- fe %>% dplyr::mutate_all(round, digits = digits) %>% 
+		dplyr::mutate(term = gsub(rownames(fe), pattern = "[\\(,\\)]", 
+			replacement = "")) %>% dplyr::select(term, dplyr::everything()) %>% 
+		dplyr::as_tibble()
+	fe
+}
 
 
 fixed = extract_fixed(mort_mod2, ci_level = 1-0.005, digits = 5) 
@@ -900,7 +924,7 @@ temp = test %>%
 
 plot(temp$age_capped, temp$mort, type = "b"); abline(h = 0, col = "red")
 
-p = sjPlot::plot_model(mort_mod2, type = "pred", term = "age_capped_cent70", ci.lvl = NA)
+p = sjPlot::plot_model(mort_mod2, type = "pred", term = "age_capped_cent70", ci.lvl = 1-0.005)
 
 p = p + 
 	scale_y_continuous(
@@ -919,9 +943,193 @@ p = p +
 
 p
 
+p$data %>% TCCD::my_print()
+attr(p$data, "constant.values")
 
-ggsave("Results/model predicted mortality by age.pdf", device = "pdf", 
+
+
+ggsave("Results/model predicted mortality by age at refs.pdf", 
+			 plot = p,
+			 device = "pdf", 
 			 height = 4, width = 5)
+
+
+
+
+
+library(visibly)
+
+p2 = plot_gam(mort_mod2,
+         conditional_data = tibble(
+         	age_capped_cent70 = seq(-15, 20, 1),
+         	hr_group = "Motorcycle_Related", 
+         	female = mean(test$female), 
+         	injury_skull_fx = mean(test$injury_skull_fx), 
+         	injury_cspine = mean(test$injury_cspine), 
+         	injury_hollow_abd = mean(test$injury_hollow_abd), 
+         	injury_ue_fx = mean(test$injury_ue_fx), 
+         	pDeath_logit = mean(test$pDeath_logit), 
+         	elixhauser = mean(test$elixhauser), 
+         	hosp_trauma_level = "Trauma center level I" #, 
+         	# year_whole = , 
+         	# hosp_ed = , 
+         	# neds_stratum = 
+         		),
+							main_var = age_capped_cent70,
+							line_color = "black", 
+							ribbon_color = alpha("white", 0))
+
+
+p2$data %>% TCCD::my_print()
+
+
+p2 = p2 + 
+	scale_y_continuous(
+		limits = c(0, 0.01), 
+		labels = scales::percent_format(0.01),
+		expand = expansion(c(0, 0.05)),
+		name = "Predicted mortality rate"
+	) +
+	scale_x_continuous(
+		breaks = seq(-15, 20, 5),
+		labels = seq(55, 90, 5),
+		name = "Age"
+	) +
+	theme_bw() +
+	labs(title = NULL)
+
+cap = "\nEstimated marginal means calculated with continuous covariates set to their mean values, binary covariates set to their mean proportions, high-risk recreational activity group set to 'Motorcycle Related', and other categorical covariates set to their reference levels."
+
+p2 = p2 + labs(caption = str_wrap(cap, 70)) + 
+	theme(plot.caption = element_text(size = rel(0.6)))
+
+p2
+
+
+ggsave("Results/model predicted mortality by age at means.pdf", 
+			 plot = p2,
+			 device = "pdf", 
+			 height = 5, width = 5)
+
+
+
+
+
+
+
+
+#add CI and observed mortality
+
+#based on visibly:::plot_gam_1d, which is normally called by visibly:::plot_gam
+alpha = 0.005
+
+conditional_data = tibble(
+	age_capped_cent70 = test$age_capped_cent70,  #seq(-15, 20, 1),
+	hr_group = "Motorcycle_Related", 
+	female = mean(test$female), 
+	injury_skull_fx = mean(test$injury_skull_fx), 
+	injury_cspine = mean(test$injury_cspine), 
+	injury_hollow_abd = mean(test$injury_hollow_abd), 
+	injury_ue_fx = mean(test$injury_ue_fx), 
+	pDeath_logit = mean(test$pDeath_logit), 
+	elixhauser = mean(test$elixhauser), 
+	hosp_trauma_level = "Trauma center level I",
+	year_whole = test$year_whole,
+	hosp_ed = test$hosp_ed,
+	neds_stratum = test$neds_stratum
+) 
+
+conditional_data = conditional_data %>%
+	bind_cols(tibble::as_tibble(predict_gamm(mort_mod2, ., re_form = NA, se = TRUE))) %>% 
+	mutate(
+		ll = mort_mod2$family$linkinv(prediction - qnorm(alpha/2, lower.tail = F) * se), 
+		ul = mort_mod2$family$linkinv(prediction + qnorm(alpha/2, lower.tail = F) * se), 
+		fit = mort_mod2$family$linkinv(prediction),
+		age_capped = age_capped_cent70 + 70
+	)
+
+
+
+
+p3 = conditional_data %>% 
+	group_by(age_capped) %>% 
+	summarise(
+		fit = mean(fit),
+		ll = mean(ll),
+		ul = mean(ul)
+	) %>% 
+	ungroup() %>% 
+	mutate(
+		fit_l = loess(fit ~ age_capped, data = .) %>% fitted.values(),
+		ll_l = loess(ll ~ age_capped, data = .) %>% fitted.values(),
+		ul_l = loess(ul ~ age_capped, data = .) %>% fitted.values()
+	) %>% 
+	ggplot(aes(x = age_capped, y = fit_l)) + 
+	geom_ribbon(aes(ymin = ll_l, ymax = ul_l), fill = alpha("gray", 0.5)) + 
+	geom_line(color = "black") 
+
+
+
+
+#add observed mortality
+om = mdata %>% 
+	group_by(age_capped) %>% 
+	summarise(
+		mort = mean(mortality)
+	)
+	
+
+p3 = p3 + 
+	geom_smooth(aes(x = age_capped, y = mort), data = om, se=F,
+							color = "black", linetype = "dashed", size = 0.8
+							)
+
+
+p3$data %>% TCCD::my_print()
+
+
+
+p3 = p3 + 
+	scale_y_continuous(
+		limits = c(0, NA), 
+		labels = scales::percent_format(1),
+		expand = expansion(c(0, 0.05)),
+		name = "Predicted mortality rate"
+	) +
+	scale_x_continuous(
+		breaks = seq(55, 90, 5),
+		labels = seq(55, 90, 5),
+		name = "Age"
+	) +
+	theme_bw() +
+	labs(title = NULL)
+
+
+# cap = "\nEstimated marginal means calculated with continuous covariates set to their mean values, binary covariates set to their mean proportions, high-risk recreational activity group set to 'Motorcycle Related', and other categorical covariates set to their reference levels; random effects were not used."
+# 
+# p3 = p3 + labs(caption = str_wrap(cap, 110)) + 
+# 	theme(plot.caption = element_text(size = rel(0.6)))
+
+p3
+
+
+ggsave("Results/model predicted mortality with CI by age at means.pdf", 
+			 plot = p3,
+			 device = "pdf", 
+			 height = 5, width = 5)
+
+	
+
+rm(conditional_data, om)
+
+
+
+
+
+
+
+
+
 
 
 #need pairwise comparisons.  

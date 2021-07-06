@@ -576,7 +576,7 @@ charge_mod = bam(totchg_winsor ~
 								 	age_capped + female + zipinc_qrtl + 
 								 	
 								 	#excluding edevent since it really doesn't tell us anything los_ip doesnt
-								 	#plus, it leads to issues estimating disp_ip_recode since they are semi-orthogonal
+								 	#plus, it leads to issues estimating disp_ip_recode since they are non-orthogonal
 								 	#edevent +  
 								 	disp_ip_recode + 
 								 	los_ip + npr_ip + 
